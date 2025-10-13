@@ -1,0 +1,1131 @@
+import React, { useEffect, useState } from 'react';
+
+const FullscreenMap = () => {
+  const [mapData, setMapData] = useState(null);
+  const [error, setError] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [operationalData, setOperationalData] = useState({});
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchType, setSearchType] = useState('location');
+  const [searchResults, setSearchResults] = useState([]);
+  const [highlightedItems, setHighlightedItems] = useState([]);
+
+  useEffect(() => {
+    // Get map data from URL hash
+    const hash = window.location.hash;
+    if (hash.startsWith('#fullscreen-map=')) {
+      try {
+        const encodedData = hash.replace('#fullscreen-map=', '');
+        const decodedData = decodeURIComponent(encodedData);
+        const parsedData = JSON.parse(decodedData);
+        setMapData(parsedData);
+        
+        // Generate operational data for each item
+        if (parsedData.layoutData && parsedData.layoutData.items) {
+          const opData = generateOperationalData(parsedData.layoutData.items);
+          setOperationalData(opData);
+        }
+      } catch (err) {
+        setError('Failed to load map data');
+        console.error('Error parsing map data:', err);
+      }
+    } else {
+      setError('No map data provided');
+    }
+  }, []);
+
+  // Generate realistic operational data with detailed metrics
+  const generateOperationalData = (items) => {
+    const data = {};
+    items.forEach((item, index) => {
+      const itemId = `item-${index}`;
+      
+      // Generate different data based on item type
+      if (item.type === 'sku_holder' || item.type === 'storage_unit') {
+        const capacity = item.compartmentContents ? Object.keys(item.compartmentContents).length * 4 : Math.floor(Math.random() * 50) + 20;
+        const occupied = Math.floor(capacity * (0.6 + Math.random() * 0.35)); // 60-95% utilization
+        
+        data[itemId] = {
+          type: 'storage',
+          unitId: `STG-${String(index + 1).padStart(3, '0')}`,
+          location: {
+            zone: ['A', 'B', 'C', 'D', 'E'][Math.floor(Math.random() * 5)],
+            aisle: Math.floor(Math.random() * 10) + 1,
+            position: Math.floor(Math.random() * 20) + 1,
+            level: Math.floor(Math.random() * 4) + 1
+          },
+          capacity: capacity,
+          occupied: occupied,
+          available: capacity - occupied,
+          availability: Math.random() > 0.15 ? 'operational' : (Math.random() > 0.5 ? 'maintenance' : 'reserved'),
+          temperature: item.type === 'cold_storage' ? `${(-18 + Math.random() * 5).toFixed(1)}°C` : 'ambient',
+          lastUpdated: new Date(Date.now() - Math.random() * 3600000).toISOString(),
+          skus: item.compartmentContents || generateDetailedSKUs(Math.floor(occupied / 4)),
+          alerts: generateAlerts(),
+          utilization: Math.round((occupied / capacity) * 100),
+          status: Math.random() > 0.1 ? 'operational' : 'maintenance',
+          metrics: {
+            dailyThroughput: Math.floor(Math.random() * 200) + 50,
+            avgPickTime: (Math.random() * 3 + 1).toFixed(1) + ' min',
+            accuracy: (95 + Math.random() * 4).toFixed(1) + '%',
+            lastInventoryCheck: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
+            priority: ['High', 'Medium', 'Low'][Math.floor(Math.random() * 3)],
+            accessFrequency: Math.floor(Math.random() * 50) + 10
+          }
+        };
+      } else if (item.type === 'storage_zone' || item.type === 'receiving_zone' || item.type === 'dispatch_zone') {
+        const capacity = Math.floor(Math.random() * 200) + 100;
+        const occupied = Math.floor(capacity * (0.7 + Math.random() * 0.25)); // 70-95% utilization
+        
+        data[itemId] = {
+          type: 'zone',
+          zoneId: `${item.type.toUpperCase().substring(0, 3)}-${String(index + 1).padStart(2, '0')}`,
+          location: {
+            building: 'Main Warehouse',
+            floor: Math.floor(Math.random() * 3) + 1,
+            sector: ['North', 'South', 'East', 'West'][Math.floor(Math.random() * 4)]
+          },
+          capacity: capacity,
+          occupied: occupied,
+          available: capacity - occupied,
+          availability: Math.random() > 0.1 ? 'operational' : 'maintenance',
+          throughput: Math.floor(Math.random() * 800) + 200, // items per hour
+          lastActivity: new Date(Date.now() - Math.random() * 1800000).toISOString(),
+          activeWorkers: Math.floor(Math.random() * 8) + 2,
+          equipment: generateEquipmentList(),
+          alerts: generateZoneAlerts(),
+          utilization: Math.round((occupied / capacity) * 100),
+          status: Math.random() > 0.05 ? 'operational' : 'maintenance',
+          metrics: {
+            dailyVolume: Math.floor(Math.random() * 5000) + 1000,
+            avgProcessTime: (Math.random() * 10 + 5).toFixed(1) + ' min',
+            efficiency: (85 + Math.random() * 12).toFixed(1) + '%',
+            errorRate: (Math.random() * 2).toFixed(2) + '%',
+            peakHours: ['08:00-10:00', '14:00-16:00', '18:00-20:00'][Math.floor(Math.random() * 3)],
+            costPerUnit: '$' + (Math.random() * 5 + 2).toFixed(2)
+          }
+        };
+      } else {
+        data[itemId] = {
+          type: 'structural',
+          status: 'active',
+          lastInspection: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
+          condition: Math.random() > 0.1 ? 'good' : 'needs_attention'
+        };
+      }
+    });
+    return data;
+  };
+
+  // Generate detailed SKU data with realistic metrics
+  const generateDetailedSKUs = (count = 5) => {
+    const skus = {};
+    const categories = ['Electronics', 'Clothing', 'Books', 'Tools', 'Food', 'Medical', 'Automotive', 'Sports'];
+    const brands = ['Brand-A', 'Brand-B', 'Brand-C', 'Premium', 'Standard', 'Economy'];
+    
+    for (let i = 0; i < count; i++) {
+      const category = categories[Math.floor(Math.random() * categories.length)];
+      const brand = brands[Math.floor(Math.random() * brands.length)];
+      const skuId = `${category.substring(0, 3).toUpperCase()}-${brand.substring(0, 3).toUpperCase()}-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`;
+      
+      skus[i] = {
+        uniqueId: skuId,
+        sku: `ITEM-${Math.floor(Math.random() * 99999)}`,
+        description: `${brand} ${category} Item`,
+        quantity: Math.floor(Math.random() * 100) + 1,
+        reservedQty: Math.floor(Math.random() * 20),
+        status: Math.random() > 0.1 ? 'active' : (Math.random() > 0.5 ? 'reserved' : 'on_hold'),
+        category: category,
+        brand: brand,
+        weight: (Math.random() * 50 + 0.5).toFixed(2) + ' kg',
+        dimensions: `${Math.floor(Math.random() * 50 + 10)}x${Math.floor(Math.random() * 50 + 10)}x${Math.floor(Math.random() * 30 + 5)} cm`,
+        value: '$' + (Math.random() * 500 + 10).toFixed(2),
+        lastMoved: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
+        expiryDate: category === 'Food' || category === 'Medical' ? new Date(Date.now() + Math.random() * 86400000 * 365).toISOString() : null,
+        batchNumber: `BT-${Math.floor(Math.random() * 99999)}`,
+        supplier: `Supplier-${Math.floor(Math.random() * 20) + 1}`,
+        location: {
+          shelf: Math.floor(Math.random() * 10) + 1,
+          compartment: String.fromCharCode(65 + Math.floor(Math.random() * 8)) // A-H
+        }
+      };
+    }
+    return skus;
+  };
+
+  // Generate realistic alerts
+  const generateAlerts = () => {
+    const alerts = [];
+    const alertTypes = [
+      'Low stock warning - Below reorder point',
+      'Temperature deviation detected',
+      'Overdue inventory check',
+      'High demand item - Consider restocking',
+      'Slow moving inventory',
+      'Expiry date approaching',
+      'Damage reported - Inspection required'
+    ];
+    
+    if (Math.random() > 0.7) { // 30% chance of alerts
+      const alertCount = Math.floor(Math.random() * 3) + 1;
+      for (let i = 0; i < alertCount; i++) {
+        alerts.push(alertTypes[Math.floor(Math.random() * alertTypes.length)]);
+      }
+    }
+    return alerts;
+  };
+
+  // Generate equipment list for zones
+  const generateEquipmentList = () => {
+    const allEquipment = ['Forklift', 'Scanner', 'Conveyor', 'Pallet Jack', 'Crane', 'Sorting System', 'Weighing Scale', 'Label Printer'];
+    const count = Math.floor(Math.random() * 4) + 2;
+    const equipment = [];
+    
+    for (let i = 0; i < count; i++) {
+      const item = allEquipment[Math.floor(Math.random() * allEquipment.length)];
+      if (!equipment.includes(item)) {
+        equipment.push(item);
+      }
+    }
+    return equipment;
+  };
+
+  // Generate zone-specific alerts
+  const generateZoneAlerts = () => {
+    const alerts = [];
+    const zoneAlerts = [
+      'High traffic congestion',
+      'Equipment maintenance due',
+      'Capacity approaching limit',
+      'Worker shortage detected',
+      'Process bottleneck identified',
+      'Safety inspection required',
+      'Efficiency below target'
+    ];
+    
+    if (Math.random() > 0.8) { // 20% chance of zone alerts
+      alerts.push(zoneAlerts[Math.floor(Math.random() * zoneAlerts.length)]);
+    }
+    return alerts;
+  };
+
+  // Handle item click for detailed view
+  const handleItemClick = (item, index) => {
+    const itemId = `item-${index}`;
+    setSelectedItem({ ...item, id: itemId, operationalData: operationalData[itemId] });
+    setShowInfoPanel(true);
+  };
+
+  // Search functionality
+  const performSearch = (query, type) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setHighlightedItems([]);
+      return;
+    }
+
+    const results = [];
+    const highlighted = [];
+    const searchTerm = query.toLowerCase();
+
+    if (mapData && mapData.layoutData && mapData.layoutData.items) {
+      mapData.layoutData.items.forEach((item, index) => {
+        const itemId = `item-${index}`;
+        const opData = operationalData[itemId];
+        
+        if (type === 'location' && opData) {
+          // Search by location ID
+          if (opData.type === 'storage') {
+            const locationId = `${opData.location.zone}-${opData.location.aisle}-${opData.location.position}`;
+            if (opData.unitId.toLowerCase().includes(searchTerm) || 
+                locationId.toLowerCase().includes(searchTerm) ||
+                opData.location.zone.toLowerCase().includes(searchTerm)) {
+              results.push({
+                id: itemId,
+                type: 'location',
+                title: `Location: ${opData.unitId}`,
+                subtitle: `Zone ${opData.location.zone}, Aisle ${opData.location.aisle}, Position ${opData.location.position}`,
+                item: item,
+                opData: opData
+              });
+              highlighted.push(itemId);
+            }
+          } else if (opData.type === 'zone') {
+            if (opData.zoneId.toLowerCase().includes(searchTerm)) {
+              results.push({
+                id: itemId,
+                type: 'location',
+                title: `Zone: ${opData.zoneId}`,
+                subtitle: `Throughput: ${opData.throughput} items/hr`,
+                item: item,
+                opData: opData
+              });
+              highlighted.push(itemId);
+            }
+          }
+        } else if (type === 'item' && opData && opData.skus) {
+          // Search by item/SKU in compartments
+          Object.values(opData.skus).forEach(itemData => {
+            if (itemData.uniqueId?.toLowerCase().includes(searchTerm) ||
+                itemData.sku?.toLowerCase().includes(searchTerm) ||
+                itemData.description?.toLowerCase().includes(searchTerm)) {
+              results.push({
+                id: itemId,
+                type: 'item',
+                title: `Item: ${itemData.uniqueId}`,
+                subtitle: `${itemData.description} - ${itemData.sku}`,
+                item: item,
+                itemData: itemData,
+                opData: opData
+              });
+              highlighted.push(itemId);
+            }
+          });
+        }
+      });
+    }
+
+    setSearchResults(results);
+    setHighlightedItems(highlighted);
+  };
+
+  const handleSearchChange = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    performSearch(query, searchType);
+  };
+
+  const handleSearchTypeChange = (type) => {
+    setSearchType(type);
+    performSearch(searchQuery, type);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setHighlightedItems([]);
+  };
+
+  // Helper function to render custom layout
+  const renderCustomLayout = (items) => {
+    // Calculate ultra-tight bounds
+    const minX = Math.min(...items.map(item => item.x), 0);
+    const minY = Math.min(...items.map(item => item.y), 0);
+    const maxX = Math.max(...items.map(item => item.x + item.width));
+    const maxY = Math.max(...items.map(item => item.y + item.height));
+    
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
+    
+    // Minimal padding for fullscreen view
+    const padding = 40;
+    const viewBoxX = minX - padding;
+    const viewBoxY = minY - padding;
+    const viewBoxWidth = contentWidth + (padding * 2);
+    const viewBoxHeight = contentHeight + (padding * 2);
+
+    return (
+      <svg 
+        width="100%" 
+        height="100%" 
+        viewBox={`${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`}
+        className="fullscreen-warehouse-svg"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        {/* Background */}
+        <rect 
+          x={viewBoxX} 
+          y={viewBoxY} 
+          width={viewBoxWidth} 
+          height={viewBoxHeight} 
+          fill="#ffffff" 
+          stroke="#dee2e6" 
+          strokeWidth="2" 
+          rx="8"
+        />
+        
+        {/* Grid pattern */}
+        <defs>
+          <pattern id="fullscreen-grid" width="60" height="60" patternUnits="userSpaceOnUse">
+            <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#e0e0e0" strokeWidth="1" opacity="0.3"/>
+          </pattern>
+        </defs>
+        <rect 
+          x={viewBoxX} 
+          y={viewBoxY} 
+          width={viewBoxWidth} 
+          height={viewBoxHeight} 
+          fill="url(#fullscreen-grid)" 
+        />
+
+        {/* Render warehouse items */}
+        {items.map((item, index) => {
+          const itemId = `item-${index}`;
+          const opData = operationalData[itemId];
+          const isInteractive = opData && (opData.type === 'storage' || opData.type === 'zone');
+          
+          return (
+            <g key={index}>
+              {/* Main item rectangle */}
+              <rect
+                x={item.x}
+                y={item.y}
+                width={item.width}
+                height={item.height}
+                fill={getItemColor(item.type, opData)}
+                stroke={getItemBorderColor(item.type, opData)}
+                strokeWidth="2"
+                rx="4"
+                opacity="0.8"
+                style={{ cursor: isInteractive ? 'pointer' : 'default' }}
+                onClick={isInteractive ? () => handleItemClick(item, index) : undefined}
+              />
+              
+              {/* Operational status indicator */}
+              {opData && opData.status && (
+                <circle
+                  cx={item.x + item.width - 8}
+                  cy={item.y + 8}
+                  r="4"
+                  fill={getStatusColor(opData.status)}
+                  stroke="white"
+                  strokeWidth="1"
+                />
+              )}
+              
+              {/* Utilization bar for storage items */}
+              {opData && opData.type === 'storage' && item.width > 40 && (
+                <g>
+                  <rect
+                    x={item.x + 5}
+                    y={item.y + item.height - 12}
+                    width={item.width - 10}
+                    height="4"
+                    fill="#e0e0e0"
+                    rx="2"
+                  />
+                  <rect
+                    x={item.x + 5}
+                    y={item.y + item.height - 12}
+                    width={(item.width - 10) * (opData.utilization / 100)}
+                    height="4"
+                    fill={getUtilizationColor(opData.utilization)}
+                    rx="2"
+                  />
+                </g>
+              )}
+              
+              {/* Alert indicator */}
+              {opData && opData.alerts && opData.alerts.length > 0 && (
+                <text
+                  x={item.x + 8}
+                  y={item.y + 16}
+                  fontSize="12"
+                  fill="#ff6b35"
+                  fontWeight="bold"
+                >
+                  ⚠
+                </text>
+              )}
+              
+              {/* Item label */}
+              {item.width > 60 && item.height > 30 && (
+                <text
+                  x={item.x + item.width / 2}
+                  y={item.y + item.height / 2}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize="12"
+                  fill="#333"
+                  fontWeight="bold"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  {getItemLabel(item)}
+                </text>
+              )}
+              
+              {/* Real-time metrics display for storage units */}
+              {opData && opData.type === 'storage' && item.width > 60 && item.height > 40 && (
+                <g>
+                  {/* Unit ID */}
+                  <text
+                    x={item.x + 5}
+                    y={item.y + 15}
+                    fontSize="9"
+                    fill="#333"
+                    fontWeight="bold"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    {opData.unitId}
+                  </text>
+                  
+                  {/* Capacity info */}
+                  <text
+                    x={item.x + item.width / 2}
+                    y={item.y + item.height / 2 + 15}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize="10"
+                    fill="#666"
+                    fontWeight="bold"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    {opData.occupied}/{opData.capacity}
+                  </text>
+                  
+                  {/* Location info */}
+                  <text
+                    x={item.x + item.width / 2}
+                    y={item.y + item.height / 2 + 28}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize="8"
+                    fill="#888"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    {opData.location.zone}-{opData.location.aisle}-{opData.location.position}
+                  </text>
+                </g>
+              )}
+
+              {/* Zone metrics for larger zones */}
+              {opData && opData.type === 'zone' && item.width > 100 && item.height > 60 && (
+                <g>
+                  {/* Zone ID */}
+                  <text
+                    x={item.x + 8}
+                    y={item.y + 18}
+                    fontSize="11"
+                    fill="#333"
+                    fontWeight="bold"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    {opData.zoneId}
+                  </text>
+                  
+                  {/* Throughput */}
+                  <text
+                    x={item.x + 8}
+                    y={item.y + 35}
+                    fontSize="9"
+                    fill="#666"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    {opData.throughput} items/hr
+                  </text>
+                  
+                  {/* Workers */}
+                  <text
+                    x={item.x + 8}
+                    y={item.y + 48}
+                    fontSize="9"
+                    fill="#666"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    👥 {opData.activeWorkers} workers
+                  </text>
+                  
+                  {/* Efficiency */}
+                  <text
+                    x={item.x + item.width - 8}
+                    y={item.y + 18}
+                    textAnchor="end"
+                    fontSize="9"
+                    fill={parseFloat(opData.metrics.efficiency) > 90 ? "#28a745" : "#ffc107"}
+                    fontWeight="bold"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    {opData.metrics.efficiency}
+                  </text>
+                </g>
+              )}
+              
+              {/* Fixed info icon for ALL interactive items */}
+              {isInteractive && (
+                <g>
+                  <circle
+                    cx={item.x + item.width - 12}
+                    cy={item.y + 12}
+                    r="10"
+                    fill="rgba(0, 123, 255, 0.9)"
+                    stroke="white"
+                    strokeWidth="2"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => handleItemClick(item, index)}
+                  />
+                  <text
+                    x={item.x + item.width - 12}
+                    y={item.y + 12}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize="12"
+                    fill="white"
+                    fontWeight="bold"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    ℹ
+                  </text>
+                </g>
+              )}
+
+              {/* Priority indicator for high-priority items */}
+              {opData && opData.metrics && opData.metrics.priority === 'High' && (
+                <rect
+                  x={item.x + 2}
+                  y={item.y + 2}
+                  width="6"
+                  height="6"
+                  fill="#dc3545"
+                  rx="1"
+                />
+              )}
+            </g>
+          );
+        })}
+        
+        {/* Optimization indicator */}
+        <text x={viewBoxX + 20} y={viewBoxY + viewBoxHeight - 20} fontSize="14" fill="#28a745" fontWeight="bold">
+          ✓ Ultra-tight optimized layout - Fullscreen view
+        </text>
+      </svg>
+    );
+  };
+
+  // Helper function to render operational info
+  const renderOperationalInfo = (item) => {
+    const opData = item.operationalData;
+    if (!opData) return <p>No operational data available</p>;
+
+    return (
+      <div className="operational-details">
+        {/* Unit/Zone Identification */}
+        <div className="info-section">
+          <h4>Unit Information</h4>
+          <div className="status-grid">
+            <div className="status-item">
+              <span className="label">Unit ID:</span>
+              <span className="status-value">{opData.unitId || opData.zoneId}</span>
+            </div>
+            <div className="status-item">
+              <span className="label">Location:</span>
+              <span className="status-value">
+                {opData.location.zone ? `${opData.location.zone}-${opData.location.aisle}-${opData.location.position}` : 
+                 `${opData.location.building}, Floor ${opData.location.floor}, ${opData.location.sector}`}
+              </span>
+            </div>
+            <div className="status-item">
+              <span className="label">Status:</span>
+              <span className={`status-value ${opData.status}`}>{opData.status}</span>
+            </div>
+            <div className="status-item">
+              <span className="label">Availability:</span>
+              <span className={`status-value ${opData.availability}`}>{opData.availability}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Real-time Metrics */}
+        <div className="info-section">
+          <h4>Performance Metrics</h4>
+          <div className="metrics-grid">
+            {opData.metrics && (
+              <>
+                {opData.type === 'storage' && (
+                  <>
+                    <div className="metric-item">
+                      <span className="metric-label">Daily Throughput:</span>
+                      <span className="metric-value">{opData.metrics.dailyThroughput} items</span>
+                    </div>
+                    <div className="metric-item">
+                      <span className="metric-label">Avg Pick Time:</span>
+                      <span className="metric-value">{opData.metrics.avgPickTime}</span>
+                    </div>
+                    <div className="metric-item">
+                      <span className="metric-label">Accuracy:</span>
+                      <span className="metric-value">{opData.metrics.accuracy}</span>
+                    </div>
+                    <div className="metric-item">
+                      <span className="metric-label">Priority:</span>
+                      <span className={`metric-value priority-${opData.metrics.priority.toLowerCase()}`}>
+                        {opData.metrics.priority}
+                      </span>
+                    </div>
+                    <div className="metric-item">
+                      <span className="metric-label">Access Frequency:</span>
+                      <span className="metric-value">{opData.metrics.accessFrequency}/day</span>
+                    </div>
+                  </>
+                )}
+                {opData.type === 'zone' && (
+                  <>
+                    <div className="metric-item">
+                      <span className="metric-label">Daily Volume:</span>
+                      <span className="metric-value">{opData.metrics.dailyVolume} items</span>
+                    </div>
+                    <div className="metric-item">
+                      <span className="metric-label">Process Time:</span>
+                      <span className="metric-value">{opData.metrics.avgProcessTime}</span>
+                    </div>
+                    <div className="metric-item">
+                      <span className="metric-label">Efficiency:</span>
+                      <span className="metric-value">{opData.metrics.efficiency}</span>
+                    </div>
+                    <div className="metric-item">
+                      <span className="metric-label">Error Rate:</span>
+                      <span className="metric-value">{opData.metrics.errorRate}</span>
+                    </div>
+                    <div className="metric-item">
+                      <span className="metric-label">Peak Hours:</span>
+                      <span className="metric-value">{opData.metrics.peakHours}</span>
+                    </div>
+                    <div className="metric-item">
+                      <span className="metric-label">Cost per Unit:</span>
+                      <span className="metric-value">{opData.metrics.costPerUnit}</span>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Capacity Section */}
+        {opData.type === 'storage' && (
+          <div className="info-section">
+            <h4>Capacity</h4>
+            <div className="capacity-info">
+              <div className="capacity-bar">
+                <div 
+                  className="capacity-fill" 
+                  style={{ width: `${(opData.occupied / opData.capacity) * 100}%` }}
+                ></div>
+              </div>
+              <div className="capacity-text">
+                {opData.occupied} / {opData.capacity} units ({Math.round((opData.occupied / opData.capacity) * 100)}% full)
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Detailed SKU Information */}
+        {opData.skus && Object.keys(opData.skus).length > 0 && (
+          <div className="info-section">
+            <h4>SKU Inventory ({Object.keys(opData.skus).length} items)</h4>
+            <div className="sku-list">
+              {Object.values(opData.skus).slice(0, 5).map((sku, index) => (
+                <div key={index} className="sku-item enhanced">
+                  <div className="sku-header">
+                    <span className="sku-id">{sku.uniqueId}</span>
+                    <span className={`sku-status ${sku.status}`}>{sku.status}</span>
+                  </div>
+                  <div className="sku-description">
+                    <strong>{sku.description}</strong>
+                  </div>
+                  <div className="sku-details-grid">
+                    <div className="sku-detail">
+                      <span className="detail-label">Quantity:</span>
+                      <span className="detail-value">{sku.quantity}</span>
+                    </div>
+                    <div className="sku-detail">
+                      <span className="detail-label">Reserved:</span>
+                      <span className="detail-value">{sku.reservedQty}</span>
+                    </div>
+                    <div className="sku-detail">
+                      <span className="detail-label">Value:</span>
+                      <span className="detail-value">{sku.value}</span>
+                    </div>
+                    <div className="sku-detail">
+                      <span className="detail-label">Weight:</span>
+                      <span className="detail-value">{sku.weight}</span>
+                    </div>
+                    <div className="sku-detail">
+                      <span className="detail-label">Location:</span>
+                      <span className="detail-value">Shelf {sku.location.shelf}-{sku.location.compartment}</span>
+                    </div>
+                    <div className="sku-detail">
+                      <span className="detail-label">Supplier:</span>
+                      <span className="detail-value">{sku.supplier}</span>
+                    </div>
+                  </div>
+                  {sku.expiryDate && (
+                    <div className="sku-expiry">
+                      <span className="expiry-label">Expires:</span>
+                      <span className="expiry-date">{new Date(sku.expiryDate).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  <div className="sku-batch">
+                    <span className="batch-label">Batch:</span>
+                    <span className="batch-number">{sku.batchNumber}</span>
+                  </div>
+                </div>
+              ))}
+              {Object.keys(opData.skus).length > 5 && (
+                <div className="sku-more">
+                  <strong>+{Object.keys(opData.skus).length - 5} more SKUs</strong>
+                  <br />
+                  <small>Click for complete inventory list</small>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Zone Information */}
+        {opData.type === 'zone' && (
+          <div className="info-section">
+            <h4>Zone Operations</h4>
+            <div className="zone-info">
+              <div className="zone-metric">
+                <span className="label">Throughput:</span>
+                <span className="value">{opData.throughput} items/hour</span>
+              </div>
+              <div className="zone-metric">
+                <span className="label">Active Workers:</span>
+                <span className="value">{opData.activeWorkers}</span>
+              </div>
+              <div className="zone-metric">
+                <span className="label">Equipment:</span>
+                <span className="value">{opData.equipment.join(', ')}</span>
+              </div>
+              <div className="zone-metric">
+                <span className="label">Last Activity:</span>
+                <span className="value">{new Date(opData.lastActivity).toLocaleTimeString()}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Alerts */}
+        {opData.alerts && opData.alerts.length > 0 && (
+          <div className="info-section alerts">
+            <h4>Alerts</h4>
+            <div className="alert-list">
+              {opData.alerts.map((alert, index) => (
+                <div key={index} className="alert-item">
+                  ⚠ {alert}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Temperature (if applicable) */}
+        {opData.temperature && (
+          <div className="info-section">
+            <h4>Environmental</h4>
+            <div className="env-info">
+              <span className="label">Temperature:</span>
+              <span className="value">{opData.temperature}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Last Updated */}
+        <div className="info-section">
+          <div className="last-updated">
+            Last updated: {new Date(opData.lastUpdated).toLocaleString()}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const getItemDisplayName = (item) => {
+    if (item.name) return item.name;
+    const typeNames = {
+      'sku_holder': 'SKU Holder',
+      'storage_unit': 'Storage Unit',
+      'storage_zone': 'Storage Zone',
+      'receiving_zone': 'Receiving Zone',
+      'dispatch_zone': 'Dispatch Zone',
+      'office_zone': 'Office Zone',
+      'square_boundary': 'Warehouse Boundary'
+    };
+    return typeNames[item.type] || item.type?.replace('_', ' ').toUpperCase() || 'Warehouse Item';
+  };
+
+  if (error) {
+    return (
+      <div className="fullscreen-error">
+        <h1>Error Loading Map</h1>
+        <p>{error}</p>
+        <button onClick={() => window.close()}>Close Window</button>
+      </div>
+    );
+  }
+
+  if (!mapData) {
+    return (
+      <div className="fullscreen-loading">
+        <h1>Loading Map...</h1>
+      </div>
+    );
+  }
+
+  const { unit, isCustomLayout, layoutData, demoData } = mapData;
+
+  return (
+    <div className="fullscreen-map-container">
+      <div className="fullscreen-map-header">
+        <div className="fullscreen-map-title">
+          <h1>{unit.name}</h1>
+          <span className={`status-badge ${unit.status.toLowerCase()}`}>
+            {unit.status}
+          </span>
+        </div>
+        <div className="fullscreen-map-controls">
+          <button 
+            className="fullscreen-control-btn"
+            onClick={() => window.print()}
+            title="Print Map"
+          >
+            🖨️
+          </button>
+          <button 
+            className="fullscreen-control-btn"
+            onClick={() => window.close()}
+            title="Close Window"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Search Bar */}
+      <div className="fullscreen-search-bar">
+        <div className="search-container">
+          <div className="search-type-selector">
+            <button 
+              className={`search-type-btn ${searchType === 'location' ? 'active' : ''}`}
+              onClick={() => handleSearchTypeChange('location')}
+            >
+              📍 Search Location
+            </button>
+            <button 
+              className={`search-type-btn ${searchType === 'item' ? 'active' : ''}`}
+              onClick={() => handleSearchTypeChange('item')}
+            >
+              📦 Search Item
+            </button>
+          </div>
+          <div className="search-input-container">
+            <input
+              type="text"
+              placeholder={searchType === 'location' ? 'Search by location ID, zone, aisle...' : 'Search by item ID, SKU, description...'}
+              value={searchQuery}
+              onChange={handleSearchChange}
+              className="search-input"
+            />
+            {searchQuery && (
+              <button className="search-clear-btn" onClick={clearSearch}>
+                ×
+              </button>
+            )}
+          </div>
+        </div>
+        
+        {/* Search Results */}
+        {searchResults.length > 0 && (
+          <div className="search-results">
+            <div className="search-results-header">
+              <span>Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="search-results-list">
+              {searchResults.slice(0, 5).map((result, index) => (
+                <div key={index} className="search-result-item">
+                  <div className="search-result-icon">
+                    {result.type === 'location' ? '📍' : '📦'}
+                  </div>
+                  <div className="search-result-content">
+                    <div className="search-result-title">{result.title}</div>
+                    <div className="search-result-subtitle">{result.subtitle}</div>
+                  </div>
+                </div>
+              ))}
+              {searchResults.length > 5 && (
+                <div className="search-result-more">
+                  +{searchResults.length - 5} more results
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="fullscreen-map-content">
+        <div className="map-display-area">
+          {isCustomLayout && layoutData && layoutData.items ? (
+            // Render custom layout
+            <div className="fullscreen-custom-layout">
+              {renderCustomLayout(layoutData.items)}
+            </div>
+          ) : demoData ? (
+            // Render demo data
+            <div className="fullscreen-demo-layout">
+              {renderDemoLayout(demoData)}
+            </div>
+          ) : (
+            <div className="fullscreen-no-data">
+              <h2>No map data available</h2>
+              <p>This warehouse unit doesn't have map data configured.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Operational Info Panel */}
+        {showInfoPanel && selectedItem && (
+          <div className="operational-info-panel">
+            <div className="info-panel-header">
+              <h3>{getItemDisplayName(selectedItem)}</h3>
+              <button 
+                className="close-info-btn"
+                onClick={() => setShowInfoPanel(false)}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="info-panel-content">
+              {renderOperationalInfo(selectedItem)}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="fullscreen-map-footer">
+        <div className="map-info">
+          <span>Created: {layoutData ? new Date(layoutData.timestamp).toLocaleDateString() : 'N/A'}</span>
+          <span>Items: {unit.items || 0}</span>
+          <span>Zones: {unit.zones || 0}</span>
+          {unit.utilization && <span>Utilization: {unit.utilization}%</span>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Helper function to render demo layout
+const renderDemoLayout = (demoData) => {
+  return (
+    <svg width="100%" height="100%" viewBox="0 0 700 320" className="fullscreen-warehouse-svg">
+      <rect width="700" height="320" fill="#ffffff" stroke="#dee2e6" strokeWidth="2" rx="8"/>
+      
+      {/* Render zones */}
+      {demoData.zones && demoData.zones.map((zone, index) => (
+        <g key={index}>
+          <rect
+            x={zone.x}
+            y={zone.y}
+            width={zone.width}
+            height={zone.height}
+            fill={zone.color}
+            stroke="#333"
+            strokeWidth="2"
+            opacity="0.7"
+            rx="4"
+          />
+          <text
+            x={zone.x + zone.width / 2}
+            y={zone.y + zone.height / 2}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize="14"
+            fill="#333"
+            fontWeight="bold"
+          >
+            {zone.id}
+          </text>
+        </g>
+      ))}
+      
+      {/* Render equipment */}
+      {demoData.equipment && demoData.equipment.map((equipment, index) => (
+        <circle
+          key={index}
+          cx={equipment.x}
+          cy={equipment.y}
+          r="8"
+          fill={equipment.status === 'active' ? '#28a745' : '#dc3545'}
+          stroke="#333"
+          strokeWidth="1"
+        />
+      ))}
+    </svg>
+  );
+};
+
+
+// Helper functions for item styling
+const getItemColor = (type, opData) => {
+  // Base colors
+  const colors = {
+    'square_boundary': 'transparent',
+    'solid_boundary': 'rgba(85, 85, 85, 0.1)',
+    'dotted_boundary': 'rgba(85, 85, 85, 0.1)',
+    'sku_holder': '#e3f2fd',
+    'storage_unit': '#e3f2fd',
+    'storage_zone': '#00bcd4',
+    'receiving_zone': '#ffa726',
+    'dispatch_zone': '#66bb6a',
+    'office_zone': '#5c6bc0',
+    'transit_zone': '#bdbdbd'
+  };
+  
+  let baseColor = colors[type] || '#f5f5f5';
+  
+  // Modify color based on operational status
+  if (opData && opData.status === 'maintenance') {
+    baseColor = '#ffecb3'; // Light amber for maintenance
+  } else if (opData && opData.availability === 'maintenance') {
+    baseColor = '#ffcdd2'; // Light red for unavailable
+  }
+  
+  return baseColor;
+};
+
+const getItemBorderColor = (type, opData) => {
+  const colors = {
+    'square_boundary': '#000000',
+    'solid_boundary': '#555555',
+    'dotted_boundary': '#555555',
+    'sku_holder': '#2196f3',
+    'storage_unit': '#2196f3',
+    'storage_zone': '#00acc1',
+    'receiving_zone': '#ff9800',
+    'dispatch_zone': '#4caf50',
+    'office_zone': '#3f51b5',
+    'transit_zone': '#9e9e9e'
+  };
+  return colors[type] || '#ccc';
+};
+
+const getStatusColor = (status) => {
+  const colors = {
+    'operational': '#28a745',
+    'maintenance': '#ffc107',
+    'offline': '#dc3545',
+    'active': '#28a745',
+    'good': '#28a745',
+    'needs_attention': '#ffc107'
+  };
+  return colors[status] || '#6c757d';
+};
+
+const getUtilizationColor = (utilization) => {
+  if (utilization >= 90) return '#dc3545'; // Red for high utilization
+  if (utilization >= 75) return '#ffc107'; // Yellow for medium-high
+  if (utilization >= 50) return '#28a745'; // Green for good utilization
+  return '#17a2b8'; // Blue for low utilization
+};
+
+const getItemLabel = (item) => {
+  if (item.name) return item.name;
+  if (item.type === 'square_boundary') return 'Warehouse';
+  if (item.type === 'storage_zone') return 'Storage';
+  if (item.type === 'receiving_zone') return 'Receiving';
+  if (item.type === 'dispatch_zone') return 'Dispatch';
+  return item.type?.replace('_', ' ').toUpperCase() || 'Item';
+};
+
+export default FullscreenMap;

@@ -1,0 +1,219 @@
+// Component Types - Basic types to prevent errors, will be expanded step by step
+export const COMPONENT_TYPES = {
+  // Basic structural elements (to prevent import errors)
+  WAREHOUSE_BLOCK: 'warehouse_block',
+  STORAGE_ZONE: 'storage_zone',
+  PROCESSING_AREA: 'processing_area',
+  CONTAINER_UNIT: 'container_unit',
+  ZONE_DIVIDER: 'zone_divider',
+  AREA_BOUNDARY: 'area_boundary',
+  
+  // Floor Plan Components
+  SQUARE_BOUNDARY: 'square_boundary',
+  
+  // Boundaries
+  SOLID_BOUNDARY: 'solid_boundary',
+  DOTTED_BOUNDARY: 'dotted_boundary',
+  
+  // Storage Components (1×1 to 2×2)
+  STORAGE_UNIT: 'storage_unit',
+  SKU_HOLDER: 'sku_holder'
+};
+
+// Drag and drop types
+export const DRAG_TYPES = {
+  COMPONENT: 'component',
+  WAREHOUSE_ITEM: 'warehouse_item'
+};
+
+// Stack modes for component stacking
+export const STACK_MODES = {
+  HORIZONTAL: 'horizontal',
+  VERTICAL: 'vertical',
+  GRID: 'grid'
+};
+
+// Occupancy status for warehouse items
+export const OCCUPANCY_STATUS = {
+  EMPTY: 'empty',
+  PARTIAL: 'partial', 
+  FULL: 'full',
+  MAINTENANCE: 'maintenance',
+  RESERVED: 'reserved'
+};
+
+// Storage orientation
+export const STORAGE_ORIENTATION = {
+  HORIZONTAL: 'horizontal',
+  VERTICAL: 'vertical'
+};
+
+// Stackable components - Basic stackable types to prevent stacking errors
+export const STACKABLE_COMPONENTS = [
+  // Basic stackable component types
+  COMPONENT_TYPES.STORAGE_ZONE,
+  COMPONENT_TYPES.CONTAINER_UNIT,
+  COMPONENT_TYPES.WAREHOUSE_BLOCK,
+  COMPONENT_TYPES.PROCESSING_AREA,
+  
+  // More stackable components will be added as we build them
+];
+
+// Structural elements - Basic structural types to prevent errors
+export const STRUCTURAL_ELEMENTS = [
+  // Basic structural element types
+  COMPONENT_TYPES.ZONE_DIVIDER,
+  COMPONENT_TYPES.AREA_BOUNDARY,
+  COMPONENT_TYPES.WAREHOUSE_BLOCK,
+  COMPONENT_TYPES.SQUARE_BOUNDARY,
+  
+  // Boundaries
+  COMPONENT_TYPES.SOLID_BOUNDARY,
+  COMPONENT_TYPES.DOTTED_BOUNDARY,
+  
+  // Storage Components
+  COMPONENT_TYPES.STORAGE_UNIT,
+  COMPONENT_TYPES.SKU_HOLDER
+];
+
+// Location zones (empty for now)
+export const LOCATION_ZONES = {
+  // Will be populated as we add location zones
+};
+
+// Status color mapping
+export const STATUS_COLORS = {
+  [OCCUPANCY_STATUS.EMPTY]: '#4CAF50',
+  [OCCUPANCY_STATUS.PARTIAL]: '#FF9800', 
+  [OCCUPANCY_STATUS.FULL]: '#F44336',
+  [OCCUPANCY_STATUS.MAINTENANCE]: '#9C27B0',
+  [OCCUPANCY_STATUS.RESERVED]: '#2196F3'
+};
+
+// Orientation color mapping
+export const ORIENTATION_COLORS = {
+  [STORAGE_ORIENTATION.HORIZONTAL]: '#4CAF50',
+  [STORAGE_ORIENTATION.VERTICAL]: '#9C27B0'
+};
+
+// Warehouse Components - organized by categories
+export const WAREHOUSE_COMPONENTS = [
+  {
+    category: "Floor Plan Components",
+    icon: "📁",
+    priority: "high",
+    expanded: true,
+    components: [
+      {
+        type: COMPONENT_TYPES.SQUARE_BOUNDARY,
+        name: "Square Boundary",
+        icon: "⬜",
+        color: "#000000",
+        defaultSize: { width: 480, height: 480 }, // 8×8 grid blocks (60px × 8 = 480px)
+        description: "Resizable rectangular warehouse boundary with hollow border design",
+        priority: "high",
+        isBoundary: true,
+        isHollow: true,
+        borderWidth: 4,
+        containerLevel: 1,
+        snapToGrid: true,
+        gridAligned: true,
+        resizable: true,
+        minSize: { width: 60, height: 60 }, // Minimum 1×1 grid block
+        maxSize: { width: 1200, height: 1200 }, // Maximum 20×20 grid blocks
+        gridStep: 60 // Resize in 60px increments
+      }
+    ]
+  },
+  {
+    category: "Boundaries",
+    icon: "🔲",
+    priority: "high",
+    expanded: true,
+    components: [
+      {
+        type: COMPONENT_TYPES.SOLID_BOUNDARY,
+        name: "Solid Boundary",
+        icon: "⬜",
+        color: "#555555",
+        defaultSize: { width: 180, height: 180 }, // 3×3 grid blocks
+        description: "Solid boundary box for zone divisions with normal border",
+        priority: "high",
+        isBoundary: true,
+        isHollow: true,
+        borderWidth: 2,
+        borderStyle: "solid",
+        containerLevel: 2,
+        snapToGrid: true,
+        gridAligned: true,
+        resizable: true,
+        minSize: { width: 60, height: 60 }, // Minimum 1×1 grid block
+        maxSize: { width: 600, height: 600 }, // Maximum 10×10 grid blocks
+        gridStep: 60
+      },
+      {
+        type: COMPONENT_TYPES.DOTTED_BOUNDARY,
+        name: "Dotted Boundary",
+        icon: "⬛",
+        color: "#555555",
+        defaultSize: { width: 180, height: 180 }, // 3×3 grid blocks
+        description: "Dotted boundary box for zone divisions with dashed border",
+        priority: "high",
+        isBoundary: true,
+        isHollow: true,
+        borderWidth: 2,
+        borderStyle: "dotted",
+        containerLevel: 2,
+        snapToGrid: true,
+        gridAligned: true,
+        resizable: true,
+        minSize: { width: 60, height: 60 }, // Minimum 1×1 grid block
+        maxSize: { width: 600, height: 600 }, // Maximum 10×10 grid blocks
+        gridStep: 60
+      }
+    ]
+  },
+  {
+    category: "Storage Components",
+    icon: "🔹",
+    priority: "high",
+    expanded: true,
+    components: [
+      {
+        type: COMPONENT_TYPES.STORAGE_UNIT,
+        name: "Storage Unit",
+        icon: "📦",
+        color: "#4CAF50",
+        defaultSize: { width: 60, height: 60 }, // 1×1 grid block
+        description: "Individual storage unit for single items or small batches",
+        priority: "high",
+        snapToGrid: true,
+        gridAligned: true,
+        gridStep: 60,
+        resizable: false
+      },
+      {
+        type: COMPONENT_TYPES.SKU_HOLDER,
+        name: "Storage Racks",
+        icon: "📋",
+        color: "#00BCD4",
+        defaultSize: { width: 60, height: 60 }, // 1×1 grid block = 1 SKU compartment
+        description: "Storage rack system where each 60×60px grid block holds 1 SKU unit",
+        priority: "high",
+        snapToGrid: true,
+        gridAligned: true,
+        gridStep: 60,
+        resizable: true,
+        minSize: { width: 60, height: 60 }, // Minimum 1×1 grid block = 1 compartment
+        maxSize: { width: 300, height: 300 }, // Maximum 5×5 grid blocks = 25 compartments
+        isContainer: true,
+        containerLevel: 3,
+        containerPadding: 4,
+        skuGrid: true, // Special property to indicate this has SKU compartments
+        showCompartments: true, // Show visual compartment grid
+        allowEmpty: true, // Compartments can be vacant
+        maxSKUsPerCompartment: 1 // One SKU unit per compartment
+      }
+    ]
+  }
+];

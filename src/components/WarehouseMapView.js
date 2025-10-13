@@ -1,0 +1,1900 @@
+import React, { useState, useEffect } from 'react';
+import WarehouseDesigner from './WarehouseDesigner';
+
+const WarehouseMapView = ({ facilityData }) => {
+  const [selectedZone, setSelectedZone] = useState(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState(null);
+  const [currentSection, setCurrentSection] = useState('dashboard');
+  const [showCreateUnitModal, setShowCreateUnitModal] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [notificationsList, setNotifications] = useState([]);
+  const [showDemoMapModal, setShowDemoMapModal] = useState(false);
+  const [selectedUnitForDemo, setSelectedUnitForDemo] = useState(null);
+  const [savedLayouts, setSavedLayouts] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchType, setSearchType] = useState('location'); // 'location' or 'item'
+  const [searchResults, setSearchResults] = useState([]);
+  const [highlightedItems, setHighlightedItems] = useState([]);
+
+  // Load saved layouts from localStorage
+  useEffect(() => {
+    const loadSavedLayouts = () => {
+      const layouts = JSON.parse(localStorage.getItem('warehouseLayouts') || '[]');
+      setSavedLayouts(layouts);
+    };
+    
+    loadSavedLayouts();
+    
+    // Listen for storage changes to update in real-time
+    const handleStorageChange = () => {
+      loadSavedLayouts();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for custom events when layouts are saved
+    window.addEventListener('layoutSaved', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('layoutSaved', handleStorageChange);
+    };
+  }, []);
+
+  // Combine default units with saved layouts
+  const defaultUnits = [
+    {
+      id: 'unit1',
+      name: 'Unit 1',
+      subtitle: 'Floor Plan 1 - Building 1',
+      status: 'LIVE',
+      statusColor: '#00D4AA',
+      utilization: 85,
+      zones: 12,
+      temperature: null,
+      details: 'Primary storage facility with automated systems'
+    },
+    {
+      id: 'unit2', 
+      name: 'Unit 2',
+      subtitle: 'Floor Plan 1 - Building 2',
+      status: 'LIVE',
+      statusColor: '#00D4AA',
+      utilization: 72,
+      zones: 8,
+      temperature: '-18°C',
+      details: 'Temperature-controlled storage for perishables'
+    },
+    {
+      id: 'unit3',
+      name: 'Unit 3',
+      subtitle: 'Floor Plan 2 - Building 1',
+      status: 'MAINTENANCE',
+      statusColor: '#FFB800',
+      utilization: 45,
+      zones: 6,
+      temperature: null,
+      details: 'Cross-docking and distribution hub'
+    },
+    {
+      id: 'unit4',
+      name: 'Unit 4',
+      subtitle: 'Floor Plan 2 - Building 2',
+      status: 'LIVE',
+      statusColor: '#00D4AA',
+      utilization: 63,
+      zones: 10,
+      temperature: null,
+      details: 'Returns processing and quality control'
+    },
+    {
+      id: 'unit5',
+      name: 'Unit 5',
+      subtitle: 'Floor Plan 3 - Building 1',
+      status: 'OFFLINE',
+      statusColor: '#FF6B6B',
+      utilization: 0,
+      zones: 8,
+      temperature: null,
+      details: 'Hazardous materials storage (Currently offline)'
+    },
+    {
+      id: 'unit6',
+      name: 'Unit 6',
+      subtitle: 'Floor Plan 3 - Building 2',
+      status: 'LIVE',
+      statusColor: '#00D4AA',
+      utilization: 92,
+      zones: 15,
+      temperature: null,
+      details: 'Additional storage capacity for peak seasons'
+    }
+  ];
+  
+  // Convert saved layouts to warehouse units format
+  const savedLayoutUnits = savedLayouts.map(layout => ({
+    id: layout.id,
+    name: layout.name,
+    subtitle: `${layout.location} - ${layout.size}`,
+    status: layout.status.toUpperCase(),
+    statusColor: getStatusColor(layout.status),
+    utilization: layout.utilization,
+    zones: layout.zones,
+    temperature: null,
+    details: `Created: ${new Date(layout.lastActivity).toLocaleDateString()} - ${layout.items} items`,
+    isCustomLayout: true,
+    layoutData: layout.layoutData
+  }));
+  
+  // Helper function to get status colors
+  function getStatusColor(status) {
+    const colors = {
+      'operational': '#00D4AA',
+      'offline': '#FF6B6B',
+      'maintenance': '#FFB800',
+      'planning': '#4ECDC4'
+    };
+    return colors[status] || '#6C757D';
+  }
+  
+  const warehouseUnits = [...defaultUnits, ...savedLayoutUnits];
+
+  // Demo map data for each unit
+  const demoMapsData = {
+    unit1: {
+      name: 'Warehouse 1 - Org Unit',
+      location: 'RM 1',
+      zones: [
+        // Storage Racks A-H (Cyan color like reference)
+        { id: 'A', name: 'Rack A', type: 'rack', x: 120, y: 40, width: 55, height: 140, color: '#00CED1', items: 24, capacity: 28, racks: 4 },
+        { id: 'B', name: 'Rack B', type: 'rack', x: 185, y: 40, width: 55, height: 140, color: '#00CED1', items: 26, capacity: 28, racks: 4 },
+        { id: 'C', name: 'Rack C', type: 'rack', x: 250, y: 40, width: 55, height: 140, color: '#00CED1', items: 22, capacity: 28, racks: 4 },
+        { id: 'D', name: 'Rack D', type: 'rack', x: 315, y: 40, width: 55, height: 140, color: '#00CED1', items: 25, capacity: 28, racks: 4 },
+        { id: 'E', name: 'Rack E', type: 'rack', x: 380, y: 40, width: 55, height: 140, color: '#00CED1', items: 27, capacity: 28, racks: 4 },
+        { id: 'F', name: 'Rack F', type: 'rack', x: 445, y: 40, width: 55, height: 140, color: '#00CED1', items: 23, capacity: 28, racks: 4 },
+        { id: 'G', name: 'Rack G', type: 'rack', x: 510, y: 40, width: 55, height: 140, color: '#00CED1', items: 28, capacity: 28, racks: 4 },
+        { id: 'H', name: 'Rack H', type: 'rack', x: 575, y: 40, width: 55, height: 140, color: '#00CED1', items: 21, capacity: 28, racks: 4 },
+        
+        // Back Office Space (Blue)
+        { id: 'OFFICE', name: 'Back Office Space', type: 'office', x: 20, y: 40, width: 80, height: 140, color: '#1E90FF', items: 0, capacity: 0 },
+        
+        // Receiving Areas (Orange/Yellow)
+        { id: 'REC1', name: 'Receiving Area 1', type: 'receiving', x: 120, y: 200, width: 80, height: 60, color: '#FFA500', items: 8, capacity: 12 },
+        { id: 'REC2', name: 'Receiving Area 2', type: 'receiving', x: 210, y: 200, width: 80, height: 60, color: '#FFD700', items: 6, capacity: 12 },
+        
+        // Dispatch Areas (Green)
+        { id: 'DISP1', name: 'Dispatch Area 1', type: 'dispatch', x: 300, y: 200, width: 80, height: 60, color: '#32CD32', items: 5, capacity: 10 },
+        { id: 'DISP2', name: 'Dispatch Area 2', type: 'dispatch', x: 390, y: 200, width: 80, height: 60, color: '#228B22', items: 7, capacity: 10 },
+        { id: 'DISP3', name: 'Dispatch Area 3', type: 'dispatch', x: 480, y: 200, width: 80, height: 60, color: '#006400', items: 4, capacity: 10 },
+        
+        // Transit/Temp Area (Light Green)
+        { id: 'TRANSIT', name: 'Transit/Temp Area', type: 'transit', x: 570, y: 200, width: 80, height: 60, color: '#90EE90', items: 3, capacity: 8 },
+        
+        // Packaging Area (Purple)
+        { id: 'PACK', name: 'Packaging Area', type: 'packaging', x: 20, y: 200, width: 80, height: 60, color: '#9370DB', items: 12, capacity: 15 }
+      ],
+      gates: [
+        { id: 'IN1', name: 'In-Gate 1', x: 150, y: 280, type: 'in-gate' },
+        { id: 'IN2', name: 'In-Gate 2', x: 240, y: 280, type: 'in-gate' },
+        { id: 'OUT1', name: 'Out Gate 1', x: 330, y: 280, type: 'out-gate' },
+        { id: 'OUT2', name: 'Out Gate 2', x: 420, y: 280, type: 'out-gate' },
+        { id: 'OUT3', name: 'Out Gate 3', x: 510, y: 280, type: 'out-gate' }
+      ],
+      equipment: [
+        { id: 'fork1', name: 'Forklift #1', x: 150, y: 190, status: 'active' },
+        { id: 'fork2', name: 'Forklift #2', x: 350, y: 190, status: 'active' },
+        { id: 'scanner1', name: 'Barcode Scanner', x: 60, y: 230, status: 'active' }
+      ]
+    },
+    unit2: {
+      name: 'Unit 2 - Cold Storage',
+      zones: [
+        { id: 'CS1', name: 'Cold Zone 1', type: 'cold-storage', x: 50, y: 50, width: 150, height: 100, color: '#5DADE2', items: 28, capacity: 35 },
+        { id: 'CS2', name: 'Cold Zone 2', type: 'cold-storage', x: 220, y: 50, width: 150, height: 100, color: '#5DADE2', items: 32, capacity: 35 },
+        { id: 'FZ1', name: 'Freezer Zone', type: 'freezer', x: 390, y: 50, width: 120, height: 100, color: '#3498DB', items: 18, capacity: 25 },
+        { id: 'R2', name: 'Cold Receiving', type: 'receiving', x: 50, y: 180, width: 180, height: 50, color: '#58D68D', items: 5, capacity: 10 },
+        { id: 'S2', name: 'Cold Dispatch', type: 'shipping', x: 250, y: 180, width: 180, height: 50, color: '#F39C12', items: 3, capacity: 10 }
+      ],
+      equipment: [
+        { id: 'temp1', name: 'Temperature Monitor', x: 150, y: 100, status: 'normal', temp: '-18°C' },
+        { id: 'temp2', name: 'Temperature Monitor', x: 300, y: 100, status: 'normal', temp: '-18°C' },
+        { id: 'temp3', name: 'Freezer Monitor', x: 450, y: 100, status: 'normal', temp: '-25°C' }
+      ]
+    },
+    unit3: {
+      name: 'Unit 3 - Distribution Hub',
+      zones: [
+        { id: 'SORT', name: 'Sorting Area', type: 'sorting', x: 50, y: 50, width: 200, height: 80, color: '#E67E22', items: 150, capacity: 200 },
+        { id: 'PACK', name: 'Packaging', type: 'packaging', x: 280, y: 50, width: 150, height: 80, color: '#8E44AD', items: 45, capacity: 60 },
+        { id: 'QC', name: 'Quality Control', type: 'quality', x: 460, y: 50, width: 100, height: 80, color: '#E74C3C', items: 12, capacity: 20 },
+        { id: 'DOCK1', name: 'Loading Dock 1', type: 'loading', x: 50, y: 160, width: 120, height: 60, color: '#F39C12', items: 8, capacity: 10 },
+        { id: 'DOCK2', name: 'Loading Dock 2', type: 'loading', x: 200, y: 160, width: 120, height: 60, color: '#F39C12', items: 6, capacity: 10 },
+        { id: 'DOCK3', name: 'Loading Dock 3', type: 'loading', x: 350, y: 160, width: 120, height: 60, color: '#F39C12', items: 4, capacity: 10 }
+      ],
+      equipment: [
+        { id: 'conv2', name: 'Main Conveyor', x: 150, y: 130, width: 200, height: 15, status: 'running' },
+        { id: 'scanner1', name: 'Barcode Scanner', x: 200, y: 80, status: 'active' },
+        { id: 'scale1', name: 'Weighing Scale', x: 350, y: 80, status: 'active' }
+      ]
+    },
+    unit4: {
+      name: 'Unit 4 - Returns Processing',
+      zones: [
+        { id: 'RET1', name: 'Returns Intake', type: 'returns', x: 50, y: 50, width: 140, height: 70, color: '#E67E22', items: 25, capacity: 40 },
+        { id: 'INSP', name: 'Inspection Area', type: 'inspection', x: 220, y: 50, width: 120, height: 70, color: '#9B59B6', items: 15, capacity: 25 },
+        { id: 'REP', name: 'Repair Station', type: 'repair', x: 370, y: 50, width: 100, height: 70, color: '#E74C3C', items: 8, capacity: 15 },
+        { id: 'RESTOCK', name: 'Restock Area', type: 'restock', x: 50, y: 150, width: 180, height: 60, color: '#27AE60', items: 32, capacity: 50 },
+        { id: 'DISP', name: 'Disposal', type: 'disposal', x: 260, y: 150, width: 100, height: 60, color: '#95A5A6', items: 5, capacity: 20 }
+      ],
+      equipment: [
+        { id: 'test1', name: 'Testing Station', x: 280, y: 80, status: 'active' },
+        { id: 'printer1', name: 'Label Printer', x: 150, y: 180, status: 'active' }
+      ]
+    },
+    unit5: {
+      name: 'Unit 5 - Hazmat Storage (OFFLINE)',
+      zones: [
+        { id: 'HAZ1', name: 'Hazmat Zone 1', type: 'hazmat', x: 50, y: 50, width: 120, height: 80, color: '#E74C3C', items: 0, capacity: 30 },
+        { id: 'HAZ2', name: 'Hazmat Zone 2', type: 'hazmat', x: 200, y: 50, width: 120, height: 80, color: '#E74C3C', items: 0, capacity: 30 },
+        { id: 'SAFE', name: 'Safety Station', type: 'safety', x: 350, y: 50, width: 80, height: 80, color: '#F39C12', items: 0, capacity: 0 },
+        { id: 'DECON', name: 'Decontamination', type: 'decon', x: 50, y: 160, width: 150, height: 60, color: '#95A5A6', items: 0, capacity: 0 }
+      ],
+      equipment: [
+        { id: 'alarm1', name: 'Safety Alarm', x: 390, y: 90, status: 'offline' },
+        { id: 'vent1', name: 'Ventilation System', x: 125, y: 190, status: 'offline' }
+      ],
+      offline: true
+    },
+    unit6: {
+      name: 'Unit 6 - Overflow Storage',
+      zones: [
+        { id: 'OV1', name: 'Overflow A', type: 'overflow', x: 50, y: 40, width: 100, height: 60, color: '#3498DB', items: 48, capacity: 50 },
+        { id: 'OV2', name: 'Overflow B', type: 'overflow', x: 170, y: 40, width: 100, height: 60, color: '#3498DB', items: 50, capacity: 50 },
+        { id: 'OV3', name: 'Overflow C', type: 'overflow', x: 290, y: 40, width: 100, height: 60, color: '#3498DB', items: 47, capacity: 50 },
+        { id: 'OV4', name: 'Overflow D', type: 'overflow', x: 410, y: 40, width: 100, height: 60, color: '#3498DB', items: 45, capacity: 50 },
+        { id: 'OV5', name: 'Overflow E', type: 'overflow', x: 50, y: 120, width: 100, height: 60, color: '#3498DB', items: 49, capacity: 50 },
+        { id: 'OV6', name: 'Overflow F', type: 'overflow', x: 170, y: 120, width: 100, height: 60, color: '#3498DB', items: 46, capacity: 50 },
+        { id: 'TEMP', name: 'Temporary Storage', type: 'temporary', x: 290, y: 120, width: 220, height: 60, color: '#F39C12', items: 25, capacity: 40 }
+      ],
+      equipment: [
+        { id: 'crane1', name: 'Overhead Crane', x: 250, y: 20, status: 'active' },
+        { id: 'lift1', name: 'Scissor Lift', x: 150, y: 200, status: 'active' }
+      ]
+    }
+  };
+
+  // Real-time notifications data
+  const notifications = [
+    {
+      id: 'notif1',
+      type: 'success',
+      title: 'Unit 2 - Capacity Updated',
+      message: 'Cold storage capacity increased to 85%. Temperature maintained at -18°C.',
+      timestamp: '2 minutes ago',
+      unit: 'Unit 2',
+      priority: 'medium'
+    },
+    {
+      id: 'notif2',
+      type: 'warning',
+      title: 'Unit 3 - Maintenance Required',
+      message: 'Distribution hub showing reduced efficiency. Scheduled maintenance in progress.',
+      timestamp: '15 minutes ago',
+      unit: 'Unit 3',
+      priority: 'high'
+    },
+    {
+      id: 'notif3',
+      type: 'info',
+      title: 'Unit 1 - Inventory Movement',
+      message: 'Large shipment processed. 150 pallets moved to storage zones A-D.',
+      timestamp: '1 hour ago',
+      unit: 'Unit 1',
+      priority: 'low'
+    },
+    {
+      id: 'notif4',
+      type: 'error',
+      title: 'Unit 5 - System Offline',
+      message: 'Hazmat storage unit offline due to safety protocol activation.',
+      timestamp: '2 hours ago',
+      unit: 'Unit 5',
+      priority: 'critical'
+    },
+    {
+      id: 'notif5',
+      type: 'success',
+      title: 'Unit 6 - Peak Capacity Reached',
+      message: 'Overflow storage at 92% capacity. Additional space allocation recommended.',
+      timestamp: '3 hours ago',
+      unit: 'Unit 6',
+      priority: 'medium'
+    },
+    {
+      id: 'notif6',
+      type: 'info',
+      title: 'Unit 4 - Quality Control Complete',
+      message: 'Returns processing completed. 45 items cleared for redistribution.',
+      timestamp: '4 hours ago',
+      unit: 'Unit 4',
+      priority: 'low'
+    }
+  ];
+
+  const areas = [
+    { name: 'Storage A', color: '#4A90E2', occupied: true },
+    { name: 'Storage B', color: '#4A90E2', occupied: true },
+    { name: 'Storage C', color: '#4A90E2', occupied: true },
+    { name: 'Storage D', color: '#4A90E2', occupied: false },
+    { name: 'Receiving', color: '#7ED321', occupied: true },
+    { name: 'Dispatch', color: '#F5A623', occupied: true },
+    { name: 'Office Area', color: '#BD10E0', occupied: true }
+  ];
+
+  const handleZoneClick = (zone) => {
+    setSelectedZone(zone);
+  };
+
+  const handleExpandToggle = () => {
+    setIsExpanded(!isExpanded);
+  };
+
+  const handleActionClick = (actionId) => {
+    console.log('Action clicked:', actionId);
+    // Add your action handling logic here
+    switch(actionId) {
+      case 'all-units':
+        // Navigate to all units view
+        break;
+      case 'layout-builder':
+        // Navigate to layout builder
+        break;
+      case 'live-map':
+        // Navigate to live map
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleDeleteLayout = (layoutId) => {
+    if (!layoutId || typeof window === 'undefined') return;
+
+    const confirmed = window.confirm('Delete this layout permanently? This action cannot be undone.');
+    if (!confirmed) return;
+
+    setSavedLayouts(prevLayouts => {
+      const updatedLayouts = prevLayouts.filter(layout => layout.id !== layoutId);
+      window.localStorage.setItem('warehouseLayouts', JSON.stringify(updatedLayouts));
+      window.dispatchEvent(new Event('layoutSaved'));
+      return updatedLayouts;
+    });
+  };
+
+  const handleUnitAction = (unitId, action) => {
+    console.log('Unit action:', unitId, action);
+    
+    switch(action) {
+      case 'view-live':
+        // Show demo map modal for specific unit
+        setSelectedUnitForDemo(unitId);
+        setShowDemoMapModal(true);
+        break;
+      case 'edit':
+        // Navigate to layout builder for specific unit
+        setSelectedUnit(unitId);
+        setCurrentSection('layout-builder');
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleCreateNewUnit = () => {
+    setShowCreateUnitModal(true);
+  };
+
+  const handleUseTemplate = () => {
+    setShowTemplateModal(true);
+  };
+
+  const handleNotificationAction = (notificationId, action) => {
+    console.log('Notification action:', notificationId, action);
+    
+    switch(action) {
+      case 'view':
+        // Navigate to the specific unit mentioned in notification
+        const notification = notifications.find(n => n.id === notificationId);
+        if (notification) {
+          const unitId = notification.unit.toLowerCase().replace(' ', '');
+          handleUnitAction(unitId, 'view-live');
+        }
+        break;
+      case 'dismiss':
+        // Remove notification from list
+        setNotifications(prev => prev.filter(n => n.id !== notificationId));
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleMarkAllAsRead = () => {
+    console.log('Mark all notifications as read');
+    // Mark all notifications as read
+  };
+
+  // Search functionality
+  const performSearch = (query, type) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setHighlightedItems([]);
+      return;
+    }
+
+    const results = [];
+    const highlighted = [];
+    const searchTerm = query.toLowerCase();
+
+    // Get current unit data
+    const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
+    if (!unit) return;
+
+    // Search in custom layouts
+    if (unit.isCustomLayout && unit.layoutData && unit.layoutData.items) {
+      unit.layoutData.items.forEach((item, index) => {
+        const itemId = `item-${index}`;
+        
+        // Generate operational data for search
+        const generateSearchData = (item, index) => {
+          if (item.type?.includes('storage') || item.type?.includes('sku')) {
+            return {
+              type: 'storage',
+              unitId: `STG-${String(index + 1).padStart(3, '0')}`,
+              location: {
+                zone: ['A', 'B', 'C', 'D', 'E'][Math.floor(Math.random() * 5)],
+                aisle: Math.floor(Math.random() * 10) + 1,
+                position: Math.floor(Math.random() * 20) + 1
+              },
+              items: item.compartmentContents || {}
+            };
+          }
+          return null;
+        };
+
+        const searchData = generateSearchData(item, index);
+        
+        if (type === 'location' && searchData) {
+          // Search by location ID
+          const locationId = `${searchData.location.zone}-${searchData.location.aisle}-${searchData.location.position}`;
+          if (searchData.unitId.toLowerCase().includes(searchTerm) || 
+              locationId.toLowerCase().includes(searchTerm)) {
+            results.push({
+              id: itemId,
+              type: 'location',
+              title: `Location: ${searchData.unitId}`,
+              subtitle: `Zone ${searchData.location.zone}, Aisle ${searchData.location.aisle}, Position ${searchData.location.position}`,
+              item: item,
+              searchData: searchData
+            });
+            highlighted.push(itemId);
+          }
+        } else if (type === 'item' && searchData && searchData.items) {
+          // Search by item/SKU in compartments
+          Object.values(searchData.items).forEach(itemData => {
+            if (itemData.locationId?.toLowerCase().includes(searchTerm) ||
+                itemData.sku?.toLowerCase().includes(searchTerm) ||
+                itemData.uniqueId?.toLowerCase().includes(searchTerm)) {
+              results.push({
+                id: itemId,
+                type: 'item',
+                title: `Item: ${itemData.locationId || itemData.uniqueId || itemData.sku}`,
+                subtitle: `In ${searchData.unitId} - ${itemData.sku || 'N/A'}`,
+                item: item,
+                itemData: itemData,
+                searchData: searchData
+              });
+              highlighted.push(itemId);
+            }
+          });
+        }
+      });
+    }
+
+    // Search in demo data
+    const demoData = demoMapsData[selectedUnitForDemo];
+    if (demoData && demoData.zones) {
+      demoData.zones.forEach((zone, index) => {
+        if (type === 'location') {
+          if (zone.id.toLowerCase().includes(searchTerm) ||
+              zone.name?.toLowerCase().includes(searchTerm)) {
+            results.push({
+              id: `zone-${index}`,
+              type: 'location',
+              title: `Zone: ${zone.id}`,
+              subtitle: zone.name || 'Demo Zone',
+              zone: zone
+            });
+            highlighted.push(`zone-${index}`);
+          }
+        } else if (type === 'item') {
+          // Search for items in zones (simulated)
+          if (zone.items && zone.items > 0) {
+            const simulatedItems = Array.from({length: Math.min(zone.items, 5)}, (_, i) => 
+              `ITEM-${zone.id}-${String(i + 1).padStart(3, '0')}`
+            );
+            
+            simulatedItems.forEach(itemId => {
+              if (itemId.toLowerCase().includes(searchTerm)) {
+                results.push({
+                  id: `zone-${index}`,
+                  type: 'item',
+                  title: `Item: ${itemId}`,
+                  subtitle: `In Zone ${zone.id}`,
+                  zone: zone,
+                  itemId: itemId
+                });
+                highlighted.push(`zone-${index}`);
+              }
+            });
+          }
+        }
+      });
+    }
+
+    setSearchResults(results);
+    setHighlightedItems(highlighted);
+  };
+
+  const handleSearchChange = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    performSearch(query, searchType);
+  };
+
+  const handleSearchTypeChange = (type) => {
+    setSearchType(type);
+    performSearch(searchQuery, type);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setHighlightedItems([]);
+  };
+
+  // Handle opening map in fullscreen (new tab)
+  const handleOpenFullscreen = (unitId) => {
+    const unit = warehouseUnits.find(u => u.id === unitId);
+    if (!unit) return;
+
+    // Create a data URL with the map content
+    const mapData = {
+      unit: unit,
+      isCustomLayout: unit.isCustomLayout,
+      layoutData: unit.layoutData,
+      demoData: unit.isCustomLayout ? null : demoMapsData[unitId]
+    };
+
+    // Encode the data for URL transmission
+    const encodedData = encodeURIComponent(JSON.stringify(mapData));
+    
+    // Create the fullscreen URL
+    const fullscreenUrl = `${window.location.origin}${window.location.pathname}#fullscreen-map=${encodedData}`;
+    
+    // Open in new tab
+    window.open(fullscreenUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+  };
+
+  const handleClearAllNotifications = () => {
+    console.log('Clear all notifications');
+    // Clear all notifications
+  };
+
+  return (
+    <div className="warehouse-dashboard">
+      {/* Clean Header */}
+      <div className="dashboard-header">
+        <div className="header-left">
+          <div className="breadcrumb-nav">
+            <button 
+              className={`breadcrumb-item ${currentSection === 'dashboard' ? 'active' : ''}`}
+              onClick={() => setCurrentSection('dashboard')}
+            >
+              Dashboard
+            </button>
+            {selectedUnit && (
+              <>
+                <span className="breadcrumb-separator">›</span>
+                <button 
+                  className={`breadcrumb-item ${currentSection === 'live-view' ? 'active' : ''}`}
+                  onClick={() => setCurrentSection('live-view')}
+                >
+                  {warehouseUnits.find(u => u.id === selectedUnit)?.name || 'Unit'} - Live View
+                </button>
+              </>
+            )}
+            {currentSection === 'layout-builder' && selectedUnit && (
+              <>
+                <span className="breadcrumb-separator">›</span>
+                <span className="breadcrumb-item active">
+                  Layout Builder
+                </span>
+              </>
+            )}
+          </div>
+          <div className="page-title">
+            <h1>Warehouse Layouts</h1>
+            <span className="live-badge">LIVE</span>
+          </div>
+          <p className="page-subtitle">Interactive facility layout and asset management</p>
+        </div>
+        <div className="header-right">
+          <div className="header-actions">
+            {/* Layout Builder and Export buttons removed */}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="dashboard-content">
+        {currentSection === 'layout-builder' ? (
+          <div className="layout-builder-container">
+            <div className="layout-builder-header">
+              <h2>Layout Builder - {warehouseUnits.find(u => u.id === selectedUnit)?.name || 'Unit'}</h2>
+              <button 
+                className="btn secondary"
+                onClick={() => setCurrentSection('dashboard')}
+              >
+                ← Back to Dashboard
+              </button>
+            </div>
+            <WarehouseDesigner onBack={() => setCurrentSection('dashboard')} />
+          </div>
+        ) : (
+          <>
+        {/* Live Warehouse Maps Section */}
+        <div className="maps-section">
+          <div className="section-header">
+            <h2 className="section-title">Live Warehouse Maps</h2>
+            <div className="section-controls">
+              <button 
+                className="control-btn primary"
+                onClick={handleExpandToggle}
+              >
+                {isExpanded ? 'Collapse' : 'View All'}
+              </button>
+            </div>
+          </div>
+          
+          <div className={`warehouse-scroll-container ${isExpanded ? 'expanded' : ''}`}>
+            <div className={`warehouse-grid-horizontal ${isExpanded ? 'expanded-grid' : ''}`}>
+              {warehouseUnits.map((unit) => (
+                <div key={unit.id} className="warehouse-unit-card">
+                  <div className="unit-header">
+                    <div className="unit-status">
+                      <span className={`status-indicator ${unit.status.toLowerCase()}`}>
+                        {unit.status}
+                      </span>
+                    </div>
+                    <h3 className="unit-name">{unit.name}</h3>
+                    <p className="unit-subtitle">{unit.subtitle}</p>
+                  </div>
+                  
+                  <div className="unit-content">
+                    <p className="unit-description">{unit.details}</p>
+                    
+                    <div className="unit-metrics">
+                      <div className="metric">
+                        <span className="metric-label">Utilization:</span>
+                        <span className="metric-value">{unit.utilization}%</span>
+                      </div>
+                      <div className="metric">
+                        <span className="metric-label">Zones:</span>
+                        <span className="metric-value">{unit.zones}</span>
+                      </div>
+                      {unit.temperature && (
+                        <div className="metric">
+                          <span className="metric-label">Temperature:</span>
+                          <span className="metric-value">{unit.temperature}</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="unit-actions">
+                      <button 
+                        className="action-btn view-btn"
+                        onClick={() => {
+                          setSelectedUnitForDemo(unit.id);
+                          setShowDemoMapModal(true);
+                        }}
+                      >
+                        View Live
+                      </button>
+                      {unit.isCustomLayout ? (
+                        <>
+                          <button 
+                            className="action-btn edit-btn"
+                            onClick={() => {
+                              // Load layout back into builder
+                              if (unit.layoutData && unit.layoutData.items) {
+                                localStorage.setItem('loadLayoutData', JSON.stringify(unit.layoutData));
+                                setCurrentSection('layout-builder');
+                              }
+                            }}
+                          >
+                            Edit Layout
+                          </button>
+                          <button
+                            className="action-btn delete-btn"
+                            onClick={() => handleDeleteLayout(unit.id)}
+                          >
+                            Delete Layout
+                          </button>
+                        </>
+                      ) : (
+                        <button className="action-btn edit-btn">
+                          Edit
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Real-time Notifications Panel */}
+        <div className="notifications-section">
+          <div className="section-header">
+            <h2 className="section-title">Real-time Notifications</h2>
+            <div className="section-controls">
+              <button 
+                className="control-btn"
+                onClick={handleMarkAllAsRead}
+              >
+                Mark All Read
+              </button>
+              <button 
+                className="control-btn primary"
+                onClick={handleClearAllNotifications}
+              >
+                Clear All
+              </button>
+            </div>
+          </div>
+          
+          <div className="notifications-container">
+            <div className="notifications-list">
+              {notifications.map((notification) => (
+                <div key={notification.id} className={`notification-item ${notification.type} ${notification.priority}`}>
+                  <div className="notification-indicator">
+                    <div className={`notification-icon ${notification.type}`}>
+                      {notification.type === 'success' && '✓'}
+                      {notification.type === 'warning' && '⚠'}
+                      {notification.type === 'error' && '✕'}
+                      {notification.type === 'info' && 'ℹ'}
+                    </div>
+                    {notification.priority === 'critical' && <div className="priority-pulse"></div>}
+                  </div>
+                  
+                  <div className="notification-content">
+                    <div className="notification-header">
+                      <h4 className="notification-title">{notification.title}</h4>
+                      <div className="notification-meta">
+                        <span className={`unit-tag ${notification.unit.toLowerCase().replace(' ', '')}`}>
+                          {notification.unit}
+                        </span>
+                        <span className={`priority-badge ${notification.priority}`}>
+                          {notification.priority.toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <p className="notification-message">{notification.message}</p>
+                    
+                    <div className="notification-footer">
+                      <span className="notification-timestamp">{notification.timestamp}</span>
+                      <div className="notification-actions">
+                        <button 
+                          className="notification-btn"
+                          onClick={() => handleNotificationAction(notification.id, 'view')}
+                        >
+                          View
+                        </button>
+                        <button 
+                          className="notification-btn dismiss"
+                          onClick={() => handleNotificationAction(notification.id, 'dismiss')}
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="notifications-summary">
+              <div className="summary-stats">
+                <div className="summary-item">
+                  <span className="summary-count">{notifications.filter(n => n.priority === 'critical').length}</span>
+                  <span className="summary-label">Critical</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-count">{notifications.filter(n => n.priority === 'high').length}</span>
+                  <span className="summary-label">High</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-count">{notifications.filter(n => n.priority === 'medium').length}</span>
+                  <span className="summary-label">Medium</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-count">{notifications.filter(n => n.priority === 'low').length}</span>
+                  <span className="summary-label">Low</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+          </>
+        )}
+      </div>
+
+      {/* Create New Unit Modal */}
+      {showCreateUnitModal && (
+        <div className="modal-overlay" onClick={() => setShowCreateUnitModal(false)}>
+          <div className="modal-content create-unit-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Create New Warehouse Unit</h3>
+              <button className="close-btn" onClick={() => setShowCreateUnitModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Unit Name</label>
+                <input type="text" placeholder="Enter unit name (e.g., Unit 7)" />
+              </div>
+              <div className="form-group">
+                <label>Floor Plan</label>
+                <select>
+                  <option>Floor Plan 1</option>
+                  <option>Floor Plan 2</option>
+                  <option>Floor Plan 3</option>
+                  <option>Floor Plan 4</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Building</label>
+                <select>
+                  <option>Building 1</option>
+                  <option>Building 2</option>
+                  <option>Building 3</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Unit Type</label>
+                <select>
+                  <option>General Storage</option>
+                  <option>Cold Storage</option>
+                  <option>Distribution Hub</option>
+                  <option>Hazmat Storage</option>
+                  <option>Returns Processing</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Initial Zones</label>
+                <input type="number" placeholder="Number of zones (e.g., 8)" min="1" max="20" />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn secondary" onClick={() => setShowCreateUnitModal(false)}>
+                Cancel
+              </button>
+              <button className="btn primary" onClick={() => {
+                console.log('Creating new unit...');
+                setShowCreateUnitModal(false);
+              }}>
+                Create Unit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Template Selection Modal */}
+      {showTemplateModal && (
+        <div className="modal-overlay" onClick={() => setShowTemplateModal(false)}>
+          <div className="modal-content template-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Choose Template</h3>
+              <button className="close-btn" onClick={() => setShowTemplateModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="template-grid">
+                <div className="template-card" onClick={() => {
+                  console.log('Using standard warehouse template');
+                  setShowTemplateModal(false);
+                }}>
+                  <div className="template-icon">🏭</div>
+                  <h4>Standard Warehouse</h4>
+                  <p>Basic layout with storage, receiving, and dispatch zones</p>
+                </div>
+                <div className="template-card" onClick={() => {
+                  console.log('Using cold storage template');
+                  setShowTemplateModal(false);
+                }}>
+                  <div className="template-icon">❄️</div>
+                  <h4>Cold Storage</h4>
+                  <p>Temperature-controlled storage with specialized zones</p>
+                </div>
+                <div className="template-card" onClick={() => {
+                  console.log('Using distribution center template');
+                  setShowTemplateModal(false);
+                }}>
+                  <div className="template-icon">📦</div>
+                  <h4>Distribution Center</h4>
+                  <p>High-throughput layout optimized for fast processing</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Zone Details Modal */}
+      {selectedZone && (
+        <div className="zone-details-modal" onClick={() => setSelectedZone(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{selectedZone.name}</h3>
+              <button className="close-btn" onClick={() => setSelectedZone(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p>Zone Type: {selectedZone.type}</p>
+              <p>Status: Active</p>
+              <p>Capacity: 85%</p>
+              <p>Last Activity: 2 hours ago</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Map Modal */}
+      {showDemoMapModal && selectedUnitForDemo && (
+        <div className="demo-map-modal-overlay" onClick={() => setShowDemoMapModal(false)}>
+          <div className="demo-map-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="demo-map-header">
+              <div className="demo-map-title">
+                <h2>{(() => {
+                  const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
+                  return unit ? unit.name : 'Warehouse Unit';
+                })()}</h2>
+                <div className="demo-map-status">
+                  {(() => {
+                    const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
+                    const status = unit ? unit.status : 'UNKNOWN';
+                    return (
+                      <span className={`status-badge ${status.toLowerCase()}`}>{status}</span>
+                    );
+                  })()}
+                </div>
+              </div>
+              <div className="demo-map-controls">
+                <button 
+                  className="demo-map-fullscreen-btn" 
+                  onClick={() => handleOpenFullscreen(selectedUnitForDemo)}
+                  title="Open in fullscreen (new tab)"
+                >
+                  ⛶
+                </button>
+                <button className="demo-map-close-btn" onClick={() => setShowDemoMapModal(false)}>×</button>
+              </div>
+            </div>
+            
+            {/* Search Bar */}
+            <div className="demo-map-search">
+              <div className="search-container">
+                <div className="search-type-selector">
+                  <button 
+                    className={`search-type-btn ${searchType === 'location' ? 'active' : ''}`}
+                    onClick={() => handleSearchTypeChange('location')}
+                  >
+                    📍 Search Location
+                  </button>
+                  <button 
+                    className={`search-type-btn ${searchType === 'item' ? 'active' : ''}`}
+                    onClick={() => handleSearchTypeChange('item')}
+                  >
+                    📦 Search Item
+                  </button>
+                </div>
+                <div className="search-input-container">
+                  <input
+                    type="text"
+                    placeholder={searchType === 'location' ? 'Search by location ID, zone, aisle...' : 'Search by item ID, SKU, location...'}
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                    className="search-input"
+                  />
+                  {searchQuery && (
+                    <button className="search-clear-btn" onClick={clearSearch}>
+                      ×
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Search Results */}
+              {searchResults.length > 0 && (
+                <div className="search-results">
+                  <div className="search-results-header">
+                    <span>Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="search-results-list">
+                    {searchResults.slice(0, 5).map((result, index) => (
+                      <div key={index} className="search-result-item">
+                        <div className="search-result-icon">
+                          {result.type === 'location' ? '📍' : '📦'}
+                        </div>
+                        <div className="search-result-content">
+                          <div className="search-result-title">{result.title}</div>
+                          <div className="search-result-subtitle">{result.subtitle}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {searchResults.length > 5 && (
+                      <div className="search-result-more">
+                        +{searchResults.length - 5} more results
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="demo-map-body">
+              <div className="demo-map-canvas">
+                {(() => {
+                  const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
+                  
+                  // If it's a custom layout, render the actual layout
+                  console.log('Debug - Unit data:', unit);
+                  console.log('Debug - Is custom layout:', unit?.isCustomLayout);
+                  console.log('Debug - Layout data:', unit?.layoutData);
+                  
+                  if (unit && unit.isCustomLayout && unit.layoutData && unit.layoutData.items) {
+                    const items = unit.layoutData.items;
+                    
+                    // Use ultra-tight bounds - items are already cropped to start from (0,0)
+                    const minX = Math.min(...items.map(item => item.x), 0);
+                    const minY = Math.min(...items.map(item => item.y), 0);
+                    const maxX = Math.max(...items.map(item => item.x + item.width));
+                    const maxY = Math.max(...items.map(item => item.y + item.height));
+                    
+                    // Calculate ultra-tight content dimensions
+                    const contentWidth = maxX - minX;
+                    const contentHeight = maxY - minY;
+                    
+                    // Minimal padding for visual clarity (reduced from 100 to 20)
+                    const padding = 20;
+                    const viewBoxX = minX - padding;
+                    const viewBoxY = minY - padding;
+                    const viewBoxWidth = contentWidth + (padding * 2);
+                    const viewBoxHeight = contentHeight + (padding * 2);
+                    
+                    return (
+                      <svg 
+                        width="100%" 
+                        height="100%" 
+                        viewBox={`${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`} 
+                        className="warehouse-svg"
+                        preserveAspectRatio="xMidYMid meet"
+                      >
+                        {/* Background */}
+                        <rect 
+                          x={viewBoxX} 
+                          y={viewBoxY} 
+                          width={viewBoxWidth} 
+                          height={viewBoxHeight} 
+                          fill="#f8f9fa" 
+                          stroke="#dee2e6" 
+                          strokeWidth="2" 
+                          rx="8"
+                        />
+                        
+                        {/* Grid pattern */}
+                        <defs>
+                          <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+                            <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#e0e0e0" strokeWidth="1" opacity="0.3"/>
+                          </pattern>
+                        </defs>
+                        <rect 
+                          x={viewBoxX} 
+                          y={viewBoxY} 
+                          width={viewBoxWidth} 
+                          height={viewBoxHeight} 
+                          fill="url(#grid)" 
+                        />
+                        
+                        {/* Header with layout info */}
+                        <rect 
+                          x={viewBoxX + 10} 
+                          y={viewBoxY + 10} 
+                          width={viewBoxWidth - 20} 
+                          height="30" 
+                          fill="#ffffff" 
+                          stroke="#dee2e6" 
+                          strokeWidth="1" 
+                          rx="4"
+                        />
+                        <text x={viewBoxX + 20} y={viewBoxY + 30} fontSize="16" fontWeight="bold" fill="#333">
+                          {unit.name} - Live View
+                        </text>
+                        <text x={viewBoxX + viewBoxWidth - 20} y={viewBoxY + 30} fontSize="12" fill="#666" textAnchor="end">
+                          Status: {unit.status} | Items: {items.length}
+                        </text>
+                        
+                        {/* Render actual layout items with operational data */}
+                        {items.map((item, index) => {
+                          // Generate operational data for each item (matching fullscreen logic)
+                          const itemId = `item-${index}`;
+                          const generateItemOperationalData = (item, index) => {
+                            if (item.type?.includes('storage') || item.type?.includes('sku')) {
+                              const capacity = Math.floor(Math.random() * 50) + 20;
+                              const occupied = Math.floor(capacity * (0.6 + Math.random() * 0.35));
+                              return {
+                                type: 'storage',
+                                unitId: `STG-${String(index + 1).padStart(3, '0')}`,
+                                location: {
+                                  zone: ['A', 'B', 'C', 'D', 'E'][Math.floor(Math.random() * 5)],
+                                  aisle: Math.floor(Math.random() * 10) + 1,
+                                  position: Math.floor(Math.random() * 20) + 1
+                                },
+                                capacity: capacity,
+                                occupied: occupied,
+                                utilization: Math.round((occupied / capacity) * 100),
+                                status: Math.random() > 0.1 ? 'operational' : 'maintenance'
+                              };
+                            } else if (item.type?.includes('zone')) {
+                              return {
+                                type: 'zone',
+                                zoneId: `${item.type.toUpperCase().substring(0, 3)}-${String(index + 1).padStart(2, '0')}`,
+                                throughput: Math.floor(Math.random() * 800) + 200,
+                                activeWorkers: Math.floor(Math.random() * 8) + 2,
+                                efficiency: (85 + Math.random() * 12).toFixed(1) + '%',
+                                status: 'operational'
+                              };
+                            }
+                            return null;
+                          };
+
+                          const opData = generateItemOperationalData(item, index);
+                          const isInteractive = opData && (opData.type === 'storage' || opData.type === 'zone');
+                          
+                          // Get component color based on type (enhanced)
+                          const getItemColor = (type, opData) => {
+                            let baseColor = '#9E9E9E';
+                            if (type?.includes('storage')) baseColor = '#00BCD4';
+                            if (type?.includes('receiving')) baseColor = '#FFA726';
+                            if (type?.includes('dispatch')) baseColor = '#66BB6A';
+                            if (type?.includes('office')) baseColor = '#5C6BC0';
+                            if (type?.includes('transit')) baseColor = '#BDBDBD';
+                            if (type?.includes('boundary')) baseColor = '#2C3E50';
+                            
+                            // Adjust color based on operational status
+                            if (opData?.status === 'maintenance') {
+                              return baseColor + '80'; // Add transparency for maintenance
+                            }
+                            return baseColor;
+                          };
+
+                          const getStatusColor = (status) => {
+                            const colors = {
+                              'operational': '#28a745',
+                              'maintenance': '#ffc107',
+                              'offline': '#dc3545'
+                            };
+                            return colors[status] || '#6c757d';
+                          };
+
+                          const getUtilizationColor = (utilization) => {
+                            if (utilization >= 90) return '#dc3545';
+                            if (utilization >= 75) return '#ffc107';
+                            if (utilization >= 50) return '#28a745';
+                            return '#17a2b8';
+                          };
+                          
+                          const itemColor = getItemColor(item.type || '', opData);
+                          
+                          return (
+                            <g key={item.id}>
+                              {/* Item rectangle */}
+                              <rect
+                                x={item.x}
+                                y={item.y}
+                                width={item.width}
+                                height={item.height}
+                                fill={itemColor}
+                                fillOpacity="0.8"
+                                stroke="#333"
+                                strokeWidth="2"
+                                rx="4"
+                                style={{ cursor: isInteractive ? 'pointer' : 'default' }}
+                              />
+                              
+                              {/* Operational status indicator */}
+                              {opData && opData.status && (
+                                <circle
+                                  cx={item.x + item.width - 8}
+                                  cy={item.y + 8}
+                                  r="4"
+                                  fill={getStatusColor(opData.status)}
+                                  stroke="white"
+                                  strokeWidth="1"
+                                />
+                              )}
+                              
+                              {/* Utilization bar for storage items */}
+                              {opData && opData.type === 'storage' && item.width > 40 && (
+                                <g>
+                                  <rect
+                                    x={item.x + 5}
+                                    y={item.y + item.height - 12}
+                                    width={item.width - 10}
+                                    height="4"
+                                    fill="#e0e0e0"
+                                    rx="2"
+                                  />
+                                  <rect
+                                    x={item.x + 5}
+                                    y={item.y + item.height - 12}
+                                    width={(item.width - 10) * (opData.utilization / 100)}
+                                    height="4"
+                                    fill={getUtilizationColor(opData.utilization)}
+                                    rx="2"
+                                  />
+                                </g>
+                              )}
+                              
+                              {/* Real-time metrics display for storage units */}
+                              {opData && opData.type === 'storage' && item.width > 60 && item.height > 40 && (
+                                <g>
+                                  {/* Unit ID */}
+                                  <text
+                                    x={item.x + 5}
+                                    y={item.y + 15}
+                                    fontSize="9"
+                                    fill="#333"
+                                    fontWeight="bold"
+                                  >
+                                    {opData.unitId}
+                                  </text>
+                                  
+                                  {/* Capacity info */}
+                                  <text
+                                    x={item.x + item.width / 2}
+                                    y={item.y + item.height / 2 + 15}
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                    fontSize="10"
+                                    fill="#666"
+                                    fontWeight="bold"
+                                  >
+                                    {opData.occupied}/{opData.capacity}
+                                  </text>
+                                  
+                                  {/* Location info */}
+                                  <text
+                                    x={item.x + item.width / 2}
+                                    y={item.y + item.height / 2 + 28}
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                    fontSize="8"
+                                    fill="#888"
+                                  >
+                                    {opData.location.zone}-{opData.location.aisle}-{opData.location.position}
+                                  </text>
+                                </g>
+                              )}
+
+                              {/* Zone metrics for larger zones */}
+                              {opData && opData.type === 'zone' && item.width > 100 && item.height > 60 && (
+                                <g>
+                                  {/* Zone ID */}
+                                  <text
+                                    x={item.x + 8}
+                                    y={item.y + 18}
+                                    fontSize="11"
+                                    fill="#333"
+                                    fontWeight="bold"
+                                  >
+                                    {opData.zoneId}
+                                  </text>
+                                  
+                                  {/* Throughput */}
+                                  <text
+                                    x={item.x + 8}
+                                    y={item.y + 35}
+                                    fontSize="9"
+                                    fill="#666"
+                                  >
+                                    {opData.throughput} items/hr
+                                  </text>
+                                  
+                                  {/* Workers */}
+                                  <text
+                                    x={item.x + 8}
+                                    y={item.y + 48}
+                                    fontSize="9"
+                                    fill="#666"
+                                  >
+                                    👥 {opData.activeWorkers} workers
+                                  </text>
+                                  
+                                  {/* Efficiency */}
+                                  <text
+                                    x={item.x + item.width - 8}
+                                    y={item.y + 18}
+                                    textAnchor="end"
+                                    fontSize="9"
+                                    fill={parseFloat(opData.efficiency) > 90 ? "#28a745" : "#ffc107"}
+                                    fontWeight="bold"
+                                  >
+                                    {opData.efficiency}
+                                  </text>
+                                </g>
+                              )}
+                              
+                              {/* Fixed info icon for ALL interactive items */}
+                              {isInteractive && (
+                                <g>
+                                  <circle
+                                    cx={item.x + item.width - 12}
+                                    cy={item.y + 12}
+                                    r="10"
+                                    fill="rgba(0, 123, 255, 0.9)"
+                                    stroke="white"
+                                    strokeWidth="2"
+                                    style={{ cursor: 'pointer' }}
+                                  />
+                                  <text
+                                    x={item.x + item.width - 12}
+                                    y={item.y + 12}
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                    fontSize="12"
+                                    fill="white"
+                                    fontWeight="bold"
+                                  >
+                                    ℹ
+                                  </text>
+                                </g>
+                              )}
+                              
+                              {/* Item label (fallback for non-operational items) */}
+                              {!opData && item.width > 60 && item.height > 30 && (
+                                <text
+                                  x={item.x + item.width / 2}
+                                  y={item.y + item.height / 2}
+                                  textAnchor="middle"
+                                  fontSize="12"
+                                  fontWeight="bold"
+                                  fill="#fff"
+                                >
+                                  {item.name || item.type || 'Item'}
+                                </text>
+                              )}
+                              
+                              {/* SKU compartments for SKU holders */}
+                              {item.compartmentContents && Object.keys(item.compartmentContents).length > 0 && (
+                                <g>
+                                  {Object.entries(item.compartmentContents).map(([compartmentId, skuData]) => {
+                                    const [row, col] = compartmentId.split('-').map(Number);
+                                    const compartmentSize = 20;
+                                    const compartmentX = item.x + (col * compartmentSize) + 5;
+                                    const compartmentY = item.y + (row * compartmentSize) + 5;
+                                    
+                                    return (
+                                      <g key={compartmentId}>
+                                        <rect
+                                          x={compartmentX}
+                                          y={compartmentY}
+                                          width={compartmentSize - 2}
+                                          height={compartmentSize - 2}
+                                          fill="#E0F7FA"
+                                          stroke="#00BCD4"
+                                          strokeWidth="1"
+                                        />
+                                        <text
+                                          x={compartmentX + compartmentSize / 2}
+                                          y={compartmentY + compartmentSize / 2 + 3}
+                                          textAnchor="middle"
+                                          fontSize="8"
+                                          fill="#006064"
+                                        >
+                                          {(skuData.uniqueId || skuData.sku || '').substring(0, 3)}
+                                        </text>
+                                      </g>
+                                    );
+                                  })}
+                                </g>
+                              )}
+                            </g>
+                          );
+                        })}
+                        
+                        {/* Layout info with optimization indicator */}
+                        <text x={viewBoxX + 20} y={viewBoxY + viewBoxHeight - 40} fontSize="12" fill="#666">
+                          Created: {new Date(unit.layoutData.timestamp).toLocaleDateString()}
+                        </text>
+                        <text x={viewBoxX + 20} y={viewBoxY + viewBoxHeight - 20} fontSize="11" fill="#28a745" fontWeight="bold">
+                          ✓ Ultra-tight optimized layout - Zero white space
+                        </text>
+                      </svg>
+                    );
+                  }
+                  
+                  // For default units, show demo map
+                  const demoData = demoMapsData[selectedUnitForDemo];
+                  if (!demoData) {
+                    return (
+                      <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
+                        <h3>No map data available</h3>
+                        <p>This warehouse unit doesn't have map data configured.</p>
+                        <p><strong>Unit ID:</strong> {selectedUnitForDemo}</p>
+                        <p><strong>Unit Type:</strong> {unit?.isCustomLayout ? 'Custom Layout' : 'Default Unit'}</p>
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <svg width="700" height="320" viewBox="0 0 700 320" className="warehouse-svg">
+                      {/* Background */}
+                      <rect width="700" height="320" fill="#ffffff" stroke="#dee2e6" strokeWidth="2" rx="8"/>
+                      
+                      {/* Header with location info */}
+                      <rect x="10" y="10" width="680" height="25" fill="#f8f9fa" stroke="#dee2e6" strokeWidth="1"/>
+                      <text x="20" y="27" fontSize="14" fontWeight="bold" fill="#333">
+                        {demoData.name}
+                      </text>
+                      {demoData.location && (
+                        <text x="600" y="27" fontSize="12" fill="#666">
+                          Location: {demoData.location}
+                        </text>
+                      )}
+                      
+                      {/* Enhanced demo zones with operational data */}
+                      {demoData.zones.map((zone, index) => {
+                        // Generate operational data for demo zones
+                        const generateDemoOpData = (zone, index) => {
+                          if (zone.type === 'storage' || zone.type === 'overflow') {
+                            return {
+                              type: 'storage',
+                              unitId: `STG-${String(index + 1).padStart(3, '0')}`,
+                              location: {
+                                zone: ['A', 'B', 'C', 'D'][index % 4],
+                                aisle: Math.floor(index / 4) + 1,
+                                position: (index % 10) + 1
+                              },
+                              capacity: zone.capacity || 50,
+                              occupied: zone.items || Math.floor(Math.random() * 40) + 10,
+                              utilization: Math.round(((zone.items || 30) / (zone.capacity || 50)) * 100),
+                              status: 'operational'
+                            };
+                          } else {
+                            return {
+                              type: 'zone',
+                              zoneId: zone.id,
+                              throughput: Math.floor(Math.random() * 500) + 100,
+                              activeWorkers: Math.floor(Math.random() * 5) + 1,
+                              efficiency: (85 + Math.random() * 12).toFixed(1) + '%',
+                              status: 'operational'
+                            };
+                          }
+                        };
+
+                        const opData = generateDemoOpData(zone, index);
+                        const isInteractive = opData && (opData.type === 'storage' || opData.type === 'zone');
+
+                        const getStatusColor = (status) => {
+                          return status === 'operational' ? '#28a745' : '#ffc107';
+                        };
+
+                        const getUtilizationColor = (utilization) => {
+                          if (utilization >= 90) return '#dc3545';
+                          if (utilization >= 75) return '#ffc107';
+                          if (utilization >= 50) return '#28a745';
+                          return '#17a2b8';
+                        };
+
+                        return (
+                          <g key={zone.id}>
+                            <rect
+                              x={zone.x}
+                              y={zone.y}
+                              width={zone.width}
+                              height={zone.height}
+                              fill={zone.color}
+                              fillOpacity="0.8"
+                              stroke="#333"
+                              strokeWidth="2"
+                              rx="4"
+                              style={{ cursor: isInteractive ? 'pointer' : 'default' }}
+                            />
+                            
+                            {/* Operational status indicator */}
+                            <circle
+                              cx={zone.x + zone.width - 8}
+                              cy={zone.y + 8}
+                              r="4"
+                              fill={getStatusColor(opData.status)}
+                              stroke="white"
+                              strokeWidth="1"
+                            />
+                            
+                            {/* Utilization bar for storage zones */}
+                            {opData.type === 'storage' && zone.width > 40 && (
+                              <g>
+                                <rect
+                                  x={zone.x + 5}
+                                  y={zone.y + zone.height - 12}
+                                  width={zone.width - 10}
+                                  height="4"
+                                  fill="#e0e0e0"
+                                  rx="2"
+                                />
+                                <rect
+                                  x={zone.x + 5}
+                                  y={zone.y + zone.height - 12}
+                                  width={(zone.width - 10) * (opData.utilization / 100)}
+                                  height="4"
+                                  fill={getUtilizationColor(opData.utilization)}
+                                  rx="2"
+                                />
+                              </g>
+                            )}
+                            
+                            {/* Storage unit metrics */}
+                            {opData.type === 'storage' && zone.width > 60 && zone.height > 40 && (
+                              <g>
+                                {/* Unit ID */}
+                                <text
+                                  x={zone.x + 5}
+                                  y={zone.y + 15}
+                                  fontSize="9"
+                                  fill="#333"
+                                  fontWeight="bold"
+                                >
+                                  {opData.unitId}
+                                </text>
+                                
+                                {/* Capacity info */}
+                                <text
+                                  x={zone.x + zone.width / 2}
+                                  y={zone.y + zone.height / 2 + 10}
+                                  textAnchor="middle"
+                                  fontSize="10"
+                                  fill="#666"
+                                  fontWeight="bold"
+                                >
+                                  {opData.occupied}/{opData.capacity}
+                                </text>
+                                
+                                {/* Location info */}
+                                <text
+                                  x={zone.x + zone.width / 2}
+                                  y={zone.y + zone.height / 2 + 23}
+                                  textAnchor="middle"
+                                  fontSize="8"
+                                  fill="#888"
+                                >
+                                  {opData.location.zone}-{opData.location.aisle}-{opData.location.position}
+                                </text>
+                              </g>
+                            )}
+
+                            {/* Zone metrics for operational zones */}
+                            {opData.type === 'zone' && zone.width > 80 && zone.height > 50 && (
+                              <g>
+                                {/* Zone ID */}
+                                <text
+                                  x={zone.x + 8}
+                                  y={zone.y + 18}
+                                  fontSize="11"
+                                  fill="#333"
+                                  fontWeight="bold"
+                                >
+                                  {zone.id}
+                                </text>
+                                
+                                {/* Throughput */}
+                                <text
+                                  x={zone.x + 8}
+                                  y={zone.y + 32}
+                                  fontSize="9"
+                                  fill="#666"
+                                >
+                                  {opData.throughput} items/hr
+                                </text>
+                                
+                                {/* Workers */}
+                                <text
+                                  x={zone.x + 8}
+                                  y={zone.y + 45}
+                                  fontSize="9"
+                                  fill="#666"
+                                >
+                                  👥 {opData.activeWorkers}
+                                </text>
+                                
+                                {/* Efficiency */}
+                                <text
+                                  x={zone.x + zone.width - 8}
+                                  y={zone.y + 18}
+                                  textAnchor="end"
+                                  fontSize="9"
+                                  fill={parseFloat(opData.efficiency) > 90 ? "#28a745" : "#ffc107"}
+                                  fontWeight="bold"
+                                >
+                                  {opData.efficiency}
+                                </text>
+                              </g>
+                            )}
+                            
+                            {/* Fixed info icon for interactive zones */}
+                            {isInteractive && (
+                              <g>
+                                <circle
+                                  cx={zone.x + zone.width - 12}
+                                  cy={zone.y + 12}
+                                  r="8"
+                                  fill="rgba(0, 123, 255, 0.9)"
+                                  stroke="white"
+                                  strokeWidth="2"
+                                  style={{ cursor: 'pointer' }}
+                                />
+                                <text
+                                  x={zone.x + zone.width - 12}
+                                  y={zone.y + 12}
+                                  textAnchor="middle"
+                                  dominantBaseline="middle"
+                                  fontSize="10"
+                                  fill="white"
+                                  fontWeight="bold"
+                                >
+                                  ℹ
+                                </text>
+                              </g>
+                            )}
+                            
+                            {/* Fallback zone label for non-operational zones */}
+                            {!isInteractive && (
+                              <text
+                                x={zone.x + zone.width / 2}
+                                y={zone.y + zone.height / 2}
+                                textAnchor="middle"
+                                fontSize="12"
+                                fontWeight="bold"
+                                fill="#fff"
+                              >
+                                {zone.id}
+                              </text>
+                            )}
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  );
+                })()}
+              </div>
+              
+              <div className="demo-map-sidebar">
+                {(() => {
+                  const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
+                  
+                  // For custom layouts, show layout-specific metrics
+                  if (unit && unit.isCustomLayout && unit.layoutData) {
+                    const items = unit.layoutData.items || [];
+                    const skuHolders = items.filter(item => item.compartmentContents);
+                    const totalSKUs = skuHolders.reduce((sum, holder) => 
+                      sum + Object.keys(holder.compartmentContents || {}).length, 0
+                    );
+                    
+                    return (
+                      <>
+                        {/* Real-time Layout Metrics */}
+                        <div className="warehouse-metrics">
+                          <h3>📊 Layout Metrics</h3>
+                          
+                          <div className="metrics-grid">
+                            <div className="metric-card">
+                              <div className="metric-value">{items.length}</div>
+                              <div className="metric-label">Components</div>
+                            </div>
+                            
+                            <div className="metric-card">
+                              <div className="metric-value">{unit.utilization}%</div>
+                              <div className="metric-label">Utilization</div>
+                            </div>
+                            
+                            <div className="metric-card">
+                              <div className="metric-value">{totalSKUs}</div>
+                              <div className="metric-label">SKUs</div>
+                            </div>
+                            
+                            <div className="metric-card">
+                              <div className="metric-value">{unit.zones}</div>
+                              <div className="metric-label">Zones</div>
+                            </div>
+                          </div>
+                          
+                          <div className="capacity-overview">
+                            <h4>Layout Information</h4>
+                            <div className="layout-info">
+                              <div><strong>Status:</strong> {unit.status}</div>
+                              <div><strong>Created:</strong> {new Date(unit.layoutData.timestamp).toLocaleDateString()}</div>
+                              <div><strong>Size:</strong> {unit.subtitle.split(' - ')[1] || 'Custom'}</div>
+                              <div><strong>Version:</strong> {unit.layoutData.version || '1.0'}</div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* SKU Details for custom layouts */}
+                        {totalSKUs > 0 && (
+                          <div className="demo-map-info">
+                            <h3>SKU Information</h3>
+                            <div className="sku-list">
+                              {skuHolders.map((holder) => (
+                                <div key={holder.id}>
+                                  <div className="sku-holder-title">{holder.name || 'SKU Holder'}</div>
+                                  {Object.entries(holder.compartmentContents || {}).map(([compartmentId, skuData]) => (
+                                    <div key={compartmentId} className="sku-item">
+                                      <div className="sku-id">{skuData.uniqueId || skuData.sku}</div>
+                                      <div className="sku-details">
+                                        Status: {skuData.status || 'planned'} | 
+                                        Qty: {skuData.quantity || 1}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  }
+                  
+                  // For demo units, show demo metrics
+                  const demoData = demoMapsData[selectedUnitForDemo];
+                  if (!demoData) return null;
+                  
+                  return (
+                    <div className="warehouse-metrics">
+                      <h3>📊 Real-time Metrics</h3>
+                      
+                      <div className="metrics-grid">
+                        <div className="metric-card">
+                          <div className="metric-value">
+                            {demoData.zones.reduce((sum, zone) => sum + zone.items, 0)}
+                          </div>
+                          <div className="metric-label">Total Items</div>
+                        </div>
+                        
+                        <div className="metric-card">
+                          <div className="metric-value">
+                            {Math.round(
+                              (demoData.zones.reduce((sum, zone) => sum + zone.items, 0) /
+                              demoData.zones.reduce((sum, zone) => sum + zone.capacity, 0)) * 100
+                            ) || 0}%
+                          </div>
+                          <div className="metric-label">Utilization</div>
+                        </div>
+                        
+                        <div className="metric-card">
+                          <div className="metric-value">{demoData.zones.length}</div>
+                          <div className="metric-label">Active Zones</div>
+                        </div>
+                        
+                        <div className="metric-card">
+                          <div className="metric-value">
+                            {demoData.equipment.filter(eq => eq.status === 'active').length}
+                          </div>
+                          <div className="metric-label">Equipment Online</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+                
+                {(() => {
+                  const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
+                  const demoData = demoMapsData[selectedUnitForDemo];
+                  
+                  // Only show demo zone/equipment info for demo units
+                  if (!unit || !unit.isCustomLayout) {
+                    if (!demoData) return null;
+                    
+                    return (
+                      <>
+                        <div className="demo-map-info">
+                          <h3>Zone Information</h3>
+                          <div className="zone-list">
+                            {demoData.zones.map((zone) => (
+                              <div key={zone.id} className="zone-info-item">
+                                <div className="zone-color" style={{ backgroundColor: zone.color }}></div>
+                                <div className="zone-details">
+                                  <div className="zone-name">{zone.name}</div>
+                                  <div className="zone-capacity">
+                                    {zone.items}/{zone.capacity} items
+                                    <div className="capacity-bar">
+                                      <div 
+                                        className="capacity-fill" 
+                                        style={{ 
+                                          width: `${zone.capacity > 0 ? (zone.items / zone.capacity) * 100 : 0}%`,
+                                          backgroundColor: zone.color 
+                                        }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div className="demo-map-equipment">
+                          <h3>Equipment Status</h3>
+                          <div className="equipment-list">
+                            {demoData.equipment.map((equipment) => (
+                              <div key={equipment.id} className="equipment-item">
+                                <div className={`equipment-status ${equipment.status}`}></div>
+                                <div className="equipment-info">
+                                  <div className="equipment-name">{equipment.name}</div>
+                                  <div className="equipment-details">
+                                    Status: {equipment.status}
+                                    {equipment.temp && <span> | Temp: {equipment.temp}</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  }
+                  
+                  return null;
+                })()}
+              </div>
+            </div>
+            
+            <div className="demo-map-footer">
+              <div className="demo-map-legend">
+                <div className="legend-item">
+                  <div className="legend-color active"></div>
+                  <span>Active Equipment</span>
+                </div>
+                <div className="legend-item">
+                  <div className="legend-color offline"></div>
+                  <span>Offline Equipment</span>
+                </div>
+                <div className="legend-item">
+                  <div className="legend-color zone"></div>
+                  <span>Storage Zones</span>
+                </div>
+              </div>
+              <button className="demo-map-btn" onClick={() => setShowDemoMapModal(false)}>
+                Close Map
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default WarehouseMapView;

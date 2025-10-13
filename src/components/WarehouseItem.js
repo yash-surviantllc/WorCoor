@@ -412,8 +412,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </div>
       )}
 
-      {/* Info Button - Hidden for square boundary and SKU holder to keep them clean */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && (
+      {/* Info Button - Hidden for square boundary and SKU components to keep them clean */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && !(item.type === 'storage_unit' && item.skuGrid) && (
         <button
           onClick={handleInfoClick}
           style={{
@@ -440,8 +440,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </button>
       )}
 
-      {/* Hide text content for square boundary and SKU holder - keep them clean */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && (
+      {/* Hide text content for square boundary and SKU components - keep them clean */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && !(item.type === 'storage_unit' && item.skuGrid) && (
         <div style={{ 
           textAlign: 'center', 
           fontSize: '0.8rem',
@@ -476,7 +476,7 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </div>
       )}
       
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.label && (
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && !(item.type === 'storage_unit' && item.skuGrid) && item.label && (
         <div style={{ 
           fontSize: '0.7rem', 
           color: '#666',
@@ -488,8 +488,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </div>
       )}
 
-      {/* Stack mode indicator - Hidden for square boundary and SKU holder */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && stackMode === 'enabled' && isStackable && (
+      {/* Stack mode indicator - Hidden for square boundary and SKU components */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && !(item.type === 'storage_unit' && item.skuGrid) && stackMode === 'enabled' && isStackable && (
         <div style={{
           position: 'absolute',
           bottom: '2px',
@@ -505,8 +505,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </div>
       )}
 
-      {/* Status and Utilization Indicators - Hidden for square boundary and SKU holder */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && (
+      {/* Status and Utilization Indicators - Hidden for square boundary and SKU components */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && !(item.type === 'storage_unit' && item.skuGrid) && (
       <div style={{
         position: 'absolute',
         bottom: '2px',
@@ -551,8 +551,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
       </div>
       )}
 
-      {/* Real-time status pulse for active locations - Hidden for square boundary and SKU holder */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.inventoryData && item.inventoryData.lastActivity && 
+      {/* Real-time status pulse for active locations - Hidden for square boundary and SKU components */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && !(item.type === 'storage_unit' && item.skuGrid) && item.inventoryData && item.inventoryData.lastActivity && 
        new Date() - new Date(item.inventoryData.lastActivity) < 3600000 && ( // Within last hour
         <div style={{
           position: 'absolute',

@@ -318,7 +318,7 @@ const WarehouseCanvas = ({
             showCompartments: draggedItem.showCompartments || false,
             allowEmpty: draggedItem.allowEmpty || false,
             maxSKUsPerCompartment: draggedItem.maxSKUsPerCompartment || 1,
-            compartmentContents: draggedItem.type === 'sku_holder' ? {} : undefined // Initialize empty for user to populate
+            compartmentContents: (draggedItem.type === 'sku_holder' || draggedItem.type === 'storage_unit') ? {} : undefined // Initialize empty for user to populate
           };
           
           console.log('Creating new item:', newItem);

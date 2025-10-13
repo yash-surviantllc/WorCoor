@@ -311,14 +311,16 @@ const WarehouseCanvas = ({
             minSize: draggedItem.minSize,
             maxSize: draggedItem.maxSize,
             gridStep: draggedItem.gridStep || 60,
-            // SKU Holder specific properties
+            // SKU-related properties
+            hasSku: draggedItem.hasSku || false,
+            singleSku: draggedItem.singleSku || false,
             skuGrid: draggedItem.skuGrid || false,
             skuCompartments: draggedItem.skuCompartments,
             compartmentSize: draggedItem.compartmentSize,
             showCompartments: draggedItem.showCompartments || false,
             allowEmpty: draggedItem.allowEmpty || false,
             maxSKUsPerCompartment: draggedItem.maxSKUsPerCompartment || 1,
-            compartmentContents: (draggedItem.type === 'sku_holder' || draggedItem.type === 'storage_unit') ? {} : undefined // Initialize empty for user to populate
+            compartmentContents: draggedItem.type === 'sku_holder' ? {} : undefined // Initialize empty for user to populate
           };
           
           console.log('Creating new item:', newItem);

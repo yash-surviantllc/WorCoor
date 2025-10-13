@@ -22,6 +22,16 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
 
   const handleClick = (e) => {
     e.stopPropagation();
+    
+    // Handle Storage Unit SKU assignment
+    if (item.type === 'storage_unit' && item.hasSku && item.singleSku) {
+      if (!item.skuId && onRequestSkuId) {
+        // Request SKU ID for empty Storage Unit
+        onRequestSkuId(item.id, 'single-sku', 0, 0);
+        return;
+      }
+    }
+    
     onSelect(item.id);
   };
 
@@ -297,6 +307,30 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         );
       })()}
       
+      {/* Single SKU display for Storage Units */}
+      {item.hasSku && item.singleSku && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          backgroundColor: item.skuId ? '#E0F7FA' : 'rgba(255, 255, 255, 0.9)',
+          border: item.skuId ? '2px solid #00BCD4' : '2px dashed #00BCD4',
+          borderRadius: '6px',
+          padding: '4px 8px',
+          fontSize: '0.7rem',
+          fontWeight: 'bold',
+          color: item.skuId ? '#006064' : '#00BCD4',
+          boxShadow: item.skuId ? '0 2px 4px rgba(0, 188, 212, 0.3)' : 'none',
+          cursor: 'pointer',
+          minWidth: '40px',
+          textAlign: 'center',
+          zIndex: 3
+        }}>
+          {item.skuId || 'Click to assign SKU'}
+        </div>
+      )}
+      
       {/* Stack visual indicator */}
       {hasStack && (
         <>
@@ -412,8 +446,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </div>
       )}
 
-      {/* Info Button - Hidden for square boundary and SKU components to keep them clean */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && !(item.type === 'storage_unit' && item.skuGrid) && (
+      {/* Info Button - Hidden for square boundary and SKU holder to keep them clean */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && (
         <button
           onClick={handleInfoClick}
           style={{
@@ -440,8 +474,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </button>
       )}
 
-      {/* Hide text content for square boundary and SKU components - keep them clean */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && !(item.type === 'storage_unit' && item.skuGrid) && (
+      {/* Hide text content for square boundary and SKU holder - keep them clean */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && (
         <div style={{ 
           textAlign: 'center', 
           fontSize: '0.8rem',
@@ -476,7 +510,7 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </div>
       )}
       
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && !(item.type === 'storage_unit' && item.skuGrid) && item.label && (
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.label && (
         <div style={{ 
           fontSize: '0.7rem', 
           color: '#666',
@@ -488,8 +522,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </div>
       )}
 
-      {/* Stack mode indicator - Hidden for square boundary and SKU components */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && !(item.type === 'storage_unit' && item.skuGrid) && stackMode === 'enabled' && isStackable && (
+      {/* Stack mode indicator - Hidden for square boundary and SKU holder */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && stackMode === 'enabled' && isStackable && (
         <div style={{
           position: 'absolute',
           bottom: '2px',
@@ -505,8 +539,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </div>
       )}
 
-      {/* Status and Utilization Indicators - Hidden for square boundary and SKU components */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && !(item.type === 'storage_unit' && item.skuGrid) && (
+      {/* Status and Utilization Indicators - Hidden for square boundary and SKU holder */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && (
       <div style={{
         position: 'absolute',
         bottom: '2px',
@@ -551,8 +585,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
       </div>
       )}
 
-      {/* Real-time status pulse for active locations - Hidden for square boundary and SKU components */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && !(item.type === 'storage_unit' && item.skuGrid) && item.inventoryData && item.inventoryData.lastActivity && 
+      {/* Real-time status pulse for active locations - Hidden for square boundary and SKU holder */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.inventoryData && item.inventoryData.lastActivity && 
        new Date() - new Date(item.inventoryData.lastActivity) < 3600000 && ( // Within last hour
         <div style={{
           position: 'absolute',

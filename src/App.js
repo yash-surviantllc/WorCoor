@@ -556,10 +556,24 @@ function App() {
   // Get existing SKU IDs for a specific item
   const getExistingSkuIds = useCallback((itemId) => {
     const item = warehouseItems.find(item => item.id === itemId);
-    if (!item || !item.compartmentContents) return [];
-    return Object.values(item.compartmentContents)
-      .map(content => content.locationId || content.uniqueId)
-      .filter(Boolean);
+    if (!item) return [];
+    
+    const skuIds = [];
+    
+    // Get SKU IDs from compartmentalized items (Storage Racks)
+    if (item.compartmentContents) {
+      const compartmentSkuIds = Object.values(item.compartmentContents)
+        .map(content => content.locationId || content.uniqueId)
+        .filter(Boolean);
+      skuIds.push(...compartmentSkuIds);
+    }
+    
+    // Get SKU ID from single SKU items (Storage Units)
+    if (item.skuId) {
+      skuIds.push(item.skuId);
+    }
+    
+    return skuIds;
   }, [warehouseItems]);
 
   // Handle SKU ID selection
@@ -570,35 +584,62 @@ function App() {
     const item = warehouseItems.find(item => item.id === itemId);
     if (!item) return;
     
-    const newContents = { 
-      ...item.compartmentContents, 
-      [compartmentId]: { 
-        locationId: skuId,
-        uniqueId: skuId, // Keep for backward compatibility
-        sku: skuId, // Use the selected SKU ID as the SKU
-        quantity: 1,
-        status: 'planned',
-        category: '',
-        storageSpace: `${Math.floor(item.width / 60)}x${Math.floor(item.height / 60)}`,
-        availability: 'available',
-        createdAt: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-        position: {
-          row: row + 1,
-          col: col + 1,
-          compartment: compartmentId
-        },
-        metadata: {
-          weight: null,
-          dimensions: null,
-          temperature: null,
-          hazardous: false,
-          priority: 'normal'
+    // Handle single SKU units (Storage Unit)
+    if (compartmentId === 'single-sku') {
+      handleUpdateItem(itemId, { 
+        skuId: skuId,
+        skuData: {
+          locationId: skuId,
+          uniqueId: skuId,
+          sku: skuId,
+          quantity: 1,
+          status: 'planned',
+          category: '',
+          availability: 'available',
+          createdAt: new Date().toISOString(),
+          lastModified: new Date().toISOString(),
+          metadata: {
+            weight: null,
+            dimensions: null,
+            temperature: null,
+            hazardous: false,
+            priority: 'normal'
+          }
         }
-      }
-    };
+      });
+    } else {
+      // Handle compartmentalized units (Storage Racks)
+      const newContents = { 
+        ...item.compartmentContents, 
+        [compartmentId]: { 
+          locationId: skuId,
+          uniqueId: skuId, // Keep for backward compatibility
+          sku: skuId, // Use the selected SKU ID as the SKU
+          quantity: 1,
+          status: 'planned',
+          category: '',
+          storageSpace: `${Math.floor(item.width / 60)}x${Math.floor(item.height / 60)}`,
+          availability: 'available',
+          createdAt: new Date().toISOString(),
+          lastModified: new Date().toISOString(),
+          position: {
+            row: row + 1,
+            col: col + 1,
+            compartment: compartmentId
+          },
+          metadata: {
+            weight: null,
+            dimensions: null,
+            temperature: null,
+            hazardous: false,
+            priority: 'normal'
+          }
+        }
+      };
+      
+      handleUpdateItem(itemId, { compartmentContents: newContents });
+    }
     
-    handleUpdateItem(itemId, { compartmentContents: newContents });
     setSkuIdSelectorVisible(false);
     setPendingSkuRequest(null);
   }, [pendingSkuRequest, warehouseItems, handleUpdateItem]);

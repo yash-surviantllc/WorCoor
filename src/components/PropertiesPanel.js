@@ -419,6 +419,97 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
         </div>
       )}
 
+      {/* Storage Unit SKU Management */}
+      {selectedItem.hasSku && selectedItem.singleSku && (
+        <div className="property-group" style={{ marginTop: '2rem' }}>
+          <label className="property-label">📦 Storage Unit SKU</label>
+          <div style={{ 
+            padding: '1rem', 
+            background: selectedItem.skuId ? '#E0F7FA' : '#FFF3E0', 
+            borderRadius: '6px',
+            fontSize: '0.85rem',
+            border: selectedItem.skuId ? '1px solid #00BCD4' : '1px solid #FF9800'
+          }}>
+            {selectedItem.skuId ? (
+              <div>
+                <div style={{ marginBottom: '0.5rem', color: '#006064' }}>
+                  <strong>SKU ID:</strong> {selectedItem.skuId}
+                </div>
+                {selectedItem.skuData && (
+                  <>
+                    <div style={{ marginBottom: '0.5rem', color: '#006064' }}>
+                      <strong>Status:</strong> {selectedItem.skuData.status || 'planned'}
+                    </div>
+                    <div style={{ marginBottom: '0.5rem', color: '#006064' }}>
+                      <strong>Quantity:</strong> {selectedItem.skuData.quantity || 1}
+                    </div>
+                    <div style={{ marginBottom: '0.5rem', color: '#006064' }}>
+                      <strong>Availability:</strong> {selectedItem.skuData.availability || 'available'}
+                    </div>
+                  </>
+                )}
+                <button
+                  onClick={() => {
+                    const newSkuId = prompt('Edit SKU ID:', selectedItem.skuId);
+                    if (newSkuId && newSkuId.trim() && newSkuId !== selectedItem.skuId) {
+                      onUpdateItem(selectedItem.id, { 
+                        skuId: newSkuId.trim(),
+                        skuData: {
+                          ...selectedItem.skuData,
+                          locationId: newSkuId.trim(),
+                          uniqueId: newSkuId.trim(),
+                          sku: newSkuId.trim(),
+                          lastModified: new Date().toISOString()
+                        }
+                      });
+                    }
+                  }}
+                  style={{
+                    padding: '4px 8px',
+                    backgroundColor: '#00BCD4',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    marginRight: '8px'
+                  }}
+                >
+                  Edit SKU ID
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm('Remove SKU ID from this Storage Unit?')) {
+                      onUpdateItem(selectedItem.id, { skuId: null, skuData: null });
+                    }
+                  }}
+                  style={{
+                    padding: '4px 8px',
+                    backgroundColor: '#f44336',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Remove SKU
+                </button>
+              </div>
+            ) : (
+              <div style={{ color: '#E65100', textAlign: 'center' }}>
+                <div style={{ marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                  No SKU assigned
+                </div>
+                <div style={{ fontSize: '0.8rem', marginBottom: '1rem' }}>
+                  Click on the Storage Unit to assign a sequential SKU ID
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* SKU Holder Management */}
       {selectedItem.skuGrid && (() => {
         // Calculate compartments based on 60px grid system

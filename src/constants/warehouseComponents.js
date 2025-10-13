@@ -185,21 +185,14 @@ export const WAREHOUSE_COMPONENTS = [
         icon: "📦",
         color: "#4CAF50",
         defaultSize: { width: 60, height: 60 }, // 1×1 grid block
-        description: "Individual storage unit with sequential SKU ID management",
+        description: "Individual storage unit with sequential SKU ID assignment",
         priority: "high",
         snapToGrid: true,
         gridAligned: true,
         gridStep: 60,
-        resizable: true,
-        minSize: { width: 60, height: 60 }, // Minimum 1×1 grid block
-        maxSize: { width: 180, height: 180 }, // Maximum 3×3 grid blocks
-        isContainer: true,
-        containerLevel: 3,
-        containerPadding: 4,
-        skuGrid: true, // Enable SKU compartment functionality
-        showCompartments: true, // Show visual compartment grid
-        allowEmpty: true, // Compartments can be vacant
-        maxSKUsPerCompartment: 1 // One SKU unit per compartment
+        resizable: false,
+        hasSku: true, // Enable SKU functionality
+        singleSku: true // Single SKU per unit (not compartmentalized)
       },
       {
         type: COMPONENT_TYPES.SKU_HOLDER,

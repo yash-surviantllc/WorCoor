@@ -56,6 +56,12 @@
   --font-size-2xl: 1.5rem;
   --font-size-3xl: 1.875rem;
   
+  /* Font Weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
   /* Spacing */
   --spacing-1: 0.25rem;
   --spacing-2: 0.5rem;
@@ -73,6 +79,13 @@
   --radius-lg: 0.5rem;
   --radius-xl: 0.75rem;
   --radius-2xl: 1rem;
+  
+  /* Border Radius (Alternative naming for consistency) */
+  --border-radius-sm: 0.25rem;
+  --border-radius-md: 0.375rem;
+  --border-radius-lg: 0.5rem;
+  --border-radius-xl: 0.75rem;
+  --border-radius-2xl: 1rem;
   
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -712,6 +725,11 @@ div.warehouse-item[data-type="sku_holder"]:hover * {
 .warehouse-item[data-type="sku_holder"].selected {
   border-color: #006064;
   box-shadow: var(--shadow-xl), 0 0 0 3px rgba(0, 188, 212, 0.3);
+}
+
+/* Storage Unit - Clean appearance with no rounded corners */
+.warehouse-item[data-type="storage_unit"] {
+  border-radius: 0 !important;
 }
 
 /* Operations Components */
@@ -1390,7 +1408,7 @@ div.warehouse-item[data-type="sku_holder"]:hover {
 
 .org-unit-label {
   font-size: var(--font-size-xs);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: rgba(255, 255, 255, 0.9);
   margin-bottom: var(--spacing-1);
   text-transform: uppercase;
@@ -1400,16 +1418,22 @@ div.warehouse-item[data-type="sku_holder"]:hover {
 .org-unit-dropdown-toggle {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: white;
-  padding: var(--spacing-1) var(--spacing-3);
+  padding: 6px 8px;
   display: flex;
   align-items: center;
-  gap: var(--spacing-2);
+  gap: 6px;
   cursor: pointer;
-  transition: all var(--transition-normal);
-  min-width: 240px;
+  transition: all var(--transition-fast);
+  min-width: 180px;
+  max-width: 200px;
   backdrop-filter: blur(10px);
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  position: relative;
+  z-index: 10;
+  height: 32px;
 }
 
 .org-unit-dropdown-toggle:hover {
@@ -1418,8 +1442,18 @@ div.warehouse-item[data-type="sku_holder"]:hover {
   transform: translateY(-1px);
 }
 
+.org-unit-dropdown-toggle:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+.org-unit-dropdown-toggle:active {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(0);
+}
+
 .org-unit-icon {
-  font-size: 1.2rem;
+  font-size: 14px;
   flex-shrink: 0;
 }
 
@@ -1429,20 +1463,20 @@ div.warehouse-item[data-type="sku_holder"]:hover {
 }
 
 .org-unit-name {
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  line-height: 1.2;
-  margin-bottom: 1px;
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  margin-bottom: 0;
 }
 
 .org-unit-subtitle {
-  font-size: var(--font-size-xs);
-  opacity: 0.8;
-  line-height: 1.2;
+  font-size: 10px;
+  opacity: 0.7;
+  line-height: 1;
 }
 
 .dropdown-arrow {
-  font-size: var(--font-size-xs);
+  font-size: 10px;
   opacity: 0.7;
   transition: transform var(--transition-normal);
 }
@@ -1458,18 +1492,21 @@ div.warehouse-item[data-type="sku_holder"]:hover {
   right: 0;
   background: white;
   border: 1px solid var(--gray-300);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
-  z-index: 1001;
-  max-height: 400px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  max-height: 250px;
   overflow-y: auto;
-  margin-top: var(--spacing-2);
+  margin-top: 2px;
+  backdrop-filter: blur(10px);
+  min-width: 180px;
+  max-width: 200px;
 }
 
 .dropdown-header {
-  padding: var(--spacing-3) var(--spacing-4);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
   color: var(--gray-600);
   border-bottom: 1px solid var(--gray-200);
   background: var(--gray-50);
@@ -1477,33 +1514,47 @@ div.warehouse-item[data-type="sku_holder"]:hover {
 
 .org-unit-option {
   width: 100%;
-  padding: var(--spacing-3) var(--spacing-4);
+  padding: 8px 10px;
   border: none;
   background: white;
   text-align: left;
   cursor: pointer;
-  transition: background-color var(--transition-fast);
+  transition: all var(--transition-fast);
   border-bottom: 1px solid var(--gray-100);
+  position: relative;
 }
 
 .org-unit-option:hover {
   background: var(--primary-50);
+  transform: translateX(2px);
+}
+
+.org-unit-option:active {
+  background: var(--primary-100);
+  transform: translateX(0);
 }
 
 .org-unit-option.selected {
   background: var(--primary-100);
   border-left: 4px solid var(--primary-500);
+  font-weight: var(--font-weight-semibold);
+}
+
+.org-unit-option:focus {
+  outline: none;
+  background: var(--primary-50);
+  box-shadow: inset 0 0 0 2px var(--primary-200);
 }
 
 .org-unit-option-name {
-  font-size: var(--font-size-base);
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
   color: var(--gray-900);
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 
 .org-unit-option-location {
-  font-size: var(--font-size-sm);
+  font-size: 10px;
   color: var(--gray-600);
 }
 
@@ -1564,6 +1615,44 @@ div.warehouse-item[data-type="sku_holder"]:hover {
 .sku-info {
   margin-top: var(--spacing-2);
   color: var(--gray-600);
+}
+
+/* Category Selection Styles */
+.category-label {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: var(--spacing-2);
+}
+
+.category-label span {
+  font-size: var(--font-size-sm);
+}
+
+.category-dropdown-container {
+  margin-bottom: var(--spacing-4);
+}
+
+.category-dropdown {
+  width: 100%;
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  background-color: white;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.category-dropdown:focus {
+  outline: none;
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.category-dropdown:hover {
+  border-color: var(--gray-400);
 }
 
 .custom-sku-container {
@@ -1733,6 +1822,9 @@ div.warehouse-item[data-type="sku_holder"]:hover {
   display: flex;
   align-items: center;
   gap: var(--spacing-1);
+  pointer-events: auto;
+  position: relative;
+  z-index: 5;
 }
 
 .zoom-btn {
@@ -1747,11 +1839,29 @@ div.warehouse-item[data-type="sku_holder"]:hover {
   align-items: center;
   justify-content: center;
   font-weight: var(--font-weight-bold);
+  font-size: 16px;
+  line-height: 1;
   transition: var(--transition-fast);
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  position: relative;
+  z-index: 10;
 }
 
 .zoom-btn:hover {
   background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.zoom-btn:active {
+  background: rgba(255, 255, 255, 0.4);
+  transform: scale(0.95);
+}
+
+.zoom-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
 }
 
 .zoom-display {
@@ -1908,14 +2018,7 @@ div.warehouse-item[data-type="sku_holder"]:hover {
   cursor: not-allowed;
 }
 
-.zoom-controls {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-1);
-  background: var(--gray-100);
-  border-radius: var(--border-radius-md);
-  padding: var(--spacing-1);
-}
+/* Removed duplicate zoom-controls - using zoom-controls-compact for navbar */
 
 .zoom-level {
   min-width: 50px;
@@ -1934,33 +2037,7 @@ div.warehouse-item[data-type="sku_holder"]:hover {
   margin-left: var(--spacing-1);
 }
 
-.dropdown-menu {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  background: white;
-  border: 1px solid var(--gray-300);
-  border-radius: var(--border-radius-md);
-  box-shadow: var(--shadow-lg);
-  min-width: 180px;
-  z-index: 1001;
-  animation: slideInUp var(--transition-fast);
-}
-
-.dropdown-menu button {
-  width: 100%;
-  padding: var(--spacing-2) var(--spacing-3);
-  background: none;
-  border: none;
-  text-align: left;
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  transition: var(--transition-fast);
-}
-
-.dropdown-menu button:hover {
-  background: var(--gray-50);
-}
+/* Removed duplicate dropdown-menu styles - using the first definition */
 
 .scale-info {
   display: flex;
@@ -3209,34 +3286,6 @@ input:checked + .toggle-slider:before {
   color: rgba(255, 255, 255, 0.7);
 }
 
-.zoom-controls {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.zoom-btn {
-  width: 36px;
-  height: 36px;
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 0.375rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-}
-
-.zoom-btn:hover {
-  background: #e9ecef;
-}
-
-.main-dashboard.dark-mode .zoom-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: white;
-}
 
 .map-view-content {
   flex: 1;

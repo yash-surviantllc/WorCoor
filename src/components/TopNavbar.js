@@ -208,14 +208,6 @@ const TopNavbar = ({
           </button>
         </div>
 
-        {/* Zoom Controls */}
-        <div className="navbar-section zoom-section">
-          <div className="zoom-controls-compact">
-            <button className="zoom-btn" onClick={onZoomOut} title="Zoom Out">−</button>
-            <span className="zoom-display">{Math.round(zoomLevel * 100)}%</span>
-            <button className="zoom-btn" onClick={onZoomIn} title="Zoom In">+</button>
-          </div>
-        </div>
 
         {/* Status Info */}
         <div className="navbar-section status-section">

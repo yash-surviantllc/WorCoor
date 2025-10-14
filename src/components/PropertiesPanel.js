@@ -446,6 +446,11 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
                     <div style={{ marginBottom: '0.5rem', color: '#006064' }}>
                       <strong>Availability:</strong> {selectedItem.skuData.availability || 'available'}
                     </div>
+                    <div style={{ marginBottom: '0.5rem', color: '#006064' }}>
+                      <strong>Category:</strong> {selectedItem.skuData.category ? 
+                        selectedItem.skuData.category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 
+                        'Storage'}
+                    </div>
                   </>
                 )}
                 <button

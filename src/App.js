@@ -577,12 +577,16 @@ function App() {
   }, [warehouseItems]);
 
   // Handle SKU ID selection
-  const handleSkuIdSelect = useCallback((skuId) => {
+  const handleSkuIdSelect = useCallback((data) => {
     if (!pendingSkuRequest) return;
     
     const { itemId, compartmentId, row, col } = pendingSkuRequest;
     const item = warehouseItems.find(item => item.id === itemId);
     if (!item) return;
+    
+    // Handle both string (legacy) and object (new with category) formats
+    const skuId = typeof data === 'string' ? data : data.skuId;
+    const category = typeof data === 'string' ? '' : data.category;
     
     // Handle single SKU units (Storage Unit)
     if (compartmentId === 'single-sku') {
@@ -594,7 +598,7 @@ function App() {
           sku: skuId,
           quantity: 1,
           status: 'planned',
-          category: '',
+          category: category,
           availability: 'available',
           createdAt: new Date().toISOString(),
           lastModified: new Date().toISOString(),
@@ -1015,6 +1019,7 @@ function App() {
           onClose={handleSkuIdSelectorClose}
           onSave={handleSkuIdSelect}
           existingSkuIds={pendingSkuRequest ? getExistingSkuIds(pendingSkuRequest.itemId) : []}
+          showCategories={pendingSkuRequest && pendingSkuRequest.compartmentId === 'single-sku'}
         />
       </div>
     </DndProvider>

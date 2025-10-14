@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from 'react';
 
-const SkuIdSelector = ({ isVisible, onClose, onSave, existingSkuIds = [] }) => {
+const SkuIdSelector = ({ isVisible, onClose, onSave, existingSkuIds = [], showCategories = false }) => {
   const [selectedSkuId, setSelectedSkuId] = useState('');
   const [customSkuId, setCustomSkuId] = useState('');
   const [useCustom, setUseCustom] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('storage');
+
+  // Available categories
+  const categories = [
+    { value: 'storage', label: 'Storage' },
+    { value: 'dry_storage', label: 'Dry Storage' },
+    { value: 'cold_storage', label: 'Cold Storage' },
+    { value: 'hazardous', label: 'Hazardous Materials' },
+    { value: 'fragile', label: 'Fragile Items' },
+    { value: 'bulk', label: 'Bulk Storage' }
+  ];
 
   // Generate available SKU IDs (001-999)
   const generateAvailableSkuIds = () => {
@@ -38,7 +49,11 @@ const SkuIdSelector = ({ isVisible, onClose, onSave, existingSkuIds = [] }) => {
       return;
     }
 
-    onSave(finalSkuId);
+    if (showCategories) {
+      onSave({ skuId: finalSkuId, category: selectedCategory });
+    } else {
+      onSave(finalSkuId); // Return just the SKU ID for Storage Racks
+    }
   };
 
   const handleClose = () => {
@@ -94,6 +109,28 @@ const SkuIdSelector = ({ isVisible, onClose, onSave, existingSkuIds = [] }) => {
                 </div>
               )}
             </div>
+
+            {/* Category Selection - Only for Storage Units */}
+            {showCategories && (
+              <div className="sku-option">
+                <label className="category-label">
+                  <span>📦 Storage Category</span>
+                </label>
+                <div className="category-dropdown-container">
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="category-dropdown"
+                  >
+                    {categories.map(category => (
+                      <option key={category.value} value={category.value}>
+                        {category.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
 
             <div className="sku-option">
               <label>

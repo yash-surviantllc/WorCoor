@@ -224,28 +224,17 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
                     e.target.style.transform = 'scale(1)';
                     e.target.style.boxShadow = hasItem ? '0 2px 4px rgba(0, 188, 212, 0.2), inset 0 1px 0 rgba(255,255,255,0.5)' : 'inset 0 1px 2px rgba(0, 188, 212, 0.1)';
                   }}
-                  title={hasItem ? `Location ID: ${hasItem.locationId || hasItem.uniqueId}\nSKU: ${hasItem.sku || 'N/A'}\nStatus: ${hasItem.status || 'planned'}\nCategory: ${hasItem.category || 'none'}\n(Click to edit, Right-click to delete)` : `Empty compartment ${row + 1}-${col + 1} (Click to add item)`}
+                  title={hasItem ? `Location ID: ${hasItem.locationId || hasItem.uniqueId}\nSKU: ${hasItem.sku || 'N/A'}\nStatus: ${hasItem.status || 'planned'}\nCategory: ${hasItem.category || 'none'}\n(Right-click to delete)` : `Empty compartment ${row + 1}-${col + 1} (Click to add item)`}
                   onClick={(e) => {
                     e.stopPropagation();
                     if (onUpdate) {
-                      if (hasItem) {
-                        // Edit existing Location ID
-                        const newLocationId = prompt(`Edit Location ID for compartment ${row + 1}-${col + 1}:`, hasItem.locationId || hasItem.uniqueId);
-                        if (newLocationId && newLocationId.trim() && newLocationId !== (hasItem.locationId || hasItem.uniqueId)) {
-                          const newContents = { ...item.compartmentContents };
-                          newContents[compartmentId] = { 
-                            ...hasItem, 
-                            locationId: newLocationId.trim(),
-                            lastModified: new Date().toISOString()
-                          };
-                          onUpdate(item.id, { compartmentContents: newContents });
-                        }
-                      } else {
-                        // Request SKU ID selection through callback
+                      if (!hasItem) {
+                        // Only allow adding new items, not editing existing ones
                         if (onRequestSkuId) {
                           onRequestSkuId(item.id, compartmentId, row, col);
                         }
                       }
+                      // Clicking on existing items does nothing (no edit functionality)
                     }
                   }}
                   onContextMenu={(e) => {
@@ -307,29 +296,7 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         );
       })()}
       
-      {/* Single SKU display for Storage Units */}
-      {item.hasSku && item.singleSku && (
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          backgroundColor: item.skuId ? '#E0F7FA' : 'rgba(255, 255, 255, 0.9)',
-          border: item.skuId ? '2px solid #00BCD4' : '2px dashed #00BCD4',
-          borderRadius: '6px',
-          padding: '4px 8px',
-          fontSize: '0.7rem',
-          fontWeight: 'bold',
-          color: item.skuId ? '#006064' : '#00BCD4',
-          boxShadow: item.skuId ? '0 2px 4px rgba(0, 188, 212, 0.3)' : 'none',
-          cursor: 'pointer',
-          minWidth: '40px',
-          textAlign: 'center',
-          zIndex: 3
-        }}>
-          {item.skuId || 'Click to assign SKU'}
-        </div>
-      )}
+      {/* Storage Units - no visual SKU display, managed through Properties Panel only */}
       
       {/* Stack visual indicator */}
       {hasStack && (
@@ -446,8 +413,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </div>
       )}
 
-      {/* Info Button - Hidden for square boundary and SKU holder to keep them clean */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && (
+      {/* Info Button - Hidden for square boundary, SKU holder, and storage unit to keep them clean */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'storage_unit' && (
         <button
           onClick={handleInfoClick}
           style={{

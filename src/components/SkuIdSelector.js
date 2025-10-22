@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
-const SkuIdSelector = ({ isVisible, onClose, onSave, existingSkuIds = [], showCategories = false }) => {
-  const [selectedSkuId, setSelectedSkuId] = useState('');
-  const [customSkuId, setCustomSkuId] = useState('');
+const SkuIdSelector = ({ isVisible, onClose, onSave, existingLocationIds = [], showCategories = false }) => {
+  const [selectedLocationId, setSelectedLocationId] = useState('');
+  const [customLocationId, setCustomLocationId] = useState('');
   const [useCustom, setUseCustom] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('storage');
 
@@ -16,49 +16,53 @@ const SkuIdSelector = ({ isVisible, onClose, onSave, existingSkuIds = [], showCa
     { value: 'bulk', label: 'Bulk Storage' }
   ];
 
-  // Generate available SKU IDs (001-999)
-  const generateAvailableSkuIds = () => {
+  // Generate available Location IDs (LOC-001 to LOC-999)
+  const generateAvailableLocationIds = () => {
     const allIds = [];
     for (let i = 1; i <= 999; i++) {
-      const skuId = `SKU ID ${i.toString().padStart(3, '0')}`;
-      if (!existingSkuIds.includes(skuId)) {
-        allIds.push(skuId);
+      const locationId = `LOC-${i.toString().padStart(3, '0')}`;
+      if (!existingLocationIds.includes(locationId)) {
+        allIds.push(locationId);
       }
     }
     return allIds;
   };
 
-  const availableSkuIds = generateAvailableSkuIds();
+  const availableLocationIds = generateAvailableLocationIds();
 
   useEffect(() => {
-    if (availableSkuIds.length > 0) {
-      setSelectedSkuId(availableSkuIds[0]);
+    if (availableLocationIds.length > 0) {
+      setSelectedLocationId(availableLocationIds[0]);
     }
-  }, [availableSkuIds.length]);
+    // Reset useCustom when showCategories is false (storage racks)
+    if (!showCategories) {
+      setUseCustom(false);
+    }
+  }, [availableLocationIds.length, showCategories]);
 
   const handleSave = () => {
-    const finalSkuId = useCustom ? customSkuId.trim() : selectedSkuId;
+    const finalLocationId = useCustom ? customLocationId.trim() : selectedLocationId;
     
-    if (!finalSkuId) {
-      alert('Please select or enter a SKU ID');
+    if (!finalLocationId) {
+      alert('Please select or enter a Location ID');
       return;
     }
 
-    if (existingSkuIds.includes(finalSkuId)) {
-      alert('This SKU ID is already in use. Please select a different one.');
+    if (existingLocationIds.includes(finalLocationId)) {
+      alert('This Location ID is already in use. Please select a different one.');
       return;
     }
 
     if (showCategories) {
-      onSave({ skuId: finalSkuId, category: selectedCategory });
+      onSave({ locationId: finalLocationId, category: selectedCategory });
     } else {
-      onSave(finalSkuId); // Return just the SKU ID for Storage Racks
+      onSave(finalLocationId); // Return just the Location ID for Horizontal Storage Racks
     }
   };
 
   const handleClose = () => {
-    setSelectedSkuId('');
-    setCustomSkuId('');
+    setSelectedLocationId('');
+    setCustomLocationId('');
     setUseCustom(false);
     onClose();
   };
@@ -67,9 +71,9 @@ const SkuIdSelector = ({ isVisible, onClose, onSave, existingSkuIds = [], showCa
 
   return (
     <div className="modal-overlay" onClick={handleClose}>
-      <div className="modal-content sku-id-selector" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content sku-id-selector location-id-selector" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Select SKU ID</h3>
+          <h3>Select Location ID</h3>
           <button className="modal-close" onClick={handleClose}>×</button>
         </div>
         
@@ -82,28 +86,28 @@ const SkuIdSelector = ({ isVisible, onClose, onSave, existingSkuIds = [], showCa
                   checked={!useCustom}
                   onChange={() => setUseCustom(false)}
                 />
-                <span>Select from available IDs</span>
+                <span>Select from available Location IDs</span>
               </label>
               
               {!useCustom && (
                 <div className="sku-dropdown-container">
                   <select
-                    value={selectedSkuId}
-                    onChange={(e) => setSelectedSkuId(e.target.value)}
+                    value={selectedLocationId}
+                    onChange={(e) => setSelectedLocationId(e.target.value)}
                     className="sku-dropdown"
                   >
-                    {availableSkuIds.slice(0, 50).map(skuId => (
-                      <option key={skuId} value={skuId}>
-                        {skuId}
+                    {availableLocationIds.slice(0, 50).map(locationId => (
+                      <option key={locationId} value={locationId}>
+                        {locationId}
                       </option>
                     ))}
                   </select>
                   <div className="sku-info">
-                    {availableSkuIds.length > 50 && (
-                      <small>Showing first 50 of {availableSkuIds.length} available IDs</small>
+                    {availableLocationIds.length > 50 && (
+                      <small>Showing first 50 of {availableLocationIds.length} available Location IDs</small>
                     )}
-                    {availableSkuIds.length === 0 && (
-                      <small style={{ color: '#f44336' }}>No available sequential IDs. Use custom ID.</small>
+                    {availableLocationIds.length === 0 && (
+                      <small style={{ color: '#f44336' }}>No available sequential Location IDs. Use custom ID.</small>
                     )}
                   </div>
                 </div>
@@ -132,36 +136,39 @@ const SkuIdSelector = ({ isVisible, onClose, onSave, existingSkuIds = [], showCa
               </div>
             )}
 
-            <div className="sku-option">
-              <label>
-                <input
-                  type="radio"
-                  checked={useCustom}
-                  onChange={() => setUseCustom(true)}
-                />
-                <span>Enter custom SKU ID</span>
-              </label>
-              
-              {useCustom && (
-                <div className="custom-sku-container">
+            {/* Custom Location ID - Only available for Storage Units (showCategories = true) */}
+            {showCategories && (
+              <div className="sku-option">
+                <label>
                   <input
-                    type="text"
-                    value={customSkuId}
-                    onChange={(e) => setCustomSkuId(e.target.value)}
-                    placeholder="Enter custom SKU ID (e.g., CUSTOM-001)"
-                    className="custom-sku-input"
-                    maxLength={20}
+                    type="radio"
+                    checked={useCustom}
+                    onChange={() => setUseCustom(true)}
                   />
-                </div>
-              )}
-            </div>
+                  <span>Enter custom Location ID</span>
+                </label>
+                
+                {useCustom && (
+                  <div className="custom-sku-container">
+                    <input
+                      type="text"
+                      value={customLocationId}
+                      onChange={(e) => setCustomLocationId(e.target.value)}
+                      placeholder="Enter custom Location ID (e.g., CUSTOM-LOC-001)"
+                      className="custom-sku-input"
+                      maxLength={20}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="existing-skus-info">
             <small>
-              <strong>Used SKU IDs:</strong> {existingSkuIds.length} 
-              {existingSkuIds.length > 0 && (
-                <span> (Latest: {existingSkuIds[existingSkuIds.length - 1]})</span>
+              <strong>Used Location IDs:</strong> {existingLocationIds.length} 
+              {existingLocationIds.length > 0 && (
+                <span> (Latest: {existingLocationIds[existingLocationIds.length - 1]})</span>
               )}
             </small>
           </div>
@@ -174,9 +181,9 @@ const SkuIdSelector = ({ isVisible, onClose, onSave, existingSkuIds = [], showCa
           <button 
             className="btn btn-primary" 
             onClick={handleSave}
-            disabled={!useCustom && !selectedSkuId || useCustom && !customSkuId.trim()}
+            disabled={!useCustom && !selectedLocationId || useCustom && !customLocationId.trim()}
           >
-            Add SKU
+            Add Location
           </button>
         </div>
       </div>

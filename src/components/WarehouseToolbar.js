@@ -9,7 +9,10 @@ const WarehouseToolbar = ({
   selectedZone,
   mode,
   onModeChange,
-  onBack
+  onBack,
+  showLabels,
+  onToggleLabels,
+  onBulkLabelEdit
 }) => {
   const toolbarStyle = {
     display: 'flex',
@@ -111,6 +114,26 @@ const WarehouseToolbar = ({
           disabled={!selectedZone}
         >
           🔄 Fill Zone
+        </button>
+      </div>
+
+      <div style={separatorStyle}></div>
+
+      {/* Label Management */}
+      <div style={{ display: 'flex', gap: '4px' }}>
+        <button 
+          style={showLabels ? activeButtonStyle : buttonStyle}
+          onClick={onToggleLabels}
+          title="Toggle label visibility"
+        >
+          🏷️ Labels
+        </button>
+        <button 
+          style={buttonStyle}
+          onClick={onBulkLabelEdit}
+          title="Bulk edit labels"
+        >
+          📝 Bulk Edit
         </button>
       </div>
 

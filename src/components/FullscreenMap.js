@@ -10,6 +10,15 @@ const FullscreenMap = () => {
   const [searchType, setSearchType] = useState('location');
   const [searchResults, setSearchResults] = useState([]);
   const [highlightedItems, setHighlightedItems] = useState([]);
+  
+  // Enhanced dropdown search states
+  const [selectedLocationTag, setSelectedLocationTag] = useState('');
+  const [selectedSku, setSelectedSku] = useState('');
+  const [selectedAsset, setSelectedAsset] = useState('');
+  const [availableLocationTags, setAvailableLocationTags] = useState([]);
+  const [availableSkus, setAvailableSkus] = useState([]);
+  const [availableAssets, setAvailableAssets] = useState([]);
+  const [dropdownSearchActive, setDropdownSearchActive] = useState(false);
 
   useEffect(() => {
     // Get map data from URL hash
@@ -25,6 +34,9 @@ const FullscreenMap = () => {
         if (parsedData.layoutData && parsedData.layoutData.items) {
           const opData = generateOperationalData(parsedData.layoutData.items);
           setOperationalData(opData);
+          
+          // Extract dropdown options from operational data
+          extractDropdownOptions(parsedData.layoutData.items, opData);
         }
       } catch (err) {
         setError('Failed to load map data');
@@ -42,7 +54,7 @@ const FullscreenMap = () => {
       const itemId = `item-${index}`;
       
       // Generate different data based on item type
-      if (item.type === 'sku_holder' || item.type === 'storage_unit') {
+      if (item.type === 'sku_holder' || item.type === 'vertical_sku_holder' || item.type === 'storage_unit') {
         const capacity = item.compartmentContents ? Object.keys(item.compartmentContents).length * 4 : Math.floor(Math.random() * 50) + 20;
         const occupied = Math.floor(capacity * (0.6 + Math.random() * 0.35)); // 60-95% utilization
         
@@ -217,71 +229,154 @@ const FullscreenMap = () => {
     setShowInfoPanel(true);
   };
 
-  // Search functionality
-  const performSearch = (query, type) => {
-    if (!query.trim()) {
+  // Extract dropdown options from data
+  const extractDropdownOptions = (items, opData) => {
+    const locationTags = new Set();
+    const skus = new Set();
+    const assets = new Set();
+    
+    items.forEach((item, index) => {
+      const itemId = `item-${index}`;
+      const itemOpData = opData[itemId];
+      
+      if (itemOpData) {
+        // Extract location tags
+        if (itemOpData.type === 'storage') {
+          locationTags.add(`${itemOpData.location.zone}-${itemOpData.location.aisle}-${itemOpData.location.position}`);
+          locationTags.add(itemOpData.location.zone);
+          locationTags.add(`Aisle-${itemOpData.location.aisle}`);
+        } else if (itemOpData.type === 'zone') {
+          locationTags.add(itemOpData.zoneId);
+          locationTags.add(itemOpData.location.sector);
+          locationTags.add(`Floor-${itemOpData.location.floor}`);
+        }
+        
+        // Extract SKUs
+        if (itemOpData.skus) {
+          Object.values(itemOpData.skus).forEach(sku => {
+            if (sku.uniqueId) skus.add(sku.uniqueId);
+            if (sku.sku) skus.add(sku.sku);
+            if (sku.category) skus.add(sku.category);
+            if (sku.brand) skus.add(sku.brand);
+          });
+        }
+        
+        // Extract assets (equipment, unit IDs, etc.)
+        if (itemOpData.unitId) assets.add(itemOpData.unitId);
+        if (itemOpData.zoneId) assets.add(itemOpData.zoneId);
+        if (itemOpData.equipment) {
+          itemOpData.equipment.forEach(eq => assets.add(eq));
+        }
+        if (itemOpData.type) assets.add(itemOpData.type.toUpperCase());
+      }
+    });
+    
+    setAvailableLocationTags(Array.from(locationTags).sort());
+    setAvailableSkus(Array.from(skus).sort());
+    setAvailableAssets(Array.from(assets).sort());
+  };
+  
+  // Enhanced search functionality with dropdown filters only
+  const performSearch = () => {
+    // Check if dropdown search is active
+    const hasDropdownFilters = selectedLocationTag || selectedSku || selectedAsset;
+    
+    if (!hasDropdownFilters) {
       setSearchResults([]);
       setHighlightedItems([]);
+      setDropdownSearchActive(false);
       return;
     }
 
     const results = [];
     const highlighted = [];
-    const searchTerm = query.toLowerCase();
+    setDropdownSearchActive(hasDropdownFilters);
 
     if (mapData && mapData.layoutData && mapData.layoutData.items) {
       mapData.layoutData.items.forEach((item, index) => {
         const itemId = `item-${index}`;
         const opData = operationalData[itemId];
         
-        if (type === 'location' && opData) {
-          // Search by location ID
-          if (opData.type === 'storage') {
-            const locationId = `${opData.location.zone}-${opData.location.aisle}-${opData.location.position}`;
-            if (opData.unitId.toLowerCase().includes(searchTerm) || 
-                locationId.toLowerCase().includes(searchTerm) ||
-                opData.location.zone.toLowerCase().includes(searchTerm)) {
-              results.push({
-                id: itemId,
-                type: 'location',
-                title: `Location: ${opData.unitId}`,
-                subtitle: `Zone ${opData.location.zone}, Aisle ${opData.location.aisle}, Position ${opData.location.position}`,
-                item: item,
-                opData: opData
-              });
-              highlighted.push(itemId);
+        let matchesSearch = false;
+        let matchesDropdowns = true;
+        
+        // Check dropdown filters first
+        if (selectedLocationTag && opData) {
+          const locationMatches = opData.type === 'storage' 
+            ? (`${opData.location.zone}-${opData.location.aisle}-${opData.location.position}`.includes(selectedLocationTag) ||
+               opData.location.zone === selectedLocationTag ||
+               `Aisle-${opData.location.aisle}` === selectedLocationTag)
+            : (opData.type === 'zone' && 
+               (opData.zoneId === selectedLocationTag ||
+                opData.location.sector === selectedLocationTag ||
+                `Floor-${opData.location.floor}` === selectedLocationTag));
+          matchesDropdowns = matchesDropdowns && locationMatches;
+        }
+        
+        if (selectedSku && opData && opData.skus) {
+          const skuMatches = Object.values(opData.skus).some(sku => 
+            sku.uniqueId === selectedSku ||
+            sku.sku === selectedSku ||
+            sku.category === selectedSku ||
+            sku.brand === selectedSku
+          );
+          matchesDropdowns = matchesDropdowns && skuMatches;
+        }
+        
+        if (selectedAsset && opData) {
+          const assetMatches = opData.unitId === selectedAsset ||
+                              opData.zoneId === selectedAsset ||
+                              (opData.equipment && opData.equipment.includes(selectedAsset)) ||
+                              opData.type.toUpperCase() === selectedAsset;
+          matchesDropdowns = matchesDropdowns && assetMatches;
+        }
+        
+        // Item must match dropdown filters
+        if (matchesDropdowns) {
+          if (opData && (opData.type === 'storage' || opData.type === 'zone')) {
+            let title, subtitle;
+            
+            if (opData.type === 'storage') {
+              title = `Location: ${opData.unitId}`;
+              subtitle = `Zone ${opData.location.zone}, Aisle ${opData.location.aisle}, Position ${opData.location.position}`;
+            } else {
+              title = `Zone: ${opData.zoneId}`;
+              subtitle = `Throughput: ${opData.throughput} items/hr`;
             }
-          } else if (opData.type === 'zone') {
-            if (opData.zoneId.toLowerCase().includes(searchTerm)) {
-              results.push({
-                id: itemId,
-                type: 'location',
-                title: `Zone: ${opData.zoneId}`,
-                subtitle: `Throughput: ${opData.throughput} items/hr`,
-                item: item,
-                opData: opData
-              });
-              highlighted.push(itemId);
-            }
+            
+            results.push({
+              id: itemId,
+              type: 'location',
+              title: title,
+              subtitle: subtitle,
+              item: item,
+              opData: opData
+            });
+            highlighted.push(itemId);
           }
-        } else if (type === 'item' && opData && opData.skus) {
-          // Search by item/SKU in compartments
-          Object.values(opData.skus).forEach(itemData => {
-            if (itemData.uniqueId?.toLowerCase().includes(searchTerm) ||
-                itemData.sku?.toLowerCase().includes(searchTerm) ||
-                itemData.description?.toLowerCase().includes(searchTerm)) {
-              results.push({
-                id: itemId,
-                type: 'item',
-                title: `Item: ${itemData.uniqueId}`,
-                subtitle: `${itemData.description} - ${itemData.sku}`,
-                item: item,
-                itemData: itemData,
-                opData: opData
-              });
-              highlighted.push(itemId);
-            }
-          });
+          
+          // Add SKU-specific results if SKU filter is active
+          if (selectedSku && opData && opData.skus) {
+            Object.values(opData.skus).forEach(itemData => {
+              if (itemData.uniqueId === selectedSku ||
+                  itemData.sku === selectedSku ||
+                  itemData.category === selectedSku ||
+                  itemData.brand === selectedSku) {
+                results.push({
+                  id: itemId,
+                  type: 'item',
+                  title: `Item: ${itemData.uniqueId}`,
+                  subtitle: `${itemData.description} - ${itemData.sku}`,
+                  item: item,
+                  itemData: itemData,
+                  opData: opData
+                });
+                if (!highlighted.includes(itemId)) {
+                  highlighted.push(itemId);
+                }
+              }
+            });
+          }
         }
       });
     }
@@ -290,21 +385,33 @@ const FullscreenMap = () => {
     setHighlightedItems(highlighted);
   };
 
-  const handleSearchChange = (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    performSearch(query, searchType);
+  // Dropdown filter handlers
+  const handleLocationTagChange = (e) => {
+    const value = e.target.value;
+    setSelectedLocationTag(value);
+    performSearch();
   };
-
-  const handleSearchTypeChange = (type) => {
-    setSearchType(type);
-    performSearch(searchQuery, type);
+  
+  const handleSkuChange = (e) => {
+    const value = e.target.value;
+    setSelectedSku(value);
+    performSearch();
+  };
+  
+  const handleAssetChange = (e) => {
+    const value = e.target.value;
+    setSelectedAsset(value);
+    performSearch();
   };
 
   const clearSearch = () => {
     setSearchQuery('');
+    setSelectedLocationTag('');
+    setSelectedSku('');
+    setSelectedAsset('');
     setSearchResults([]);
     setHighlightedItems([]);
+    setDropdownSearchActive(false);
   };
 
   // Helper function to render custom layout
@@ -834,7 +941,8 @@ const FullscreenMap = () => {
   const getItemDisplayName = (item) => {
     if (item.name) return item.name;
     const typeNames = {
-      'sku_holder': 'SKU Holder',
+      'sku_holder': 'Horizontal Storage Rack',
+      'vertical_sku_holder': 'Vertical Storage Rack',
       'storage_unit': 'Storage Unit',
       'storage_zone': 'Storage Zone',
       'receiving_zone': 'Receiving Zone',
@@ -874,6 +982,64 @@ const FullscreenMap = () => {
             {unit.status}
           </span>
         </div>
+        
+        {/* Enhanced Dropdown Search Filters - Moved to Header */}
+        <div className="fullscreen-search-inline">
+          <div className="search-dropdown-filters">
+            <div className="dropdown-filter">
+              <label>📍 Location Tag:</label>
+              <select 
+                value={selectedLocationTag} 
+                onChange={handleLocationTagChange}
+                className="search-dropdown"
+              >
+                <option value="">All Locations</option>
+                {availableLocationTags.map(tag => (
+                  <option key={tag} value={tag}>{tag}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="dropdown-filter">
+              <label>📦 SKU:</label>
+              <select 
+                value={selectedSku} 
+                onChange={handleSkuChange}
+                className="search-dropdown"
+              >
+                <option value="">All SKUs</option>
+                {availableSkus.map(sku => (
+                  <option key={sku} value={sku}>{sku}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="dropdown-filter">
+              <label>🏭 Asset:</label>
+              <select 
+                value={selectedAsset} 
+                onChange={handleAssetChange}
+                className="search-dropdown"
+              >
+                <option value="">All Assets</option>
+                {availableAssets.map(asset => (
+                  <option key={asset} value={asset}>{asset}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Clear button only shows when filters are active */}
+            {(selectedLocationTag || selectedSku || selectedAsset) && (
+              <div className="dropdown-filter">
+                <label>&nbsp;</label>
+                <button className="search-clear-btn-dropdown" onClick={clearSearch}>
+                  Clear All
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        
         <div className="fullscreen-map-controls">
           <button 
             className="fullscreen-control-btn"
@@ -892,40 +1058,8 @@ const FullscreenMap = () => {
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="fullscreen-search-bar">
-        <div className="search-container">
-          <div className="search-type-selector">
-            <button 
-              className={`search-type-btn ${searchType === 'location' ? 'active' : ''}`}
-              onClick={() => handleSearchTypeChange('location')}
-            >
-              📍 Search Location
-            </button>
-            <button 
-              className={`search-type-btn ${searchType === 'item' ? 'active' : ''}`}
-              onClick={() => handleSearchTypeChange('item')}
-            >
-              📦 Search Item
-            </button>
-          </div>
-          <div className="search-input-container">
-            <input
-              type="text"
-              placeholder={searchType === 'location' ? 'Search by location ID, zone, aisle...' : 'Search by item ID, SKU, description...'}
-              value={searchQuery}
-              onChange={handleSearchChange}
-              className="search-input"
-            />
-            {searchQuery && (
-              <button className="search-clear-btn" onClick={clearSearch}>
-                ×
-              </button>
-            )}
-          </div>
-        </div>
-        
-        {/* Search Results */}
+      {/* Search Results - Moved outside header */}
+      <div className="fullscreen-search-results">
         {searchResults.length > 0 && (
           <div className="search-results">
             <div className="search-results-header">
@@ -1025,17 +1159,79 @@ const renderDemoLayout = (demoData) => {
             opacity="0.7"
             rx="4"
           />
-          <text
-            x={zone.x + zone.width / 2}
-            y={zone.y + zone.height / 2}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize="14"
-            fill="#333"
-            fontWeight="bold"
-          >
-            {zone.id}
-          </text>
+          
+          {/* Unified Zone Label - Below Every Zone */}
+          {(() => {
+            // Generate smart label for fullscreen demo zones
+            const getFullscreenZoneLabel = () => {
+              if (zone.label && zone.label.trim()) return zone.label.trim();
+              if (zone.name && zone.name.trim()) return zone.name.trim();
+              if (zone.id && zone.id.trim()) return zone.id.trim();
+              
+              // Auto-generate based on type
+              const typeLabels = {
+                'storage': 'ZONE',
+                'receiving': 'RCV',
+                'dispatch': 'DSP',
+                'office': 'OFF',
+                'overflow': 'OVF'
+              };
+              
+              const prefix = typeLabels[zone.type] || 'ZONE';
+              return `${prefix}-${String(index + 1).padStart(2, '0')}`;
+            };
+
+            const label = getFullscreenZoneLabel();
+            if (!label) return null;
+
+            // Calculate label styling for fullscreen demo zones
+            const fontSize = Math.min(Math.max(zone.width / 12, 10), 16);
+            let labelColor = '#2c3e50';
+            let bgColor = 'rgba(52, 152, 219, 0.15)';
+            let borderColor = '#3498db';
+            
+            // Different colors for different zone types
+            if (zone.type === 'receiving') {
+              labelColor = '#e67e22';
+              bgColor = 'rgba(230, 126, 34, 0.15)';
+              borderColor = '#f39c12';
+            } else if (zone.type === 'dispatch') {
+              labelColor = '#8e44ad';
+              bgColor = 'rgba(142, 68, 173, 0.15)';
+              borderColor = '#9b59b6';
+            } else if (zone.type === 'office') {
+              labelColor = '#27ae60';
+              bgColor = 'rgba(39, 174, 96, 0.15)';
+              borderColor = '#2ecc71';
+            }
+
+            return (
+              <g>
+                {/* Label background */}
+                <rect
+                  x={zone.x + zone.width / 2 - Math.max(label.length * fontSize * 0.35, 25)}
+                  y={zone.y + zone.height + 8}
+                  width={Math.max(label.length * fontSize * 0.7, 50)}
+                  height={fontSize + 8}
+                  fill={bgColor}
+                  stroke={borderColor}
+                  strokeWidth="1.5"
+                  rx="4"
+                />
+                {/* Label text */}
+                <text
+                  x={zone.x + zone.width / 2}
+                  y={zone.y + zone.height + fontSize + 12}
+                  textAnchor="middle"
+                  fontSize={fontSize}
+                  fontWeight="600"
+                  fill={labelColor}
+                >
+                  {label}
+                </text>
+              </g>
+            );
+          })()}
         </g>
       ))}
       
@@ -1064,6 +1260,7 @@ const getItemColor = (type, opData) => {
     'solid_boundary': 'rgba(85, 85, 85, 0.1)',
     'dotted_boundary': 'rgba(85, 85, 85, 0.1)',
     'sku_holder': '#e3f2fd',
+    'vertical_sku_holder': '#fff3e0',
     'storage_unit': '#e3f2fd',
     'storage_zone': '#00bcd4',
     'receiving_zone': '#ffa726',
@@ -1090,6 +1287,7 @@ const getItemBorderColor = (type, opData) => {
     'solid_boundary': '#555555',
     'dotted_boundary': '#555555',
     'sku_holder': '#2196f3',
+    'vertical_sku_holder': '#ff5722',
     'storage_unit': '#2196f3',
     'storage_zone': '#00acc1',
     'receiving_zone': '#ff9800',

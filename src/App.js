@@ -18,7 +18,9 @@ import ZoneContextMenu from './components/ZoneContextMenu';
 import WarehouseDesigner from './components/WarehouseDesigner';
 import FullscreenMap from './components/FullscreenMap';
 import SkuIdSelector from './components/SkuIdSelector';
+import MultiLocationSelector from './components/MultiLocationSelector';
 import { STACK_MODES, STACKABLE_COMPONENTS, OCCUPANCY_STATUS, STORAGE_ORIENTATION } from './constants/warehouseComponents';
+import { getComponentColor, ensureFixedColors } from './utils/componentColors';
 import { generateLocationCode, generateMockInventoryData } from './utils/locationUtils';
 import { simulateDataRefresh, DataCache } from './utils/dataRefresh';
 import { facilityHierarchy } from './utils/facilityHierarchy';
@@ -52,7 +54,9 @@ function App() {
   const [layoutName, setLayoutName] = useState('Warehouse Management System');
   const [layoutNameSet, setLayoutNameSet] = useState(false);
   const [selectedOrgUnit, setSelectedOrgUnit] = useState(null);
+  const [selectedOrgMap, setSelectedOrgMap] = useState(null);
   const [skuIdSelectorVisible, setSkuIdSelectorVisible] = useState(false);
+  const [multiLocationSelectorVisible, setMultiLocationSelectorVisible] = useState(false);
   const [pendingSkuRequest, setPendingSkuRequest] = useState(null);
 
   const selectedItem = warehouseItems.find(item => item.id === selectedItemId);
@@ -69,6 +73,26 @@ function App() {
 
     return () => clearInterval(refreshInterval);
   }, []);
+
+  // Color correction effect - ensure all items have fixed colors
+  useEffect(() => {
+    setWarehouseItems(prev => {
+      const correctedItems = prev.map(item => {
+        const fixedColor = getComponentColor(item.type, item.category);
+        
+        // Debug log for vertical storage racks
+        if (item.type === 'vertical_sku_holder') {
+          console.log(`Correcting vertical storage rack ${item.id}: ${item.color} -> ${fixedColor}`);
+        }
+        
+        return {
+          ...item,
+          color: fixedColor || item.color
+        };
+      });
+      return correctedItems;
+    });
+  }, []); // Run once on mount to fix any existing items
 
   // Load layout from localStorage if available (for editing saved layouts)
   useEffect(() => {
@@ -190,7 +214,9 @@ function App() {
         inventoryData,
         occupancyStatus: occupancyStatuses[Math.floor(Math.random() * occupancyStatuses.length)],
         storageOrientation: storageOrientations[Math.floor(Math.random() * storageOrientations.length)],
-        facilityId: selectedFacility?.id
+        facilityId: selectedFacility?.id,
+        // Ensure color is always fixed based on component type and category
+        color: getComponentColor(newItem.type, newItem.category) || newItem.color
       };
       
       return [...prev, enhancedItem];
@@ -216,7 +242,12 @@ function App() {
     setWarehouseItems(prev => 
       prev.map(item => 
         item.id === itemId 
-          ? { ...item, ...updates }
+          ? { 
+              ...item, 
+              ...updates,
+              // Ensure color is always fixed based on component type and category
+              color: getComponentColor(item.type, item.category) || item.color
+            }
           : item
       )
     );
@@ -543,59 +574,130 @@ function App() {
     const layoutName = `${orgUnit.name} Layout`;
     
     setSelectedOrgUnit(orgUnit);
+    setSelectedOrgMap(null); // Reset map selection when org unit changes
     setLayoutName(layoutName);
     setLayoutNameSet(true);
   }, []);
 
-  // Handle SKU ID request from WarehouseItem
-  const handleSkuIdRequest = useCallback((itemId, compartmentId, row, col) => {
-    setPendingSkuRequest({ itemId, compartmentId, row, col });
-    setSkuIdSelectorVisible(true);
-  }, []);
+  // Handle organization mapping selection
+  const handleOrgMapSelect = useCallback((orgMap) => {
+    if (!selectedOrgUnit) return;
+    
+    const layoutName = `${selectedOrgUnit.name} - ${orgMap.name}`;
+    
+    setSelectedOrgMap(orgMap);
+    setLayoutName(layoutName);
+    setLayoutNameSet(true);
+  }, [selectedOrgUnit]);
 
-  // Get existing SKU IDs for a specific item
-  const getExistingSkuIds = useCallback((itemId) => {
+  // Handle Location ID request from WarehouseItem
+  const handleLocationIdRequest = useCallback((itemId, compartmentId, row, col) => {
+    const item = warehouseItems.find(item => item.id === itemId);
+    setPendingSkuRequest({ itemId, compartmentId, row, col });
+    
+    console.log('Location ID request for item:', item); // Debug log
+    
+    // Check if this is a vertical storage rack (with fallback check)
+    if (item && item.type === 'vertical_sku_holder') {
+      console.log('Detected vertical storage rack, opening MultiLocationSelector'); // Debug log
+      setMultiLocationSelectorVisible(true);
+    } else {
+      console.log('Opening regular SkuIdSelector for item type:', item?.type); // Debug log
+      setSkuIdSelectorVisible(true);
+    }
+  }, [warehouseItems]);
+
+  // Get existing Location IDs for a specific item
+  const getExistingLocationIds = useCallback((itemId) => {
     const item = warehouseItems.find(item => item.id === itemId);
     if (!item) return [];
     
-    const skuIds = [];
+    const locationIds = [];
     
-    // Get SKU IDs from compartmentalized items (Storage Racks)
+    // Get Location IDs from compartmentalized items (Storage Racks)
     if (item.compartmentContents) {
-      const compartmentSkuIds = Object.values(item.compartmentContents)
-        .map(content => content.locationId || content.uniqueId)
+      const compartmentLocationIds = Object.values(item.compartmentContents)
+        .flatMap(content => {
+          // Handle multiple location IDs (vertical storage racks)
+          if (content.isMultiLocation && content.locationIds) {
+            return content.locationIds;
+          }
+          // Handle single location ID (horizontal storage racks)
+          return content.locationId || content.uniqueId;
+        })
         .filter(Boolean);
-      skuIds.push(...compartmentSkuIds);
+      locationIds.push(...compartmentLocationIds);
     }
     
-    // Get SKU ID from single SKU items (Storage Units)
-    if (item.skuId) {
-      skuIds.push(item.skuId);
+    // Get Location ID from single location items (Storage Units)
+    if (item.locationId) {
+      locationIds.push(item.locationId);
     }
     
-    return skuIds;
+    return locationIds;
   }, [warehouseItems]);
 
-  // Handle SKU ID selection
-  const handleSkuIdSelect = useCallback((data) => {
+  // Handle Location ID selection
+  const handleLocationIdSelect = useCallback((data) => {
     if (!pendingSkuRequest) return;
     
     const { itemId, compartmentId, row, col } = pendingSkuRequest;
     const item = warehouseItems.find(item => item.id === itemId);
     if (!item) return;
     
+    // Handle multiple location IDs for vertical storage racks
+    if (data.isMultiple && item.type === 'vertical_sku_holder') {
+      const { locationIds, tags, category } = data;
+      const newContents = { 
+        ...item.compartmentContents, 
+        [compartmentId]: { 
+          locationIds: locationIds, // Multiple location IDs (L1, L2, L3)
+          tags: tags, // Multiple tags
+          primaryLocationId: locationIds[0], // First location ID as primary
+          uniqueId: locationIds[0], // Keep for backward compatibility
+          sku: locationIds.join(','), // Comma-separated for display
+          quantity: 1,
+          status: 'planned',
+          category: category,
+          storageSpace: `${Math.floor(item.width / 60)}x${Math.floor(item.height / 60)}`,
+          availability: 'available',
+          createdAt: new Date().toISOString(),
+          lastModified: new Date().toISOString(),
+          position: {
+            row: row + 1,
+            col: col + 1,
+            compartment: compartmentId
+          },
+          metadata: {
+            weight: null,
+            dimensions: null,
+            temperature: null,
+            hazardous: false,
+            priority: 'normal',
+            isMultiLocation: true
+          }
+        }
+      };
+      
+      handleUpdateItem(itemId, { compartmentContents: newContents });
+      setMultiLocationSelectorVisible(false);
+      setPendingSkuRequest(null);
+      return;
+    }
+    
     // Handle both string (legacy) and object (new with category) formats
-    const skuId = typeof data === 'string' ? data : data.skuId;
+    const locationId = typeof data === 'string' ? data : data.locationId;
     const category = typeof data === 'string' ? '' : data.category;
     
-    // Handle single SKU units (Storage Unit)
+    // Handle single location units (Storage Unit)
     if (compartmentId === 'single-sku') {
       handleUpdateItem(itemId, { 
-        skuId: skuId,
-        skuData: {
-          locationId: skuId,
-          uniqueId: skuId,
-          sku: skuId,
+        locationId: locationId,
+        category: category, // Add category for color determination
+        locationData: {
+          locationId: locationId,
+          uniqueId: locationId,
+          sku: locationId,
           quantity: 1,
           status: 'planned',
           category: category,
@@ -612,13 +714,13 @@ function App() {
         }
       });
     } else {
-      // Handle compartmentalized units (Storage Racks)
+      // Handle compartmentalized units (Horizontal Storage Racks)
       const newContents = { 
         ...item.compartmentContents, 
         [compartmentId]: { 
-          locationId: skuId,
-          uniqueId: skuId, // Keep for backward compatibility
-          sku: skuId, // Use the selected SKU ID as the SKU
+          locationId: locationId,
+          uniqueId: locationId, // Keep for backward compatibility
+          sku: locationId, // Use the selected Location ID as the SKU
           quantity: 1,
           status: 'planned',
           category: '',
@@ -648,9 +750,15 @@ function App() {
     setPendingSkuRequest(null);
   }, [pendingSkuRequest, warehouseItems, handleUpdateItem]);
 
-  // Handle SKU ID selector close
-  const handleSkuIdSelectorClose = useCallback(() => {
+  // Handle Location ID selector close
+  const handleLocationIdSelectorClose = useCallback(() => {
     setSkuIdSelectorVisible(false);
+    setPendingSkuRequest(null);
+  }, []);
+
+  // Handle Multi Location selector close
+  const handleMultiLocationSelectorClose = useCallback(() => {
+    setMultiLocationSelectorVisible(false);
     setPendingSkuRequest(null);
   }, []);
 
@@ -687,6 +795,7 @@ function App() {
       timestamp: new Date().toISOString(),
       version: '1.0',
       orgUnit: selectedOrgUnit,
+      orgMap: selectedOrgMap,
       metadata: {
         totalItems: warehouseItems.length,
         croppedItems: croppedLayout.croppedItems.length,
@@ -694,6 +803,7 @@ function App() {
         lastModified: new Date().toISOString(),
         cropping: operationalMetadata,
         orgUnit: selectedOrgUnit,
+        orgMap: selectedOrgMap,
         originalDimensions: {
           width: Math.max(...warehouseItems.map(item => item.x + item.width), 800),
           height: Math.max(...warehouseItems.map(item => item.y + item.height), 600)
@@ -870,6 +980,8 @@ function App() {
               layoutName={layoutName}
               selectedOrgUnit={selectedOrgUnit}
               onOrgUnitSelect={handleOrgUnitSelect}
+              selectedOrgMap={selectedOrgMap}
+              onOrgMapSelect={handleOrgMapSelect}
               onFacilityManager={handleFacilityManager}
               onMeasurementTools={handleMeasurementTools}
               onSave={handleSave}
@@ -914,7 +1026,7 @@ function App() {
                   zoomLevel={zoomLevel}
                   panOffset={panOffset}
                   onPanChange={handlePanChange}
-                  onRequestSkuId={handleSkuIdRequest}
+                  onRequestSkuId={handleLocationIdRequest}
                 />
                 
                 <PropertiesPanel
@@ -1013,13 +1125,22 @@ function App() {
           </>
         )}
 
-        {/* SKU ID Selector Modal */}
+        {/* Location ID Selector Modal */}
         <SkuIdSelector
           isVisible={skuIdSelectorVisible}
-          onClose={handleSkuIdSelectorClose}
-          onSave={handleSkuIdSelect}
-          existingSkuIds={pendingSkuRequest ? getExistingSkuIds(pendingSkuRequest.itemId) : []}
+          onClose={handleLocationIdSelectorClose}
+          onSave={handleLocationIdSelect}
+          existingLocationIds={pendingSkuRequest ? getExistingLocationIds(pendingSkuRequest.itemId) : []}
           showCategories={pendingSkuRequest && pendingSkuRequest.compartmentId === 'single-sku'}
+        />
+
+        {/* Multi Location ID Selector Modal for Vertical Storage Racks */}
+        <MultiLocationSelector
+          isVisible={multiLocationSelectorVisible}
+          onClose={handleMultiLocationSelectorClose}
+          onSave={handleLocationIdSelect}
+          existingLocationIds={pendingSkuRequest ? getExistingLocationIds(pendingSkuRequest.itemId) : []}
+          itemType={pendingSkuRequest ? warehouseItems.find(item => item.id === pendingSkuRequest.itemId)?.type : ''}
         />
       </div>
     </DndProvider>

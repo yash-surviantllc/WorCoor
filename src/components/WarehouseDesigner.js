@@ -6,12 +6,15 @@ import WarehouseToolbar from './WarehouseToolbar';
 import WarehousePalette from './WarehousePalette';
 import WarehousePropertiesPanel from './WarehousePropertiesPanel';
 import WarehouseDesignerCanvas from './WarehouseDesignerCanvas';
+import ColorLegend from './ColorLegend';
+import { getComponentColor } from '../utils/componentColors';
 
 const WarehouseDesigner = ({ onBack }) => {
   const [items, setItems] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [mode, setMode] = useState('boundary'); // boundary, zone, unit
   const [showProperties, setShowProperties] = useState(false);
+  const [showLabels, setShowLabels] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [boundaryCreated, setBoundaryCreated] = useState(false);
@@ -29,13 +32,13 @@ const WarehouseDesigner = ({ onBack }) => {
 
     const boundary = {
       id: uuidv4(),
-      type: 'warehouse_boundary',
+      type: 'square_boundary',
       name: 'Warehouse 1',
       x: 50,
       y: 50,
       width: 800,
       height: 500,
-      color: '#263238',
+      color: getComponentColor('square_boundary'), // Use fixed color
       containerLevel: 1,
       isContainer: true,
       containerPadding: 20,
@@ -86,7 +89,7 @@ const WarehouseDesigner = ({ onBack }) => {
       y: finalY,
       width: item.type === 'zone' ? 120 : 25,
       height: item.type === 'zone' ? 200 : 25,
-      color: item.color,
+      color: getComponentColor(item.type), // Use fixed color based on component type
       containerLevel: item.type === 'zone' ? 2 : 3,
       isContainer: item.type === 'zone',
       containerPadding: item.type === 'zone' ? 8 : 0,
@@ -203,6 +206,39 @@ const WarehouseDesigner = ({ onBack }) => {
     URL.revokeObjectURL(url);
   }, [items]);
 
+  // Label management functions
+  const handleToggleLabels = useCallback(() => {
+    setShowLabels(prev => !prev);
+  }, []);
+
+  const handleBulkLabelEdit = useCallback(() => {
+    const zones = items.filter(item => item.containerLevel === 2);
+    if (zones.length === 0) {
+      alert('No zones found to label');
+      return;
+    }
+
+    const startLetter = prompt('Enter starting letter for zone labels (A-Z):', 'A');
+    if (!startLetter || startLetter.length !== 1) return;
+
+    const startCode = startLetter.toUpperCase().charCodeAt(0);
+    if (startCode < 65 || startCode > 90) {
+      alert('Please enter a valid letter (A-Z)');
+      return;
+    }
+
+    const updatedItems = items.map(item => {
+      if (item.containerLevel === 2) {
+        const zoneIndex = zones.indexOf(item);
+        const newLabel = String.fromCharCode(startCode + zoneIndex);
+        return { ...item, label: newLabel };
+      }
+      return item;
+    });
+
+    setItems(updatedItems);
+  }, [items]);
+
   const containerStyle = {
     display: 'flex',
     flexDirection: 'column',
@@ -221,10 +257,11 @@ const WarehouseDesigner = ({ onBack }) => {
   const canvasContainerStyle = {
     flex: 1,
     position: 'relative',
-    overflow: 'hidden',
+    overflow: 'visible', // Allow labels to extend beyond canvas boundaries
     backgroundColor: '#0d1117',
     border: '1px solid #21262d',
-    borderRadius: '0.5rem'
+    borderRadius: '0.5rem',
+    paddingBottom: '50px' // Add space for labels below components
   };
 
   return (
@@ -241,6 +278,9 @@ const WarehouseDesigner = ({ onBack }) => {
           mode={mode}
           onModeChange={handleModeChange}
           onBack={onBack}
+          showLabels={showLabels}
+          onToggleLabels={handleToggleLabels}
+          onBulkLabelEdit={handleBulkLabelEdit}
         />
 
         <div style={mainContentStyle}>
@@ -259,6 +299,7 @@ const WarehouseDesigner = ({ onBack }) => {
               mode={mode}
               zoomLevel={zoomLevel}
               panOffset={panOffset}
+              showLabels={showLabels}
               onAddItem={handleAddItem}
               onMoveItem={handleMoveItem}
               onSelectItem={handleSelectItem}
@@ -275,6 +316,9 @@ const WarehouseDesigner = ({ onBack }) => {
             isVisible={showProperties}
           />
         </div>
+
+        {/* Color Legend */}
+        <ColorLegend />
       </div>
     </DndProvider>
   );

@@ -12,6 +12,8 @@ const WarehousePropertiesPanel = ({
     if (selectedItem) {
       setProperties({
         name: selectedItem.name || '',
+        label: selectedItem.label || '',
+        locationTag: selectedItem.locationTag || '',
         type: selectedItem.type || '',
         color: selectedItem.color || '#00BCD4',
         width: selectedItem.width || 0,
@@ -125,6 +127,35 @@ const WarehousePropertiesPanel = ({
           onChange={(e) => handlePropertyChange('name', e.target.value)}
           style={inputStyle}
         />
+      </div>
+
+      {/* Component Labeling - Enhanced */}
+      <div style={{ ...fieldStyle, backgroundColor: '#fff3cd', padding: '8px', borderRadius: '4px', border: '1px solid #ffeaa7' }}>
+        <label style={{ ...labelStyle, color: '#856404', fontWeight: 'bold' }}>Display Name/Label:</label>
+        <input
+          type="text"
+          value={properties.label}
+          onChange={(e) => handlePropertyChange('label', e.target.value)}
+          style={{ ...inputStyle, borderColor: '#ffc107', backgroundColor: '#fff' }}
+          placeholder="Enter display name (e.g., Zone A, Rack 01, Storage Unit 1)"
+        />
+        <small style={{ color: '#856404', fontSize: '11px', fontWeight: '500' }}>
+          ✨ This name will be displayed below the component in both layout builder and operational view
+        </small>
+      </div>
+
+      <div style={fieldStyle}>
+        <label style={labelStyle}>Location Tag:</label>
+        <input
+          type="text"
+          value={properties.locationTag}
+          onChange={(e) => handlePropertyChange('locationTag', e.target.value)}
+          style={inputStyle}
+          placeholder="e.g., RM-1, ZONE-A, BAY-01"
+        />
+        <small style={{ color: '#6c757d', fontSize: '11px' }}>
+          Unique location identifier for search and tracking
+        </small>
       </div>
 
       <div style={fieldStyle}>

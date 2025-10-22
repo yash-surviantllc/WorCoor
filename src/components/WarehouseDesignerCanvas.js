@@ -1,8 +1,13 @@
 import React, { forwardRef, useCallback, useState } from 'react';
 import { useDrop } from 'react-dnd';
+import { getComponentColor } from '../utils/componentColors';
 
 const WarehouseItem = ({ 
   item, 
+  items,
+  zoomLevel,
+  panOffset,
+  showLabels,
   isSelected, 
   isZoneSelected, 
   mode, 
@@ -12,29 +17,84 @@ const WarehouseItem = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [dragPreview, setDragPreview] = useState({ x: 0, y: 0 });
+  const [lastUpdateTime, setLastUpdateTime] = useState(0);
 
   const handleMouseDown = (e) => {
     if (e.button !== 0) return; // Only left click
+    
+    // Get canvas bounds for proper coordinate calculation
+    const canvas = e.currentTarget.closest('.warehouse-canvas') || e.currentTarget.parentElement;
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    // Calculate initial offset accounting for zoom and pan
+    const canvasX = (e.clientX - canvasRect.left - panOffset.x) / zoomLevel;
+    const canvasY = (e.clientY - canvasRect.top - panOffset.y) / zoomLevel;
+    
     setIsDragging(true);
-    setDragStart({
-      x: e.clientX - item.x,
-      y: e.clientY - item.y
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setDragOffset({ 
+      x: canvasX - item.x, 
+      y: canvasY - item.y 
     });
+    setDragPreview({ x: item.x, y: item.y });
+    
     onSelect(item.id);
     e.preventDefault();
+    e.stopPropagation();
   };
 
   const handleMouseMove = useCallback((e) => {
     if (!isDragging) return;
     
-    const newX = e.clientX - dragStart.x;
-    const newY = e.clientY - dragStart.y;
-    onMove(item.id, Math.max(0, newX), Math.max(0, newY));
-  }, [isDragging, dragStart, item.id, onMove]);
+    // Get canvas bounds for proper coordinate calculation
+    const canvas = document.querySelector('.warehouse-canvas');
+    if (!canvas) return;
+    
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    // Calculate new position accounting for zoom and pan transformations
+    const canvasX = (e.clientX - canvasRect.left - panOffset.x) / zoomLevel;
+    const canvasY = (e.clientY - canvasRect.top - panOffset.y) / zoomLevel;
+    
+    // Apply drag offset to get final position
+    const newX = Math.max(0, canvasX - dragOffset.x);
+    const newY = Math.max(0, canvasY - dragOffset.y);
+    
+    // Update preview position for smooth visual feedback
+    setDragPreview({ x: newX, y: newY });
+    
+    // Apply optional grid snapping for real-time feedback
+    const gridSize = 15; // Use sub-grid for smooth positioning
+    const snappedX = Math.round(newX / gridSize) * gridSize;
+    const snappedY = Math.round(newY / gridSize) * gridSize;
+    
+    // Throttle updates for better performance
+    const now = Date.now();
+    if (now - lastUpdateTime > 16) { // ~60fps throttling
+      setLastUpdateTime(now);
+      // Use requestAnimationFrame for smooth updates
+      requestAnimationFrame(() => {
+        onMove(item.id, snappedX, snappedY);
+      });
+    }
+  }, [isDragging, dragOffset, panOffset, zoomLevel, item.id, onMove, lastUpdateTime]);
 
   const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-  }, []);
+    if (isDragging) {
+      setIsDragging(false);
+      setDragPreview({ x: 0, y: 0 });
+      
+      // Final position snap to ensure precision
+      const gridSize = 15;
+      const finalX = Math.round(dragPreview.x / gridSize) * gridSize;
+      const finalY = Math.round(dragPreview.y / gridSize) * gridSize;
+      
+      // Ensure final position is within bounds
+      onMove(item.id, Math.max(0, finalX), Math.max(0, finalY));
+    }
+  }, [isDragging, dragPreview, item.id, onMove]);
 
   React.useEffect(() => {
     if (isDragging) {
@@ -57,6 +117,9 @@ const WarehouseItem = ({
   const isZone = item.containerLevel === 2;
   const isUnit = item.containerLevel === 3;
   const isBoundary = item.containerLevel === 1;
+  const isStorageRack = item.type === 'sku_holder'; // Horizontal storage racks (SKU holders)
+  const isVerticalStorageRack = item.type === 'vertical_sku_holder'; // Vertical storage racks
+  const isStorageUnit = item.type === 'storage_unit'; // Storage units
   
   // Zone selection states
   let zoneState = 'inactive';
@@ -73,8 +136,13 @@ const WarehouseItem = ({
       width: item.width,
       height: item.height,
       cursor: isDragging ? 'grabbing' : 'grab',
+      opacity: isDragging ? 0.8 : 1,
+      transform: isDragging ? 'scale(1.02)' : 'scale(1)',
+      transition: isDragging ? 'none' : 'transform 0.2s ease, opacity 0.2s ease',
+      zIndex: isDragging ? 1000 : 'auto',
       userSelect: 'none',
-      boxSizing: 'border-box'
+      boxSizing: 'border-box',
+      overflow: 'visible' // Allow labels to appear outside component boundaries
     };
 
     if (isBoundary) {
@@ -87,21 +155,22 @@ const WarehouseItem = ({
     }
 
     if (isZone) {
-      let borderColor = item.color;
-      let backgroundColor = item.color;
+      const fixedColor = getComponentColor(item.type);
+      let borderColor = fixedColor;
+      let backgroundColor = fixedColor;
       let borderWidth = '2px';
       let borderStyle = 'solid';
 
       // Zone state styling
       if (zoneState === 'selected') {
-        borderColor = item.color;
+        borderColor = fixedColor;
         borderWidth = '3px';
-        backgroundColor = item.color;
+        backgroundColor = fixedColor;
       } else if (zoneState === 'receiving') {
-        borderColor = item.color;
+        borderColor = fixedColor;
         borderWidth = '2px';
         borderStyle = 'dashed';
-        backgroundColor = `${item.color}40`; // Semi-transparent
+        backgroundColor = `${fixedColor}40`; // Semi-transparent
       }
 
       return {
@@ -115,10 +184,48 @@ const WarehouseItem = ({
       };
     }
 
+    // Horizontal Storage Racks - Proper solid boundaries with professional styling
+    if (isStorageRack) {
+      return {
+        ...baseStyle,
+        border: '2px solid #1976D2 !important', // Solid blue border for horizontal storage racks
+        borderStyle: 'solid !important', // Force solid border style
+        backgroundColor: 'rgba(33, 150, 243, 0.1)', // Light blue background
+        borderRadius: '4px',
+        boxShadow: '0 1px 3px rgba(25, 118, 210, 0.2)' // Subtle shadow
+      };
+    }
+
+    // Vertical Storage Racks - Proper solid boundaries with professional styling
+    if (isVerticalStorageRack) {
+      return {
+        ...baseStyle,
+        border: '2px solid #E64A19 !important', // Solid deep orange border for vertical storage racks
+        borderStyle: 'solid !important', // Force solid border style
+        backgroundColor: 'rgba(255, 87, 34, 0.1)', // Light deep orange background
+        borderRadius: '4px',
+        boxShadow: '0 1px 3px rgba(230, 74, 25, 0.2)' // Subtle shadow
+      };
+    }
+
+    // Storage Units - Green styling
+    if (isStorageUnit) {
+      return {
+        ...baseStyle,
+        border: '2px solid #388E3C !important', // Solid green border for storage units
+        borderStyle: 'solid !important', // Force solid border style
+        backgroundColor: 'rgba(76, 175, 80, 0.1)', // Light green background
+        borderRadius: '4px',
+        boxShadow: '0 1px 3px rgba(56, 142, 60, 0.2)' // Subtle shadow
+      };
+    }
+
+    // Other units (fallback) - Force solid borders for all units
     if (isUnit) {
       return {
         ...baseStyle,
-        border: '1px solid #00BCD4',
+        border: '2px solid #00BCD4 !important',
+        borderStyle: 'solid !important', // Force solid border style
         backgroundColor: '#E0F7FA',
         borderRadius: '2px'
       };
@@ -127,18 +234,131 @@ const WarehouseItem = ({
     return baseStyle;
   };
 
-  const renderZoneLabel = () => {
-    if (!isZone || !item.label) return null;
+  const renderLabel = () => {
+    if (!showLabels) return null;
+    
+    const getSmartLabel = () => {
+      // Priority: custom label > locationTag > name > auto-generated
+      if (item.label && item.label.trim()) return item.label.trim();
+      if (item.locationTag && item.locationTag.trim()) return item.locationTag.trim();
+      if (item.name && item.name.trim() && item.name !== 'Untitled') return item.name.trim();
+      
+      // Auto-generate label based on type
+      const typeLabels = {
+        'storage_unit': 'RACK',
+        'sku_holder': 'HSR',
+        'vertical_sku_holder': 'VSR',
+        'warehouse_block': 'BLOCK',
+        'storage_zone': 'ZONE',
+        'processing_area': 'PROC',
+        'container_unit': 'UNIT',
+        'zone_divider': 'DIV',
+        'area_boundary': 'AREA',
+        'square_boundary': 'BOUND',
+        'solid_boundary': 'WALL',
+        'dotted_boundary': 'LINE'
+      };
+      
+      const prefix = typeLabels[item.type] || 'ITEM';
+      const sameTypeItems = items.filter(i => i.type === item.type);
+      const index = sameTypeItems.indexOf(item) + 1;
+      
+      // Use letters for zones, numbers for others
+      if (isZone && index <= 26) {
+        return String.fromCharCode(64 + index); // A, B, C, etc.
+      }
+      
+      return `${prefix}-${index.toString().padStart(2, '0')}`;
+    };
+
+    const label = getSmartLabel();
+    if (!label) return null;
+    
+    // Unified label positioning - ALL labels appear below components
+    const getUnifiedLabelStyle = () => {
+      const baseStyle = {
+        position: 'absolute',
+        top: '100%', // Position at the bottom of the component
+        left: '50%', // Center horizontally
+        marginTop: '8px', // Add space below the component
+        transform: 'translateX(-50%)',
+        pointerEvents: 'none',
+        userSelect: 'none',
+        fontFamily: 'Arial, sans-serif',
+        whiteSpace: 'nowrap',
+        zIndex: 15,
+        textAlign: 'center'
+      };
+
+      // Zone labels - larger and more prominent
+      if (isZone) {
+        const fontSize = Math.min(Math.max(item.width / 10, 14), 18);
+        const padding = Math.max(fontSize * 0.3, 4);
+        
+        return {
+          ...baseStyle,
+          fontSize: `${fontSize}px`,
+          fontWeight: 'bold',
+          color: '#2c3e50',
+          backgroundColor: 'rgba(52, 152, 219, 0.2)',
+          padding: `${padding}px ${padding * 2}px`,
+          borderRadius: '8px',
+          border: '2px solid #3498db',
+          boxShadow: '0 2px 6px rgba(52, 152, 219, 0.3)',
+          minWidth: '70px'
+        };
+      }
+
+      // Boundary labels - distinctive styling
+      if (isBoundary) {
+        const fontSize = Math.min(Math.max(item.width / 15, 10), 14);
+        const padding = Math.max(fontSize * 0.3, 2);
+        
+        return {
+          ...baseStyle,
+          fontSize: `${fontSize}px`,
+          fontWeight: '600',
+          color: '#34495e',
+          backgroundColor: 'rgba(149, 165, 166, 0.15)',
+          padding: `${padding}px ${padding * 2}px`,
+          borderRadius: '6px',
+          border: '1px solid #95a5a6',
+          boxShadow: '0 2px 4px rgba(149, 165, 166, 0.2)',
+          minWidth: '50px'
+        };
+      }
+
+      // Storage unit labels - clean and compact
+      const fontSize = Math.min(Math.max(item.width / 8, 10), 14);
+      const padding = Math.max(fontSize * 0.3, 3);
+      
+      return {
+        ...baseStyle,
+        fontSize: `${fontSize}px`,
+        fontWeight: '600',
+        color: '#16a085',
+        backgroundColor: 'rgba(26, 188, 156, 0.15)',
+        padding: `${padding}px ${padding * 1.5}px`,
+        borderRadius: '5px',
+        border: '1px solid #1abc9c',
+        boxShadow: '0 1px 3px rgba(26, 188, 156, 0.2)',
+        minWidth: '50px'
+      };
+    };
+
+    // Always show labels for all components
+    const shouldShowLabel = () => {
+      return true; // Always show labels regardless of zoom level
+    };
+
+    if (!shouldShowLabel() || !showLabels) return null;
     
     return (
-      <div style={{
-        fontSize: '2rem',
-        fontWeight: 'bold',
-        color: '#333',
-        textShadow: '1px 1px 2px rgba(255,255,255,0.8)',
-        pointerEvents: 'none'
-      }}>
-        {item.label}
+      <div 
+        style={getUnifiedLabelStyle()}
+        title={`${item.name || item.type} - ${label}`}
+      >
+        {label}
       </div>
     );
   };
@@ -172,32 +392,51 @@ const WarehouseItem = ({
   };
 
   return (
-    <div
-      style={getItemStyle()}
-      onMouseDown={handleMouseDown}
-      onDoubleClick={handleDoubleClick}
-      title={`${item.name} (${item.type})`}
-    >
-      {renderZoneLabel()}
-      {renderZoneTypeLabel()}
+    <div style={{
+      position: 'absolute',
+      left: item.x,
+      top: item.y,
+      width: item.width,
+      height: 'auto', // Allow container to expand for label
+      pointerEvents: 'none' // Let clicks pass through to component
+    }}>
+      {/* Main Component */}
+      <div
+        className={`warehouse-component ${isStorageRack ? 'storage-rack' : ''} ${isVerticalStorageRack ? 'vertical-storage-rack' : ''} ${isStorageUnit ? 'storage-unit' : ''} ${isUnit ? 'storage-component' : ''} ${isDragging ? 'dragging' : ''}`}
+        style={{
+          ...getItemStyle(),
+          position: 'relative', // Change to relative since parent handles absolute positioning
+          left: 0,
+          top: 0,
+          pointerEvents: 'auto' // Re-enable pointer events for the actual component
+        }}
+        onMouseDown={handleMouseDown}
+        onDoubleClick={handleDoubleClick}
+        title={`${item.name} (${item.type})`}
+      >
+        {renderZoneTypeLabel()}
+        
+        {/* Zone state indicators */}
+        {isZone && zoneState === 'receiving' && (
+          <div style={{
+            position: 'absolute',
+            top: '-20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: '#28a745',
+            color: 'white',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            fontSize: '10px',
+            fontWeight: 'bold'
+          }}>
+            DROP UNITS HERE
+          </div>
+        )}
+      </div>
       
-      {/* Zone state indicators */}
-      {isZone && zoneState === 'receiving' && (
-        <div style={{
-          position: 'absolute',
-          top: '-20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: '#28a745',
-          color: 'white',
-          padding: '2px 8px',
-          borderRadius: '4px',
-          fontSize: '10px',
-          fontWeight: 'bold'
-        }}>
-          DROP UNITS HERE
-        </div>
-      )}
+      {/* Label positioned below component */}
+      {renderLabel()}
     </div>
   );
 };
@@ -208,6 +447,7 @@ const WarehouseDesignerCanvas = forwardRef(({
   mode, 
   zoomLevel, 
   panOffset, 
+  showLabels,
   onAddItem, 
   onMoveItem, 
   onSelectItem, 
@@ -237,7 +477,7 @@ const WarehouseDesignerCanvas = forwardRef(({
     width: '100%',
     height: '100%',
     position: 'relative',
-    overflow: 'hidden',
+    overflow: 'visible', // Allow labels to extend beyond canvas
     backgroundColor: '#fafafa',
     backgroundImage: `
       linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
@@ -245,7 +485,11 @@ const WarehouseDesignerCanvas = forwardRef(({
     `,
     backgroundSize: `${20 * zoomLevel}px ${20 * zoomLevel}px`,
     backgroundPosition: `${panOffset.x}px ${panOffset.y}px`,
-    cursor: mode === 'boundary' ? 'crosshair' : 'default'
+    cursor: mode === 'boundary' ? 'crosshair' : 'default',
+    // Improve rendering performance
+    willChange: 'transform',
+    backfaceVisibility: 'hidden',
+    perspective: 1000
   };
 
   const canvasContentStyle = {
@@ -261,6 +505,7 @@ const WarehouseDesignerCanvas = forwardRef(({
         drop(node);
         if (ref) ref.current = node;
       }}
+      className="warehouse-canvas"
       style={canvasStyle}
       onClick={onCanvasClick}
     >
@@ -270,6 +515,10 @@ const WarehouseDesignerCanvas = forwardRef(({
           <WarehouseItem
             key={item.id}
             item={item}
+            items={items}
+            zoomLevel={zoomLevel}
+            panOffset={panOffset}
+            showLabels={showLabels}
             isSelected={item.id === selectedItemId}
             isZoneSelected={selectedZone?.id === item.id}
             mode={mode}

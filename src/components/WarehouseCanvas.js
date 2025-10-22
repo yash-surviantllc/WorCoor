@@ -6,6 +6,7 @@ import { DRAG_TYPES, STACKABLE_COMPONENTS } from '../constants/warehouseComponen
 import { findAllConnections, snapToConnection, LINKABLE_ELEMENTS } from '../utils/linkingUtils';
 import { isPointInsideContainer, getContainerBounds } from '../utils/shapeRenderer';
 import { hierarchicalManager } from '../utils/hierarchicalContainer';
+import { getComponentColor } from '../utils/componentColors';
 
 const WarehouseCanvas = ({ 
   items, 
@@ -292,7 +293,7 @@ const WarehouseCanvas = ({
             y: finalY,
             width: draggedItem.defaultSize?.width || 50,
             height: draggedItem.defaultSize?.height || 50,
-            color: draggedItem.color || '#e3f2fd',
+            color: getComponentColor(draggedItem.type, draggedItem.category) || draggedItem.color || '#e3f2fd',
             label: draggedItem.autoLabel && draggedItem.zoneType ? hierarchicalManager.generateZoneLabel(draggedItem.zoneType) : '',
             icon: draggedItem.icon,
             isShape: draggedItem.isShape || false,
@@ -320,7 +321,9 @@ const WarehouseCanvas = ({
             showCompartments: draggedItem.showCompartments || false,
             allowEmpty: draggedItem.allowEmpty || false,
             maxSKUsPerCompartment: draggedItem.maxSKUsPerCompartment || 1,
-            compartmentContents: draggedItem.type === 'sku_holder' ? {} : undefined // Initialize empty for user to populate
+            supportsMultipleLocationIds: draggedItem.supportsMultipleLocationIds || false,
+            supportsMultipleTags: draggedItem.supportsMultipleTags || false,
+            compartmentContents: (draggedItem.type === 'sku_holder' || draggedItem.type === 'vertical_sku_holder') ? {} : undefined // Initialize empty for user to populate
           };
           
           console.log('Creating new item:', newItem);

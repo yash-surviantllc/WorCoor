@@ -14,14 +14,32 @@ const WarehouseMapView = ({ facilityData }) => {
   const [savedLayouts, setSavedLayouts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState('location'); // 'location' or 'item'
+  const [selectedFilter, setSelectedFilter] = useState('all');
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [globalSearchResults, setGlobalSearchResults] = useState([]);
+  const [showGlobalSearchDropdown, setShowGlobalSearchDropdown] = useState(false);
+  const [globalSearchType, setGlobalSearchType] = useState('all'); // 'all', 'items', 'locations', 'zones'
+  
+  // Enhanced dropdown search states (same as fullscreen)
+  const [selectedLocationTag, setSelectedLocationTag] = useState('');
+  const [selectedSku, setSelectedSku] = useState('');
+  const [selectedAsset, setSelectedAsset] = useState('');
+  const [availableLocationTags, setAvailableLocationTags] = useState([]);
+  const [availableSkus, setAvailableSkus] = useState([]);
+  const [availableAssets, setAvailableAssets] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [highlightedItems, setHighlightedItems] = useState([]);
+  const [dropdownSearchActive, setDropdownSearchActive] = useState(false);
 
-  // Load saved layouts from localStorage
+  // Load saved layouts from localStorage and extract dropdown options
   useEffect(() => {
     const loadSavedLayouts = () => {
       const layouts = JSON.parse(localStorage.getItem('warehouseLayouts') || '[]');
       setSavedLayouts(layouts);
+      
+      // Extract dropdown options from saved layouts
+      extractDropdownOptionsFromLayouts(layouts);
     };
     
     loadSavedLayouts();
@@ -41,6 +59,58 @@ const WarehouseMapView = ({ facilityData }) => {
       window.removeEventListener('layoutSaved', handleStorageChange);
     };
   }, []);
+
+  // Extract dropdown options from saved layouts
+  const extractDropdownOptionsFromLayouts = (layouts) => {
+    const locationTags = new Set();
+    const skus = new Set();
+    const assets = new Set();
+    
+    layouts.forEach(layout => {
+      if (layout.layoutData && layout.layoutData.items) {
+        layout.layoutData.items.forEach(item => {
+          // Extract location tags
+          if (item.locationId) {
+            locationTags.add(item.locationId);
+          }
+          if (item.locationCode) {
+            locationTags.add(item.locationCode);
+          }
+          
+          // Extract SKUs from compartment contents
+          if (item.compartmentContents) {
+            Object.values(item.compartmentContents).forEach(content => {
+              if (content.locationId) skus.add(content.locationId);
+              if (content.sku) skus.add(content.sku);
+              if (content.uniqueId) skus.add(content.uniqueId);
+            });
+          }
+          
+          // Extract assets (item types and names)
+          if (item.type) assets.add(item.type.toUpperCase().replace('_', ' '));
+          if (item.name) assets.add(item.name);
+        });
+      }
+    });
+    
+    setAvailableLocationTags(Array.from(locationTags).sort());
+    setAvailableSkus(Array.from(skus).sort());
+    setAvailableAssets(Array.from(assets).sort());
+  };
+
+  // Close filter dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showFilterDropdown && !event.target.closest('.filter-dropdown-container')) {
+        setShowFilterDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showFilterDropdown]);
 
   // Combine default units with saved layouts
   const defaultUnits = [
@@ -140,13 +210,64 @@ const WarehouseMapView = ({ facilityData }) => {
   
   const warehouseUnits = [...defaultUnits, ...savedLayoutUnits];
 
+  // Hierarchical filter structure
+  const hierarchicalFilters = {
+    all: { label: 'All Units', count: warehouseUnits.length },
+    warehouse1: {
+      label: 'Warehouse 1',
+      children: {
+        'unit1': { label: 'Unit 1', subtitle: 'Building 1' },
+        'unit2': { label: 'Unit 2', subtitle: 'Building 2' }
+      }
+    },
+    warehouse2: {
+      label: 'Warehouse 2', 
+      children: {
+        'unit3': { label: 'Unit 3', subtitle: 'Building 1' },
+        'unit4': { label: 'Unit 4', subtitle: 'Building 2' }
+      }
+    },
+    warehouse3: {
+      label: 'Warehouse 3',
+      children: {
+        'unit5': { label: 'Unit 5', subtitle: 'Building 1' },
+        'unit6': { label: 'Unit 6', subtitle: 'Building 2' }
+      }
+    },
+    customLayouts: {
+      label: 'Custom Layouts',
+      children: savedLayoutUnits.reduce((acc, unit) => {
+        acc[unit.id] = { label: unit.name, subtitle: unit.subtitle };
+        return acc;
+      }, {})
+    }
+  };
+
+  // Filter units based on selected filter
+  const getFilteredUnits = () => {
+    if (selectedFilter === 'all') {
+      return warehouseUnits;
+    }
+    
+    // Check if it's a warehouse filter
+    if (hierarchicalFilters[selectedFilter] && hierarchicalFilters[selectedFilter].children) {
+      const childIds = Object.keys(hierarchicalFilters[selectedFilter].children);
+      return warehouseUnits.filter(unit => childIds.includes(unit.id));
+    }
+    
+    // Check if it's a specific unit filter
+    return warehouseUnits.filter(unit => unit.id === selectedFilter);
+  };
+
+  const filteredUnits = getFilteredUnits();
+
   // Demo map data for each unit
   const demoMapsData = {
     unit1: {
       name: 'Warehouse 1 - Org Unit',
       location: 'RM 1',
       zones: [
-        // Storage Racks A-H (Cyan color like reference)
+        // Horizontal Storage Racks A-H (Cyan color like reference)
         { id: 'A', name: 'Rack A', type: 'rack', x: 120, y: 40, width: 55, height: 140, color: '#00CED1', items: 24, capacity: 28, racks: 4 },
         { id: 'B', name: 'Rack B', type: 'rack', x: 185, y: 40, width: 55, height: 140, color: '#00CED1', items: 26, capacity: 28, racks: 4 },
         { id: 'C', name: 'Rack C', type: 'rack', x: 250, y: 40, width: 55, height: 140, color: '#00CED1', items: 22, capacity: 28, racks: 4 },
@@ -592,6 +713,348 @@ const WarehouseMapView = ({ facilityData }) => {
     // Clear all notifications
   };
 
+  // Filter handlers
+  const handleFilterSelect = (filterId) => {
+    setSelectedFilter(filterId);
+    setShowFilterDropdown(false);
+  };
+
+  const toggleFilterDropdown = () => {
+    setShowFilterDropdown(!showFilterDropdown);
+  };
+
+  const getFilterLabel = () => {
+    if (selectedFilter === 'all') {
+      return `All Units (${warehouseUnits.length})`;
+    }
+    
+    // Check if it's a warehouse filter
+    if (hierarchicalFilters[selectedFilter] && hierarchicalFilters[selectedFilter].children) {
+      const childCount = Object.keys(hierarchicalFilters[selectedFilter].children).length;
+      return `${hierarchicalFilters[selectedFilter].label} (${childCount})`;
+    }
+    
+    // Check if it's a specific unit
+    const unit = warehouseUnits.find(u => u.id === selectedFilter);
+    if (unit) {
+      return unit.name;
+    }
+    
+    return 'Filter';
+  };
+
+  // Global search functionality across all maps
+  const performGlobalSearch = (query, searchType) => {
+    if (!query.trim()) {
+      setGlobalSearchResults([]);
+      return;
+    }
+
+    const results = [];
+    const searchTerm = query.toLowerCase();
+
+    // Search through all warehouse units
+    warehouseUnits.forEach(unit => {
+      const unitResults = [];
+
+      // Search in custom layouts
+      if (unit.isCustomLayout && unit.layoutData && unit.layoutData.items) {
+        unit.layoutData.items.forEach((item, index) => {
+          const itemId = `${unit.id}-item-${index}`;
+          
+          // Generate search data for custom layout items
+          const generateItemSearchData = (item, index) => {
+            const baseData = {
+              unitId: `STG-${String(index + 1).padStart(3, '0')}`,
+              location: {
+                zone: ['A', 'B', 'C', 'D', 'E'][Math.floor(Math.random() * 5)],
+                aisle: Math.floor(Math.random() * 10) + 1,
+                position: Math.floor(Math.random() * 20) + 1
+              },
+              type: item.type || 'storage'
+            };
+
+            // Add SKU data if available
+            if (item.compartmentContents) {
+              baseData.skus = Object.values(item.compartmentContents).map(content => ({
+                id: content.locationId || content.uniqueId || content.sku,
+                sku: content.sku || content.locationId,
+                quantity: content.quantity || 1,
+                status: content.status || 'active'
+              }));
+            } else if (item.skuId) {
+              baseData.skus = [{
+                id: item.skuId,
+                sku: item.skuId,
+                quantity: 1,
+                status: 'active'
+              }];
+            }
+
+            return baseData;
+          };
+
+          const searchData = generateItemSearchData(item, index);
+
+          // Search by type (all, items, locations, zones)
+          if (searchType === 'all' || searchType === 'locations') {
+            // Search locations
+            const locationId = `${searchData.location.zone}-${searchData.location.aisle}-${searchData.location.position}`;
+            if (searchData.unitId.toLowerCase().includes(searchTerm) || 
+                locationId.toLowerCase().includes(searchTerm) ||
+                item.name?.toLowerCase().includes(searchTerm)) {
+              unitResults.push({
+                id: itemId,
+                type: 'location',
+                title: `Location: ${searchData.unitId}`,
+                subtitle: `Zone ${searchData.location.zone}, Aisle ${searchData.location.aisle}, Position ${searchData.location.position}`,
+                unit: unit,
+                item: item,
+                searchData: searchData
+              });
+            }
+          }
+
+          if (searchType === 'all' || searchType === 'items') {
+            // Search items/SKUs
+            if (searchData.skus) {
+              searchData.skus.forEach(skuData => {
+                if (skuData.id?.toLowerCase().includes(searchTerm) ||
+                    skuData.sku?.toLowerCase().includes(searchTerm)) {
+                  unitResults.push({
+                    id: `${itemId}-${skuData.id}`,
+                    type: 'item',
+                    title: `Item: ${skuData.id}`,
+                    subtitle: `SKU: ${skuData.sku} | Qty: ${skuData.quantity} | Status: ${skuData.status}`,
+                    unit: unit,
+                    item: item,
+                    skuData: skuData,
+                    searchData: searchData
+                  });
+                }
+              });
+            }
+          }
+
+          if (searchType === 'all' || searchType === 'zones') {
+            // Search zones/areas
+            if (item.type?.includes('zone') || item.type?.includes('storage') || item.type?.includes('boundary')) {
+              if (item.name?.toLowerCase().includes(searchTerm) ||
+                  item.type?.toLowerCase().includes(searchTerm)) {
+                unitResults.push({
+                  id: itemId,
+                  type: 'zone',
+                  title: `Zone: ${item.name}`,
+                  subtitle: `Type: ${item.type} | Size: ${item.width}×${item.height}`,
+                  unit: unit,
+                  item: item
+                });
+              }
+            }
+          }
+        });
+      }
+
+      // Search in demo data
+      const demoData = demoMapsData[unit.id];
+      if (demoData && demoData.zones) {
+        demoData.zones.forEach((zone, index) => {
+          const zoneId = `${unit.id}-zone-${index}`;
+
+          if (searchType === 'all' || searchType === 'zones') {
+            // Search zones
+            if (zone.id.toLowerCase().includes(searchTerm) ||
+                zone.name?.toLowerCase().includes(searchTerm) ||
+                zone.type?.toLowerCase().includes(searchTerm)) {
+              unitResults.push({
+                id: zoneId,
+                type: 'zone',
+                title: `Zone: ${zone.id} - ${zone.name}`,
+                subtitle: `Type: ${zone.type} | Capacity: ${zone.items}/${zone.capacity}`,
+                unit: unit,
+                zone: zone
+              });
+            }
+          }
+
+          if (searchType === 'all' || searchType === 'items') {
+            // Search simulated items in zones
+            if (zone.items && zone.items > 0) {
+              const simulatedItems = Array.from({length: Math.min(zone.items, 3)}, (_, i) => 
+                `ITEM-${zone.id}-${String(i + 1).padStart(3, '0')}`
+              );
+              
+              simulatedItems.forEach(itemId => {
+                if (itemId.toLowerCase().includes(searchTerm)) {
+                  unitResults.push({
+                    id: `${zoneId}-${itemId}`,
+                    type: 'item',
+                    title: `Item: ${itemId}`,
+                    subtitle: `In Zone ${zone.id} - ${zone.name}`,
+                    unit: unit,
+                    zone: zone,
+                    itemId: itemId
+                  });
+                }
+              });
+            }
+          }
+        });
+      }
+
+      // Add unit results to main results if any found
+      if (unitResults.length > 0) {
+        results.push({
+          unit: unit,
+          results: unitResults,
+          count: unitResults.length
+        });
+      }
+    });
+
+    setGlobalSearchResults(results);
+  };
+
+  // Global search handlers
+  const handleGlobalSearchChange = (e) => {
+    const query = e.target.value;
+    setGlobalSearchQuery(query);
+    performGlobalSearch(query, globalSearchType);
+    setShowGlobalSearchDropdown(query.trim().length > 0);
+  };
+
+  const handleGlobalSearchTypeChange = (type) => {
+    setGlobalSearchType(type);
+    performGlobalSearch(globalSearchQuery, type);
+  };
+
+  const handleGlobalSearchResultClick = (result) => {
+    // Navigate to the specific unit and highlight the item
+    setSelectedUnitForDemo(result.unit.id);
+    setShowDemoMapModal(true);
+    setShowGlobalSearchDropdown(false);
+    
+    // You could add highlighting logic here
+    console.log('Navigate to:', result);
+  };
+
+  const clearGlobalSearch = () => {
+    setGlobalSearchQuery('');
+    setGlobalSearchResults([]);
+    setShowGlobalSearchDropdown(false);
+  };
+
+  // Close global search dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showGlobalSearchDropdown && !event.target.closest('.global-search-container')) {
+        setShowGlobalSearchDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showGlobalSearchDropdown]);
+
+  // Enhanced dropdown search functionality
+  const performDropdownSearch = () => {
+    const hasDropdownFilters = selectedLocationTag || selectedSku || selectedAsset;
+    
+    if (!hasDropdownFilters) {
+      setSearchResults([]);
+      setHighlightedItems([]);
+      setDropdownSearchActive(false);
+      return;
+    }
+
+    const results = [];
+    const highlighted = [];
+    setDropdownSearchActive(hasDropdownFilters);
+
+    savedLayouts.forEach(layout => {
+      if (layout.layoutData && layout.layoutData.items) {
+        layout.layoutData.items.forEach((item, index) => {
+          let matchesDropdowns = true;
+          
+          // Check location tag filter
+          if (selectedLocationTag) {
+            const locationMatches = item.locationId === selectedLocationTag ||
+                                  item.locationCode === selectedLocationTag;
+            matchesDropdowns = matchesDropdowns && locationMatches;
+          }
+          
+          // Check SKU filter
+          if (selectedSku && item.compartmentContents) {
+            const skuMatches = Object.values(item.compartmentContents).some(content =>
+              content.locationId === selectedSku ||
+              content.sku === selectedSku ||
+              content.uniqueId === selectedSku
+            );
+            matchesDropdowns = matchesDropdowns && skuMatches;
+          }
+          
+          // Check asset filter
+          if (selectedAsset) {
+            const assetMatches = item.type?.toUpperCase().replace('_', ' ') === selectedAsset ||
+                               item.name === selectedAsset;
+            matchesDropdowns = matchesDropdowns && assetMatches;
+          }
+          
+          if (matchesDropdowns) {
+            const itemId = `${layout.id}-${item.id || index}`;
+            results.push({
+              id: itemId,
+              type: 'location',
+              title: `${item.name || item.type}: ${item.locationId || item.locationCode || 'No ID'}`,
+              subtitle: `Layout: ${layout.name}`,
+              layoutId: layout.id,
+              item: item
+            });
+            highlighted.push(itemId);
+          }
+        });
+      }
+    });
+
+    setSearchResults(results);
+    setHighlightedItems(highlighted);
+  };
+
+
+
+
+
+  // Dropdown filter handlers
+  const handleLocationTagChange = (e) => {
+    const value = e.target.value;
+    setSelectedLocationTag(value);
+    // Use setTimeout to ensure state is updated before search
+    setTimeout(() => performDropdownSearch(), 0);
+  };
+  
+  const handleSkuChange = (e) => {
+    const value = e.target.value;
+    setSelectedSku(value);
+    setTimeout(() => performDropdownSearch(), 0);
+  };
+  
+  const handleAssetChange = (e) => {
+    const value = e.target.value;
+    setSelectedAsset(value);
+    setTimeout(() => performDropdownSearch(), 0);
+  };
+
+  const clearDropdownSearch = () => {
+    setSelectedLocationTag('');
+    setSelectedSku('');
+    setSelectedAsset('');
+    setSearchResults([]);
+    setHighlightedItems([]);
+    setDropdownSearchActive(false);
+  };
+
   return (
     <div className="warehouse-dashboard">
       {/* Clean Header */}
@@ -659,6 +1122,177 @@ const WarehouseMapView = ({ facilityData }) => {
           <div className="section-header">
             <h2 className="section-title">Live Warehouse Maps</h2>
             <div className="section-controls">
+              {/* Global Search Dropdown */}
+              <div className="global-search-container">
+                <div className="global-search-input-container">
+                  <input
+                    type="text"
+                    placeholder="🔍 Search across all maps..."
+                    value={globalSearchQuery}
+                    onChange={handleGlobalSearchChange}
+                    className="global-search-input"
+                  />
+                  {globalSearchQuery && (
+                    <button 
+                      className="clear-search-btn"
+                      onClick={clearGlobalSearch}
+                      title="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                
+                {showGlobalSearchDropdown && (
+                  <div className="global-search-dropdown">
+                    <div className="search-dropdown-header">
+                      <div className="search-type-filters">
+                        <button
+                          className={`search-type-btn ${globalSearchType === 'all' ? 'active' : ''}`}
+                          onClick={() => handleGlobalSearchTypeChange('all')}
+                        >
+                          All
+                        </button>
+                        <button
+                          className={`search-type-btn ${globalSearchType === 'items' ? 'active' : ''}`}
+                          onClick={() => handleGlobalSearchTypeChange('items')}
+                        >
+                          Items
+                        </button>
+                        <button
+                          className={`search-type-btn ${globalSearchType === 'locations' ? 'active' : ''}`}
+                          onClick={() => handleGlobalSearchTypeChange('locations')}
+                        >
+                          Locations
+                        </button>
+                        <button
+                          className={`search-type-btn ${globalSearchType === 'zones' ? 'active' : ''}`}
+                          onClick={() => handleGlobalSearchTypeChange('zones')}
+                        >
+                          Zones
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="search-results-container">
+                      {globalSearchResults.length === 0 ? (
+                        <div className="no-search-results">
+                          <div className="no-results-icon">🔍</div>
+                          <div className="no-results-text">No results found</div>
+                          <div className="no-results-hint">Try different keywords or search type</div>
+                        </div>
+                      ) : (
+                        globalSearchResults.map((unitResult, unitIndex) => (
+                          <div key={unitIndex} className="search-unit-group">
+                            <div className="search-unit-header">
+                              <span className="unit-icon">🏭</span>
+                              <span className="unit-name">{unitResult.unit.name}</span>
+                              <span className="result-count">{unitResult.count} results</span>
+                            </div>
+                            
+                            <div className="search-unit-results">
+                              {unitResult.results.slice(0, 5).map((result, resultIndex) => (
+                                <button
+                                  key={resultIndex}
+                                  className="search-result-item"
+                                  onClick={() => handleGlobalSearchResultClick(result)}
+                                >
+                                  <div className="result-icon">
+                                    {result.type === 'item' && '📦'}
+                                    {result.type === 'location' && '📍'}
+                                    {result.type === 'zone' && '🏢'}
+                                  </div>
+                                  <div className="result-content">
+                                    <div className="result-title">{result.title}</div>
+                                    <div className="result-subtitle">{result.subtitle}</div>
+                                  </div>
+                                  <div className="result-arrow">→</div>
+                                </button>
+                              ))}
+                              
+                              {unitResult.results.length > 5 && (
+                                <div className="more-results">
+                                  +{unitResult.results.length - 5} more results
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Hierarchical Filter Dropdown */}
+              <div className="filter-dropdown-container">
+                <button 
+                  className="control-btn filter-btn"
+                  onClick={toggleFilterDropdown}
+                >
+                  🏭 {getFilterLabel()} ▼
+                </button>
+                {showFilterDropdown && (
+                  <div className="filter-dropdown-menu">
+                    <div className="filter-dropdown-header">Filter by Warehouse</div>
+                    
+                    {/* All Units */}
+                    <button
+                      className={`filter-option ${selectedFilter === 'all' ? 'selected' : ''}`}
+                      onClick={() => handleFilterSelect('all')}
+                    >
+                      <span className="filter-icon">🏢</span>
+                      <div className="filter-content">
+                        <div className="filter-label">All Units</div>
+                        <div className="filter-count">{warehouseUnits.length} units</div>
+                      </div>
+                    </button>
+                    
+                    <div className="filter-divider"></div>
+                    
+                    {/* Warehouse Groups */}
+                    {Object.entries(hierarchicalFilters).map(([key, filter]) => {
+                      if (key === 'all') return null;
+                      
+                      const hasChildren = filter.children && Object.keys(filter.children).length > 0;
+                      if (!hasChildren) return null;
+                      
+                      return (
+                        <div key={key} className="filter-group">
+                          <button
+                            className={`filter-option warehouse-option ${selectedFilter === key ? 'selected' : ''}`}
+                            onClick={() => handleFilterSelect(key)}
+                          >
+                            <span className="filter-icon">🏭</span>
+                            <div className="filter-content">
+                              <div className="filter-label">{filter.label}</div>
+                              <div className="filter-count">{Object.keys(filter.children).length} units</div>
+                            </div>
+                          </button>
+                          
+                          {/* Child Units */}
+                          <div className="filter-children">
+                            {Object.entries(filter.children).map(([unitId, unit]) => (
+                              <button
+                                key={unitId}
+                                className={`filter-option unit-option ${selectedFilter === unitId ? 'selected' : ''}`}
+                                onClick={() => handleFilterSelect(unitId)}
+                              >
+                                <span className="filter-icon">📦</span>
+                                <div className="filter-content">
+                                  <div className="filter-label">{unit.label}</div>
+                                  <div className="filter-subtitle">{unit.subtitle}</div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              
               <button 
                 className="control-btn primary"
                 onClick={handleExpandToggle}
@@ -668,9 +1302,27 @@ const WarehouseMapView = ({ facilityData }) => {
             </div>
           </div>
           
+          {/* Filter Results Indicator */}
+          {selectedFilter !== 'all' && (
+            <div className="filter-results-indicator">
+              <span className="filter-results-text">
+                Showing {filteredUnits.length} of {warehouseUnits.length} units
+                {selectedFilter !== 'all' && (
+                  <button 
+                    className="clear-filter-btn"
+                    onClick={() => handleFilterSelect('all')}
+                    title="Clear filter"
+                  >
+                    ✕ Clear Filter
+                  </button>
+                )}
+              </span>
+            </div>
+          )}
+          
           <div className={`warehouse-scroll-container ${isExpanded ? 'expanded' : ''}`}>
             <div className={`warehouse-grid-horizontal ${isExpanded ? 'expanded-grid' : ''}`}>
-              {warehouseUnits.map((unit) => (
+              {filteredUnits.map((unit) => (
                 <div key={unit.id} className="warehouse-unit-card">
                   <div className="unit-header">
                     <div className="unit-status">
@@ -981,6 +1633,64 @@ const WarehouseMapView = ({ facilityData }) => {
                   })()}
                 </div>
               </div>
+              
+              {/* Enhanced Dropdown Search Filters - Moved to Header */}
+              <div className="demo-map-search-inline">
+                <div className="search-dropdown-filters">
+                  <div className="dropdown-filter">
+                    <label>📍 Location Tag:</label>
+                    <select 
+                      value={selectedLocationTag} 
+                      onChange={handleLocationTagChange}
+                      className="search-dropdown"
+                    >
+                      <option value="">All Locations</option>
+                      {availableLocationTags.map(tag => (
+                        <option key={tag} value={tag}>{tag}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div className="dropdown-filter">
+                    <label>📦 SKU:</label>
+                    <select 
+                      value={selectedSku} 
+                      onChange={handleSkuChange}
+                      className="search-dropdown"
+                    >
+                      <option value="">All SKUs</option>
+                      {availableSkus.map(sku => (
+                        <option key={sku} value={sku}>{sku}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div className="dropdown-filter">
+                    <label>🏭 Asset:</label>
+                    <select 
+                      value={selectedAsset} 
+                      onChange={handleAssetChange}
+                      className="search-dropdown"
+                    >
+                      <option value="">All Assets</option>
+                      {availableAssets.map(asset => (
+                        <option key={asset} value={asset}>{asset}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {/* Clear button only shows when filters are active */}
+                  {(selectedLocationTag || selectedSku || selectedAsset) && (
+                    <div className="dropdown-filter">
+                      <label>&nbsp;</label>
+                      <button className="search-clear-btn-dropdown" onClick={clearDropdownSearch}>
+                        Clear All
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
               <div className="demo-map-controls">
                 <button 
                   className="demo-map-fullscreen-btn" 
@@ -993,38 +1703,8 @@ const WarehouseMapView = ({ facilityData }) => {
               </div>
             </div>
             
-            {/* Search Bar */}
-            <div className="demo-map-search">
-              <div className="search-container">
-                <div className="search-type-selector">
-                  <button 
-                    className={`search-type-btn ${searchType === 'location' ? 'active' : ''}`}
-                    onClick={() => handleSearchTypeChange('location')}
-                  >
-                    📍 Search Location
-                  </button>
-                  <button 
-                    className={`search-type-btn ${searchType === 'item' ? 'active' : ''}`}
-                    onClick={() => handleSearchTypeChange('item')}
-                  >
-                    📦 Search Item
-                  </button>
-                </div>
-                <div className="search-input-container">
-                  <input
-                    type="text"
-                    placeholder={searchType === 'location' ? 'Search by location ID, zone, aisle...' : 'Search by item ID, SKU, location...'}
-                    value={searchQuery}
-                    onChange={handleSearchChange}
-                    className="search-input"
-                  />
-                  {searchQuery && (
-                    <button className="search-clear-btn" onClick={clearSearch}>
-                      ×
-                    </button>
-                  )}
-                </div>
-              </div>
+            {/* Search Results - Moved outside header */}
+            <div className="demo-map-search-results">
               
               {/* Search Results */}
               {searchResults.length > 0 && (
@@ -1035,9 +1715,7 @@ const WarehouseMapView = ({ facilityData }) => {
                   <div className="search-results-list">
                     {searchResults.slice(0, 5).map((result, index) => (
                       <div key={index} className="search-result-item">
-                        <div className="search-result-icon">
-                          {result.type === 'location' ? '📍' : '📦'}
-                        </div>
+                        <div className="search-result-icon">📍</div>
                         <div className="search-result-content">
                           <div className="search-result-title">{result.title}</div>
                           <div className="search-result-subtitle">{result.subtitle}</div>
@@ -1208,9 +1886,44 @@ const WarehouseMapView = ({ facilityData }) => {
                           
                           const itemColor = getItemColor(item.type || '', opData);
                           
+                          // Enhanced border styling for different component types
+                          const getBorderStyle = (itemType) => {
+                            if (itemType === 'sku_holder') {
+                              // Horizontal Storage Racks - Solid blue border
+                              return {
+                                stroke: '#1976D2',
+                                strokeWidth: '3',
+                                strokeDasharray: 'none'
+                              };
+                            } else if (itemType === 'vertical_sku_holder') {
+                              // Vertical Storage Racks - Solid deep orange border
+                              return {
+                                stroke: '#E64A19',
+                                strokeWidth: '3',
+                                strokeDasharray: 'none'
+                              };
+                            } else if (itemType === 'storage_unit') {
+                              // Storage Units - Solid green border
+                              return {
+                                stroke: '#388E3C',
+                                strokeWidth: '3',
+                                strokeDasharray: 'none'
+                              };
+                            } else {
+                              // Default styling for other components
+                              return {
+                                stroke: '#333',
+                                strokeWidth: '2',
+                                strokeDasharray: 'none'
+                              };
+                            }
+                          };
+                          
+                          const borderStyle = getBorderStyle(item.type);
+                          
                           return (
                             <g key={item.id}>
-                              {/* Item rectangle */}
+                              {/* Item rectangle with enhanced borders */}
                               <rect
                                 x={item.x}
                                 y={item.y}
@@ -1218,8 +1931,9 @@ const WarehouseMapView = ({ facilityData }) => {
                                 height={item.height}
                                 fill={itemColor}
                                 fillOpacity="0.8"
-                                stroke="#333"
-                                strokeWidth="2"
+                                stroke={borderStyle.stroke}
+                                strokeWidth={borderStyle.strokeWidth}
+                                strokeDasharray={borderStyle.strokeDasharray}
                                 rx="4"
                                 style={{ cursor: isInteractive ? 'pointer' : 'default' }}
                               />
@@ -1373,19 +2087,93 @@ const WarehouseMapView = ({ facilityData }) => {
                                 </g>
                               )}
                               
-                              {/* Item label (fallback for non-operational items) */}
-                              {!opData && item.width > 60 && item.height > 30 && (
-                                <text
-                                  x={item.x + item.width / 2}
-                                  y={item.y + item.height / 2}
-                                  textAnchor="middle"
-                                  fontSize="12"
-                                  fontWeight="bold"
-                                  fill="#fff"
-                                >
-                                  {item.name || item.type || 'Item'}
-                                </text>
-                              )}
+                              {/* Unified Component Label - Below Every Component */}
+                              {(() => {
+                                // Generate smart label for operational view
+                                const getOperationalLabel = () => {
+                                  if (item.label && item.label.trim()) return item.label.trim();
+                                  if (item.locationTag && item.locationTag.trim()) return item.locationTag.trim();
+                                  if (item.name && item.name.trim() && item.name !== 'Untitled') return item.name.trim();
+                                  
+                                  // Auto-generate based on type
+                                  const typeLabels = {
+                                    'storage_unit': 'RACK',
+                                    'sku_holder': 'HSR',
+                                    'vertical_sku_holder': 'VSR',
+                                    'warehouse_block': 'BLOCK',
+                                    'storage_zone': 'ZONE',
+                                    'processing_area': 'PROC',
+                                    'container_unit': 'UNIT',
+                                    'zone_divider': 'DIV',
+                                    'area_boundary': 'AREA',
+                                    'square_boundary': 'BOUND',
+                                    'solid_boundary': 'WALL',
+                                    'dotted_boundary': 'LINE'
+                                  };
+                                  
+                                  const prefix = typeLabels[item.type] || 'ITEM';
+                                  const sameTypeItems = unit.layoutData.items.filter(i => i.type === item.type);
+                                  const index = sameTypeItems.indexOf(item) + 1;
+                                  
+                                  // Use letters for zones, numbers for others
+                                  const isZone = item.containerLevel === 2;
+                                  if (isZone && index <= 26) {
+                                    return String.fromCharCode(64 + index); // A, B, C, etc.
+                                  }
+                                  
+                                  return `${prefix}-${index.toString().padStart(2, '0')}`;
+                                };
+
+                                const label = getOperationalLabel();
+                                if (!label) return null;
+
+                                // Determine component type for styling
+                                const isZone = item.containerLevel === 2;
+                                const isBoundary = item.containerLevel === 1;
+                                
+                                // Calculate label styling
+                                const fontSize = Math.min(Math.max(item.width / 12, 9), 14);
+                                let labelColor = '#16a085';
+                                let bgColor = 'rgba(26, 188, 156, 0.1)';
+                                let borderColor = '#1abc9c';
+                                
+                                if (isZone) {
+                                  labelColor = '#2c3e50';
+                                  bgColor = 'rgba(52, 152, 219, 0.1)';
+                                  borderColor = '#3498db';
+                                } else if (isBoundary) {
+                                  labelColor = '#34495e';
+                                  bgColor = 'rgba(149, 165, 166, 0.15)';
+                                  borderColor = '#95a5a6';
+                                }
+
+                                return (
+                                  <g>
+                                    {/* Label background */}
+                                    <rect
+                                      x={item.x + item.width / 2 - Math.max(label.length * fontSize * 0.3, 20)}
+                                      y={item.y + item.height + 5}
+                                      width={Math.max(label.length * fontSize * 0.6, 40)}
+                                      height={fontSize + 6}
+                                      fill={bgColor}
+                                      stroke={borderColor}
+                                      strokeWidth="1"
+                                      rx="3"
+                                    />
+                                    {/* Label text */}
+                                    <text
+                                      x={item.x + item.width / 2}
+                                      y={item.y + item.height + fontSize + 8}
+                                      textAnchor="middle"
+                                      fontSize={fontSize}
+                                      fontWeight="600"
+                                      fill={labelColor}
+                                    >
+                                      {label}
+                                    </text>
+                                  </g>
+                                );
+                              })()}
                               
                               {/* SKU compartments for SKU holders */}
                               {item.compartmentContents && Object.keys(item.compartmentContents).length > 0 && (
@@ -1669,19 +2457,78 @@ const WarehouseMapView = ({ facilityData }) => {
                               </g>
                             )}
                             
-                            {/* Fallback zone label for non-operational zones */}
-                            {!isInteractive && (
-                              <text
-                                x={zone.x + zone.width / 2}
-                                y={zone.y + zone.height / 2}
-                                textAnchor="middle"
-                                fontSize="12"
-                                fontWeight="bold"
-                                fill="#fff"
-                              >
-                                {zone.id}
-                              </text>
-                            )}
+                            {/* Unified Demo Zone Label - Below Every Zone */}
+                            {(() => {
+                              // Generate smart label for demo zones
+                              const getDemoZoneLabel = () => {
+                                if (zone.label && zone.label.trim()) return zone.label.trim();
+                                if (zone.name && zone.name.trim()) return zone.name.trim();
+                                if (zone.id && zone.id.trim()) return zone.id.trim();
+                                
+                                // Auto-generate based on type
+                                const typeLabels = {
+                                  'storage': 'ZONE',
+                                  'receiving': 'RCV',
+                                  'dispatch': 'DSP',
+                                  'office': 'OFF',
+                                  'overflow': 'OVF'
+                                };
+                                
+                                const prefix = typeLabels[zone.type] || 'ZONE';
+                                return `${prefix}-${String(index + 1).padStart(2, '0')}`;
+                              };
+
+                              const label = getDemoZoneLabel();
+                              if (!label) return null;
+
+                              // Calculate label styling for demo zones
+                              const fontSize = Math.min(Math.max(zone.width / 12, 9), 14);
+                              let labelColor = '#2c3e50';
+                              let bgColor = 'rgba(52, 152, 219, 0.1)';
+                              let borderColor = '#3498db';
+                              
+                              // Different colors for different zone types
+                              if (zone.type === 'receiving') {
+                                labelColor = '#e67e22';
+                                bgColor = 'rgba(230, 126, 34, 0.1)';
+                                borderColor = '#f39c12';
+                              } else if (zone.type === 'dispatch') {
+                                labelColor = '#8e44ad';
+                                bgColor = 'rgba(142, 68, 173, 0.1)';
+                                borderColor = '#9b59b6';
+                              } else if (zone.type === 'office') {
+                                labelColor = '#27ae60';
+                                bgColor = 'rgba(39, 174, 96, 0.1)';
+                                borderColor = '#2ecc71';
+                              }
+
+                              return (
+                                <g>
+                                  {/* Label background */}
+                                  <rect
+                                    x={zone.x + zone.width / 2 - Math.max(label.length * fontSize * 0.3, 20)}
+                                    y={zone.y + zone.height + 5}
+                                    width={Math.max(label.length * fontSize * 0.6, 40)}
+                                    height={fontSize + 6}
+                                    fill={bgColor}
+                                    stroke={borderColor}
+                                    strokeWidth="1"
+                                    rx="3"
+                                  />
+                                  {/* Label text */}
+                                  <text
+                                    x={zone.x + zone.width / 2}
+                                    y={zone.y + zone.height + fontSize + 8}
+                                    textAnchor="middle"
+                                    fontSize={fontSize}
+                                    fontWeight="600"
+                                    fill={labelColor}
+                                  >
+                                    {label}
+                                  </text>
+                                </g>
+                              );
+                            })()}
                           </g>
                         );
                       })}
@@ -1702,111 +2549,11 @@ const WarehouseMapView = ({ facilityData }) => {
                       sum + Object.keys(holder.compartmentContents || {}).length, 0
                     );
                     
-                    return (
-                      <>
-                        {/* Real-time Layout Metrics */}
-                        <div className="warehouse-metrics">
-                          <h3>📊 Layout Metrics</h3>
-                          
-                          <div className="metrics-grid">
-                            <div className="metric-card">
-                              <div className="metric-value">{items.length}</div>
-                              <div className="metric-label">Components</div>
-                            </div>
-                            
-                            <div className="metric-card">
-                              <div className="metric-value">{unit.utilization}%</div>
-                              <div className="metric-label">Utilization</div>
-                            </div>
-                            
-                            <div className="metric-card">
-                              <div className="metric-value">{totalSKUs}</div>
-                              <div className="metric-label">SKUs</div>
-                            </div>
-                            
-                            <div className="metric-card">
-                              <div className="metric-value">{unit.zones}</div>
-                              <div className="metric-label">Zones</div>
-                            </div>
-                          </div>
-                          
-                          <div className="capacity-overview">
-                            <h4>Layout Information</h4>
-                            <div className="layout-info">
-                              <div><strong>Status:</strong> {unit.status}</div>
-                              <div><strong>Created:</strong> {new Date(unit.layoutData.timestamp).toLocaleDateString()}</div>
-                              <div><strong>Size:</strong> {unit.subtitle.split(' - ')[1] || 'Custom'}</div>
-                              <div><strong>Version:</strong> {unit.layoutData.version || '1.0'}</div>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* SKU Details for custom layouts */}
-                        {totalSKUs > 0 && (
-                          <div className="demo-map-info">
-                            <h3>SKU Information</h3>
-                            <div className="sku-list">
-                              {skuHolders.map((holder) => (
-                                <div key={holder.id}>
-                                  <div className="sku-holder-title">{holder.name || 'SKU Holder'}</div>
-                                  {Object.entries(holder.compartmentContents || {}).map(([compartmentId, skuData]) => (
-                                    <div key={compartmentId} className="sku-item">
-                                      <div className="sku-id">{skuData.uniqueId || skuData.sku}</div>
-                                      <div className="sku-details">
-                                        Status: {skuData.status || 'planned'} | 
-                                        Qty: {skuData.quantity || 1}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    );
+                    return null; // Layout Metrics section removed
                   }
                   
-                  // For demo units, show demo metrics
-                  const demoData = demoMapsData[selectedUnitForDemo];
-                  if (!demoData) return null;
-                  
-                  return (
-                    <div className="warehouse-metrics">
-                      <h3>📊 Real-time Metrics</h3>
-                      
-                      <div className="metrics-grid">
-                        <div className="metric-card">
-                          <div className="metric-value">
-                            {demoData.zones.reduce((sum, zone) => sum + zone.items, 0)}
-                          </div>
-                          <div className="metric-label">Total Items</div>
-                        </div>
-                        
-                        <div className="metric-card">
-                          <div className="metric-value">
-                            {Math.round(
-                              (demoData.zones.reduce((sum, zone) => sum + zone.items, 0) /
-                              demoData.zones.reduce((sum, zone) => sum + zone.capacity, 0)) * 100
-                            ) || 0}%
-                          </div>
-                          <div className="metric-label">Utilization</div>
-                        </div>
-                        
-                        <div className="metric-card">
-                          <div className="metric-value">{demoData.zones.length}</div>
-                          <div className="metric-label">Active Zones</div>
-                        </div>
-                        
-                        <div className="metric-card">
-                          <div className="metric-value">
-                            {demoData.equipment.filter(eq => eq.status === 'active').length}
-                          </div>
-                          <div className="metric-label">Equipment Online</div>
-                        </div>
-                      </div>
-                    </div>
-                  );
+                  // Demo metrics section removed
+                  return null;
                 })()}
                 
                 {(() => {

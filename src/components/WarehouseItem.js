@@ -1,9 +1,24 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { useDrag } from 'react-dnd';
 import { DRAG_TYPES, STACKABLE_COMPONENTS, STATUS_COLORS, OCCUPANCY_STATUS, ORIENTATION_COLORS } from '../constants/warehouseComponents';
+import { getComponentColor } from '../utils/componentColors';
 import { renderShapeComponent } from '../utils/shapeRenderer';
 
-const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLevel, snapToGrid, gridSize, onRequestSkuId, onRightClick, onInfoClick, stackMode }) => {
+const WarehouseItem = ({ 
+  item, 
+  isSelected, 
+  onSelect, 
+  onUpdate, 
+  onDelete, 
+  zoomLevel, 
+  snapToGrid, 
+  gridSize, 
+  onRequestSkuId, 
+  onRightClick, 
+  onInfoClick, 
+  stackMode 
+}) => {
   const [{ isDragging }, drag] = useDrag({
     type: DRAG_TYPES.WAREHOUSE_ITEM,
     item: { 
@@ -23,10 +38,10 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
   const handleClick = (e) => {
     e.stopPropagation();
     
-    // Handle Storage Unit SKU assignment
+    // Handle Storage Unit Location assignment
     if (item.type === 'storage_unit' && item.hasSku && item.singleSku) {
-      if (!item.skuId && onRequestSkuId) {
-        // Request SKU ID for empty Storage Unit
+      if (!item.locationId && onRequestSkuId) {
+        // Request Location ID for empty Storage Unit
         onRequestSkuId(item.id, 'single-sku', 0, 0);
         return;
       }
@@ -123,7 +138,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
   // Get status-based styling
   const occupancyStatus = item.occupancyStatus || OCCUPANCY_STATUS.EMPTY;
   const statusColor = STATUS_COLORS[occupancyStatus] || '#ddd';
-  const orientationColor = item.storageOrientation ? ORIENTATION_COLORS[item.storageOrientation] : null;
+  // Remove orientation color override to maintain fixed component colors
+  // const orientationColor = item.storageOrientation ? ORIENTATION_COLORS[item.storageOrientation] : null;
 
   return (
     <div
@@ -141,10 +157,13 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         top: item.y,
         width: item.width,
         height: item.height,
-        backgroundColor: item.isHollow ? 'transparent' : (isContainer ? 'transparent' : (orientationColor || item.color || '#ffffff')),
-        borderColor: item.type === 'square_boundary' ? '#000000' : (isMainBoundary ? '#263238' : (isZone ? (item.color || '#607D8B') : (isContainer ? (item.color || '#607D8B') : statusColor))),
-        borderWidth: item.borderWidth || (isMainBoundary ? '4px' : (isZone ? '3px' : (isContainer ? '3px' : (isContained ? '2px' : '3px')))),
-        borderStyle: isContainer ? 'solid' : (isContained ? 'dashed' : 'solid'),
+        backgroundColor: item.isHollow ? 'transparent' : (isContainer ? 'transparent' : (getComponentColor(item.type, item.category) || '#ffffff')),
+        border: item.type === 'storage_unit' || item.type === 'sku_holder' || item.type === 'vertical_sku_holder' ? 'none' : 
+               (item.type === 'square_boundary' ? '4px solid #000000' : 
+               (isMainBoundary ? '4px solid #263238' : 
+               (isZone ? `3px solid ${getComponentColor(item.type)}` : 
+               (isContainer ? `3px solid ${getComponentColor(item.type)}` : 
+               (isContained ? `2px dashed ${getComponentColor(item.type) || statusColor}` : `3px solid ${getComponentColor(item.type) || statusColor}`))))),
         opacity: isDragging ? 0.7 : 1,
         position: 'absolute',
         zIndex: isMainBoundary ? 0 : (isZone ? 1 : (isContainer ? 1 : (isContained ? 10 : 5)))
@@ -224,7 +243,13 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
                     e.target.style.transform = 'scale(1)';
                     e.target.style.boxShadow = hasItem ? '0 2px 4px rgba(0, 188, 212, 0.2), inset 0 1px 0 rgba(255,255,255,0.5)' : 'inset 0 1px 2px rgba(0, 188, 212, 0.1)';
                   }}
-                  title={hasItem ? `Location ID: ${hasItem.locationId || hasItem.uniqueId}\nSKU: ${hasItem.sku || 'N/A'}\nStatus: ${hasItem.status || 'planned'}\nCategory: ${hasItem.category || 'none'}\n(Right-click to delete)` : `Empty compartment ${row + 1}-${col + 1} (Click to add item)`}
+                  title={hasItem ? (() => {
+                    if (hasItem.isMultiLocation && hasItem.locationIds && hasItem.tags) {
+                      const locationInfo = hasItem.locationIds.map((id, idx) => `${id}${hasItem.tags[idx] ? ` (${hasItem.tags[idx]})` : ''}`).join(', ');
+                      return `Multiple Locations: ${locationInfo}\nSKU: ${hasItem.sku || 'N/A'}\nStatus: ${hasItem.status || 'planned'}\nCategory: ${hasItem.category || 'none'}\n(Right-click to delete)`;
+                    }
+                    return `Location ID: ${hasItem.locationId || hasItem.uniqueId}\nSKU: ${hasItem.sku || 'N/A'}\nStatus: ${hasItem.status || 'planned'}\nCategory: ${hasItem.category || 'none'}\n(Right-click to delete)`;
+                  })() : `Empty compartment ${row + 1}-${col + 1} (Click to add item)`}
                   onClick={(e) => {
                     e.stopPropagation();
                     if (onUpdate) {
@@ -265,6 +290,13 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
                         maxWidth: '90%'
                       }}>
                         {(() => {
+                          // Handle multiple location IDs for vertical storage racks
+                          if (hasItem.isMultiLocation && hasItem.locationIds && hasItem.locationIds.length > 0) {
+                            const primaryId = hasItem.locationIds[0];
+                            const count = hasItem.locationIds.length;
+                            return count > 1 ? `${primaryId}+${count-1}` : primaryId;
+                          }
+                          
                           const displayId = hasItem.locationId || hasItem.uniqueId || hasItem.sku;
                           return displayId.length > 8 ? displayId.substring(0, 8) + '...' : displayId;
                         })()}
@@ -413,8 +445,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </div>
       )}
 
-      {/* Info Button - Hidden for square boundary, SKU holder, and storage unit to keep them clean */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'storage_unit' && (
+      {/* Info Button - Hidden for square boundary, SKU holder, vertical SKU holder, and storage unit to keep them clean */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && item.type !== 'storage_unit' && (
         <button
           onClick={handleInfoClick}
           style={{
@@ -441,8 +473,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </button>
       )}
 
-      {/* Hide text content for square boundary and SKU holder - keep them clean */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && (
+      {/* Hide text content for square boundary, SKU holder, and vertical SKU holder - keep them clean */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && (
         <div style={{ 
           textAlign: 'center', 
           fontSize: '0.8rem',
@@ -477,7 +509,7 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </div>
       )}
       
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.label && (
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && item.label && (
         <div style={{ 
           fontSize: '0.7rem', 
           color: '#666',
@@ -489,8 +521,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </div>
       )}
 
-      {/* Stack mode indicator - Hidden for square boundary and SKU holder */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && stackMode === 'enabled' && isStackable && (
+      {/* Stack mode indicator - Hidden for square boundary, SKU holder, and vertical SKU holder */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && stackMode === 'enabled' && isStackable && (
         <div style={{
           position: 'absolute',
           bottom: '2px',
@@ -506,8 +538,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
         </div>
       )}
 
-      {/* Status and Utilization Indicators - Hidden for square boundary and SKU holder */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && (
+      {/* Status and Utilization Indicators - Hidden for square boundary, SKU holder, and vertical SKU holder */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && (
       <div style={{
         position: 'absolute',
         bottom: '2px',
@@ -552,8 +584,8 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
       </div>
       )}
 
-      {/* Real-time status pulse for active locations - Hidden for square boundary and SKU holder */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.inventoryData && item.inventoryData.lastActivity && 
+      {/* Real-time status pulse for active locations - Hidden for square boundary, SKU holder, and vertical SKU holder */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && item.inventoryData && item.inventoryData.lastActivity && 
        new Date() - new Date(item.inventoryData.lastActivity) < 3600000 && ( // Within last hour
         <div style={{
           position: 'absolute',
@@ -685,6 +717,34 @@ const WarehouseItem = ({ item, isSelected, onSelect, onUpdate, onDelete, zoomLev
       )}
     </div>
   );
+};
+
+// PropTypes definition
+WarehouseItem.propTypes = {
+  item: PropTypes.object.isRequired,
+  isSelected: PropTypes.bool,
+  onSelect: PropTypes.func.isRequired,
+  onUpdate: PropTypes.func,
+  onDelete: PropTypes.func,
+  zoomLevel: PropTypes.number,
+  snapToGrid: PropTypes.bool,
+  gridSize: PropTypes.number,
+  onRequestSkuId: PropTypes.func,
+  onRightClick: PropTypes.func,
+  onInfoClick: PropTypes.func,
+  stackMode: PropTypes.bool
+};
+
+// Default props
+WarehouseItem.defaultProps = {
+  isSelected: false,
+  zoomLevel: 1,
+  snapToGrid: true,
+  gridSize: 60,
+  onRequestSkuId: null,
+  onRightClick: null,
+  onInfoClick: null,
+  stackMode: false
 };
 
 export default WarehouseItem;

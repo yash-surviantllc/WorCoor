@@ -646,7 +646,18 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
                         }}>
                           <div>
                             <div style={{ fontWeight: 'bold', color: '#006064' }}>
-                              Location: {itemData.locationId || itemData.uniqueId || itemData.sku}
+                              {itemData.isMultiLocation && itemData.locationIds ? (
+                                <div>
+                                  <div>Multiple Locations ({itemData.locationIds.length}):</div>
+                                  {itemData.locationIds.map((id, idx) => (
+                                    <div key={idx} style={{ fontSize: '0.7rem', marginLeft: '8px', color: '#FF5722' }}>
+                                      • {id} {itemData.tags && itemData.tags[idx] ? `(${itemData.tags[idx]})` : ''}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                `Location: ${itemData.locationId || itemData.uniqueId || itemData.sku}`
+                              )}
                             </div>
                             <div style={{ color: '#666' }}>
                               Position: {row + 1}-{col + 1} | Status: {itemData.status || 'planned'}

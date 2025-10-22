@@ -17,7 +17,8 @@ export const COMPONENT_TYPES = {
   
   // Storage Components (1×1 to 2×2)
   STORAGE_UNIT: 'storage_unit',
-  SKU_HOLDER: 'sku_holder'
+  SKU_HOLDER: 'sku_holder',
+  VERTICAL_SKU_HOLDER: 'vertical_sku_holder'
 };
 
 // Drag and drop types
@@ -73,12 +74,46 @@ export const STRUCTURAL_ELEMENTS = [
   
   // Storage Components
   COMPONENT_TYPES.STORAGE_UNIT,
-  COMPONENT_TYPES.SKU_HOLDER
+  COMPONENT_TYPES.SKU_HOLDER,
+  COMPONENT_TYPES.VERTICAL_SKU_HOLDER
 ];
 
 // Location zones (empty for now)
 export const LOCATION_ZONES = {
   // Will be populated as we add location zones
+};
+
+// Fixed Component Color Coding for Consistency - Realistic Colors
+export const COMPONENT_COLORS = {
+  // Floor Plan Components
+  [COMPONENT_TYPES.SQUARE_BOUNDARY]: '#263238', // Dark Gray - Main warehouse boundary
+  
+  // Boundaries
+  [COMPONENT_TYPES.SOLID_BOUNDARY]: '#607D8B', // Blue Gray - Solid divisions
+  [COMPONENT_TYPES.DOTTED_BOUNDARY]: '#90A4AE', // Light Blue Gray - Dotted divisions
+  
+  // Storage Components - Realistic Colors
+  [COMPONENT_TYPES.STORAGE_UNIT]: '#4CAF50', // Green - Storage containers/units
+  [COMPONENT_TYPES.SKU_HOLDER]: '#2196F3', // Blue - Horizontal storage racks/shelves
+  [COMPONENT_TYPES.VERTICAL_SKU_HOLDER]: '#FF9800', // Orange - Vertical storage racks/shelves
+  
+  // Zone Components
+  [COMPONENT_TYPES.WAREHOUSE_BLOCK]: '#FF9800', // Orange - Warehouse blocks
+  [COMPONENT_TYPES.STORAGE_ZONE]: '#9C27B0', // Purple - Storage zones
+  [COMPONENT_TYPES.PROCESSING_AREA]: '#F44336', // Red - Processing areas
+  [COMPONENT_TYPES.CONTAINER_UNIT]: '#00BCD4', // Cyan - Container units
+  [COMPONENT_TYPES.ZONE_DIVIDER]: '#795548', // Brown - Zone dividers
+  [COMPONENT_TYPES.AREA_BOUNDARY]: '#607D8B' // Blue Gray - Area boundaries
+};
+
+// Storage Category Colors - Based on Storage Type
+export const STORAGE_CATEGORY_COLORS = {
+  'storage': '#4CAF50',        // Green - General storage
+  'dry_storage': '#9E9E9E',    // Grey - Dry storage
+  'cold_storage': '#1565C0',   // Dark Blue - Cold storage
+  'hazardous': '#F44336',      // Red - Hazardous materials
+  'fragile': '#FFEB3B',        // Yellow - Fragile items
+  'bulk': '#00BCD4'            // Cyan - Bulk storage
 };
 
 // Status color mapping
@@ -108,7 +143,7 @@ export const WAREHOUSE_COMPONENTS = [
         type: COMPONENT_TYPES.SQUARE_BOUNDARY,
         name: "Square Boundary",
         icon: "⬜",
-        color: "#000000",
+        color: "#263238", // Fixed Dark Gray
         defaultSize: { width: 480, height: 480 }, // 8×8 grid blocks (60px × 8 = 480px)
         description: "Resizable rectangular warehouse boundary with hollow border design",
         priority: "high",
@@ -135,7 +170,7 @@ export const WAREHOUSE_COMPONENTS = [
         type: COMPONENT_TYPES.SOLID_BOUNDARY,
         name: "Solid Boundary",
         icon: "⬜",
-        color: "#555555",
+        color: "#607D8B", // Fixed Blue Gray
         defaultSize: { width: 180, height: 180 }, // 3×3 grid blocks
         description: "Solid boundary box for zone divisions with normal border",
         priority: "high",
@@ -155,7 +190,7 @@ export const WAREHOUSE_COMPONENTS = [
         type: COMPONENT_TYPES.DOTTED_BOUNDARY,
         name: "Dotted Boundary",
         icon: "⬛",
-        color: "#555555",
+        color: "#90A4AE", // Fixed Light Blue Gray
         defaultSize: { width: 180, height: 180 }, // 3×3 grid blocks
         description: "Dotted boundary box for zone divisions with dashed border",
         priority: "high",
@@ -183,7 +218,7 @@ export const WAREHOUSE_COMPONENTS = [
         type: COMPONENT_TYPES.STORAGE_UNIT,
         name: "Storage Unit",
         icon: "📦",
-        color: "#4CAF50",
+        color: "#4CAF50", // Fixed Green - Storage containers/units
         defaultSize: { width: 60, height: 60 }, // 1×1 grid block
         description: "Individual storage unit with sequential SKU ID assignment",
         priority: "high",
@@ -196,11 +231,11 @@ export const WAREHOUSE_COMPONENTS = [
       },
       {
         type: COMPONENT_TYPES.SKU_HOLDER,
-        name: "Storage Racks",
+        name: "Horizontal Storage Rack",
         icon: "📋",
-        color: "#00BCD4",
+        color: "#2196F3", // Fixed Blue - Horizontal storage racks/shelves
         defaultSize: { width: 60, height: 60 }, // 1×1 grid block = 1 SKU compartment
-        description: "Storage rack system where each 60×60px grid block holds 1 SKU unit",
+        description: "Horizontal storage rack system where each 60×60px grid block holds 1 SKU unit",
         priority: "high",
         snapToGrid: true,
         gridAligned: true,
@@ -215,6 +250,30 @@ export const WAREHOUSE_COMPONENTS = [
         showCompartments: true, // Show visual compartment grid
         allowEmpty: true, // Compartments can be vacant
         maxSKUsPerCompartment: 1 // One SKU unit per compartment
+      },
+      {
+        type: COMPONENT_TYPES.VERTICAL_SKU_HOLDER,
+        name: "Vertical Storage Rack",
+        icon: "📐",
+        color: "#FF9800", // Orange - Vertical storage racks/shelves
+        defaultSize: { width: 60, height: 60 }, // 1×1 grid block = 1 SKU compartment
+        description: "Vertical storage rack system where each 60×60px grid block holds 1 SKU unit",
+        priority: "high",
+        snapToGrid: true,
+        gridAligned: true,
+        gridStep: 60,
+        resizable: true,
+        minSize: { width: 60, height: 60 }, // Minimum 1×1 grid block = 1 compartment
+        maxSize: { width: 300, height: 300 }, // Maximum 5×5 grid blocks = 25 compartments
+        isContainer: true,
+        containerLevel: 3,
+        containerPadding: 4,
+        skuGrid: true, // Special property to indicate this has SKU compartments
+        showCompartments: true, // Show visual compartment grid
+        allowEmpty: true, // Compartments can be vacant
+        maxSKUsPerCompartment: 1, // One SKU unit per compartment
+        supportsMultipleLocationIds: true, // Support multiple location IDs (L1, L2, L3)
+        supportsMultipleTags: true // Support multiple tags per location
       }
     ]
   }

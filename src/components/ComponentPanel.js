@@ -217,14 +217,6 @@ const ComponentPanel = () => {
             className="component-search"
           />
         </div>
-        <div className="panel-controls">
-          <button onClick={expandAll} className="control-btn">
-            📂 Expand All
-          </button>
-          <button onClick={collapseAll} className="control-btn">
-            📁 Collapse All
-          </button>
-        </div>
       </div>
       
       <div className="categories-container">

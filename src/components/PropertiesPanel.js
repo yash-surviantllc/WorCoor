@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import SkuIdSelector from './SkuIdSelector';
+import { getContextualLabel, generateStorageUnitLabelInfo } from '../utils/componentLabeling';
 
 const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
   const [skuIdSelectorVisible, setSkuIdSelectorVisible] = useState(false);
@@ -162,8 +163,36 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
     <div className="properties-panel animate-slide-right">
       <h3>⚙️ Properties</h3>
       
+      {/* Enhanced Storage Unit Information */}
+      {selectedItem.type === 'storage_unit' && (() => {
+        const labelInfo = generateStorageUnitLabelInfo(selectedItem, 1);
+        return (
+          <div style={{ 
+            backgroundColor: '#e8f5e8', 
+            padding: '12px', 
+            borderRadius: '6px', 
+            border: '1px solid #4CAF50',
+            marginBottom: '16px'
+          }}>
+            <div style={{ fontWeight: 'bold', color: '#2E7D32', marginBottom: '8px' }}>
+              📦 Storage Unit Information
+            </div>
+            <div style={{ fontSize: '0.9rem', color: '#1B5E20' }}>
+              <div><strong>Type:</strong> {labelInfo?.displayName || 'Storage Unit'}</div>
+              <div><strong>Location ID:</strong> {getContextualLabel(selectedItem, 'properties') || 'Not Assigned'}</div>
+              <div><strong>Category:</strong> {labelInfo?.categoryText || 'General Storage'}</div>
+              {selectedItem.locationId && (
+                <div style={{ marginTop: '4px', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                  Selected from dropdown: {selectedItem.locationId}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="property-group">
-        <label className="property-label">Name</label>
+        <label className="property-label">Component Name</label>
         <input
           type="text"
           className="property-input"
@@ -182,6 +211,7 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
           placeholder="Optional label"
         />
       </div>
+
 
       <div className="property-group">
         <label className="property-label">

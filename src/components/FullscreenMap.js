@@ -480,7 +480,7 @@ const FullscreenMap = () => {
                 y={item.y}
                 width={item.width}
                 height={item.height}
-                fill={getItemColor(item.type, opData)}
+                fill={getItemBackgroundColor(item.type, opData)}
                 stroke={getItemBorderColor(item.type, opData)}
                 strokeWidth="2"
                 rx="4"
@@ -1253,16 +1253,15 @@ const renderDemoLayout = (demoData) => {
 
 
 // Helper functions for item styling
-const getItemColor = (type, opData) => {
-  // Base colors
+const getItemBackgroundColor = (type, opData) => {
   const colors = {
-    'square_boundary': 'transparent',
-    'solid_boundary': 'rgba(85, 85, 85, 0.1)',
-    'dotted_boundary': 'rgba(85, 85, 85, 0.1)',
-    'sku_holder': '#e3f2fd',
-    'vertical_sku_holder': '#fff3e0',
-    'storage_unit': '#e3f2fd',
-    'storage_zone': '#00bcd4',
+    'square_boundary': 'rgba(38, 50, 56, 0.05)',
+    'solid_boundary': 'rgba(96, 125, 139, 0.1)',
+    'dotted_boundary': 'rgba(144, 164, 174, 0.1)',
+    'sku_holder': 'rgba(33, 150, 243, 0.1)',
+    'vertical_sku_holder': 'rgba(255, 87, 34, 0.1)',
+    'storage_unit': '#4CAF50',
+    'storage_zone': '#9C27B0',
     'receiving_zone': '#ffa726',
     'dispatch_zone': '#66bb6a',
     'office_zone': '#5c6bc0',
@@ -1283,13 +1282,13 @@ const getItemColor = (type, opData) => {
 
 const getItemBorderColor = (type, opData) => {
   const colors = {
-    'square_boundary': '#000000',
-    'solid_boundary': '#555555',
-    'dotted_boundary': '#555555',
-    'sku_holder': '#2196f3',
-    'vertical_sku_holder': '#ff5722',
-    'storage_unit': '#2196f3',
-    'storage_zone': '#00acc1',
+    'square_boundary': '#263238',
+    'solid_boundary': '#607D8B',
+    'dotted_boundary': '#90A4AE',
+    'sku_holder': '#2196F3',
+    'vertical_sku_holder': '#FF5722',
+    'storage_unit': '#388E3C',
+    'storage_zone': '#9C27B0',
     'receiving_zone': '#ff9800',
     'dispatch_zone': '#4caf50',
     'office_zone': '#3f51b5',

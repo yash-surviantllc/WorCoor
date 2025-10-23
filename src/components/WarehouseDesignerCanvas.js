@@ -184,39 +184,42 @@ const WarehouseItem = ({
       };
     }
 
-    // Horizontal Storage Racks - Proper solid boundaries with professional styling
+    // Horizontal Storage Racks - Black borders with blue interior
     if (isStorageRack) {
       return {
         ...baseStyle,
-        border: '2px solid #1976D2 !important', // Solid blue border for horizontal storage racks
+        border: '2px solid #000000 !important', // Black border for horizontal storage racks
         borderStyle: 'solid !important', // Force solid border style
-        backgroundColor: 'rgba(33, 150, 243, 0.1)', // Light blue background
+        backgroundColor: 'rgba(33, 150, 243, 0.15)', // Light blue background
         borderRadius: '4px',
-        boxShadow: '0 1px 3px rgba(25, 118, 210, 0.2)' // Subtle shadow
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)' // Subtle shadow
       };
     }
 
-    // Vertical Storage Racks - Proper solid boundaries with professional styling
+    // Vertical Storage Racks - Black borders with orange interior
     if (isVerticalStorageRack) {
       return {
         ...baseStyle,
-        border: '2px solid #E64A19 !important', // Solid deep orange border for vertical storage racks
+        border: '2px solid #000000 !important', // Black border for vertical storage racks
         borderStyle: 'solid !important', // Force solid border style
-        backgroundColor: 'rgba(255, 87, 34, 0.1)', // Light deep orange background
+        backgroundColor: 'rgba(255, 87, 34, 0.15)', // Light orange background
         borderRadius: '4px',
-        boxShadow: '0 1px 3px rgba(230, 74, 25, 0.2)' // Subtle shadow
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)' // Subtle shadow
       };
     }
 
-    // Storage Units - Green styling
+    // Storage Units - Use dynamic color based on category
     if (isStorageUnit) {
+      const storageUnitColor = getComponentColor(item.type, item.category);
+      const borderColor = storageUnitColor === '#4CAF50' ? '#388E3C' : storageUnitColor;
+      
       return {
         ...baseStyle,
-        border: '2px solid #388E3C !important', // Solid green border for storage units
+        border: `2px solid ${borderColor} !important`, // Dynamic border color
         borderStyle: 'solid !important', // Force solid border style
-        backgroundColor: 'rgba(76, 175, 80, 0.1)', // Light green background
+        backgroundColor: storageUnitColor, // Use the actual component color
         borderRadius: '4px',
-        boxShadow: '0 1px 3px rgba(56, 142, 60, 0.2)' // Subtle shadow
+        boxShadow: `0 1px 3px ${borderColor}33` // Dynamic shadow with transparency
       };
     }
 
@@ -238,16 +241,20 @@ const WarehouseItem = ({
     if (!showLabels) return null;
     
     const getSmartLabel = () => {
-      // Priority: custom label > locationTag > name > auto-generated
-      if (item.label && item.label.trim()) return item.label.trim();
-      if (item.locationTag && item.locationTag.trim()) return item.locationTag.trim();
-      if (item.name && item.name.trim() && item.name !== 'Untitled') return item.name.trim();
+      // For storage components, only show label if locationId is assigned
+      const isStorageComponent = item.type === 'storage_unit' || item.type === 'sku_holder' || item.type === 'vertical_sku_holder';
       
-      // Auto-generate label based on type
+      if (isStorageComponent) {
+        // Only show locationId for storage components, nothing else
+        return item.locationId || null;
+      }
+      
+      // For other components: Priority: custom label > locationTag > name > auto-generated
+      if (item.label && item.label.trim() && item.label !== item.name) return item.label.trim();
+      if (item.locationTag && item.locationTag.trim()) return item.locationTag.trim();
+      
+      // Auto-generate label based on type for non-storage components
       const typeLabels = {
-        'storage_unit': 'RACK',
-        'sku_holder': 'HSR',
-        'vertical_sku_holder': 'VSR',
         'warehouse_block': 'BLOCK',
         'storage_zone': 'ZONE',
         'processing_area': 'PROC',
@@ -259,7 +266,9 @@ const WarehouseItem = ({
         'dotted_boundary': 'LINE'
       };
       
-      const prefix = typeLabels[item.type] || 'ITEM';
+      const prefix = typeLabels[item.type];
+      if (!prefix) return null;
+      
       const sameTypeItems = items.filter(i => i.type === item.type);
       const index = sameTypeItems.indexOf(item) + 1;
       

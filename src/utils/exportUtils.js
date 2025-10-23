@@ -5,6 +5,7 @@
 
 import { measurementSystem } from './measurementTools';
 import { facilityHierarchy } from './facilityHierarchy';
+import { getComponentColor } from './componentColors';
 
 export const EXPORT_FORMATS = {
   PNG: 'png',
@@ -264,8 +265,8 @@ export class LayoutExporter {
     const height = item.height * scale;
 
     // Set styles based on item type
-    ctx.fillStyle = item.color || '#e3f2fd';
-    ctx.strokeStyle = '#1976d2';
+    ctx.fillStyle = item.color || getComponentColor(item.type, item.category);
+    ctx.strokeStyle = getComponentColor(item.type, item.category);
     ctx.lineWidth = 1;
 
     // Draw item
@@ -292,7 +293,7 @@ export class LayoutExporter {
     const y = item.y - bounds.y + 50;
     
     let svg = `<rect x="${x}" y="${y}" width="${item.width}" height="${item.height}" `;
-    svg += `fill="${item.color || '#e3f2fd'}" stroke="#1976d2" stroke-width="1"/>`;
+    svg += `fill="${item.color || getComponentColor(item.type, item.category)}" stroke="${getComponentColor(item.type, item.category)}" stroke-width="1"/>`;
     
     // Add label
     if (item.locationCode || item.name) {

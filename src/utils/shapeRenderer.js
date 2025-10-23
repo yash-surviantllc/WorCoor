@@ -3,6 +3,8 @@
  * Generates SVG paths and renders shapes for warehouse components
  */
 
+import { getComponentColor } from './componentColors';
+
 export const generateShapePath = (shapeType, width, height, options = {}) => {
   const { x = 0, y = 0 } = options;
 
@@ -170,8 +172,8 @@ export const renderShapeComponent = (item) => {
     >
       <path
         d={path}
-        fill={isContainer ? 'transparent' : (item.color || '#607D8B')}
-        stroke={item.color || '#607D8B'}
+        fill={isContainer ? 'transparent' : (item.color || getComponentColor(item.type, item.category))}
+        stroke={item.color || getComponentColor(item.type, item.category)}
         strokeWidth={isContainer ? "3" : "1"}
         opacity={isContainer ? "1" : "0.8"}
         strokeDasharray={isContainer ? "none" : "none"}
@@ -181,7 +183,7 @@ export const renderShapeComponent = (item) => {
         <path
           d={generateShapePath(item.type, item.width - (item.containerPadding * 2), item.height - (item.containerPadding * 2), { x: item.containerPadding, y: item.containerPadding })}
           fill="none"
-          stroke={item.color || '#607D8B'}
+          stroke={item.color || getComponentColor(item.type, item.category)}
           strokeWidth="1"
           opacity="0.3"
           strokeDasharray="5,5"

@@ -46,18 +46,11 @@ const TopNavbar = ({
 }) => {
   const [activeDropdown, setActiveDropdown] = useState(null);
 
-  // Organizational Units
+  // Organizational Units - Only Warehouses
   const orgUnits = [
     { id: 'warehouse-1', name: 'Warehouse 1', location: 'Building A' },
     { id: 'warehouse-2', name: 'Warehouse 2', location: 'Building B' },
-    { id: 'warehouse-3', name: 'Warehouse 3', location: 'Building C' },
-    { id: 'distribution-center-1', name: 'Distribution Center 1', location: 'Building D' },
-    { id: 'distribution-center-2', name: 'Distribution Center 2', location: 'Building E' },
-    { id: 'cold-storage-1', name: 'Cold Storage 1', location: 'Building F' },
-    { id: 'cold-storage-2', name: 'Cold Storage 2', location: 'Building G' },
-    { id: 'processing-facility', name: 'Processing Facility', location: 'Building H' },
-    { id: 'returns-center', name: 'Returns Center', location: 'Building I' },
-    { id: 'cross-dock', name: 'Cross Dock', location: 'Building J' }
+    { id: 'warehouse-3', name: 'Warehouse 3', location: 'Building C' }
   ];
 
   const toggleDropdown = (dropdown) => {
@@ -68,63 +61,24 @@ const TopNavbar = ({
     setActiveDropdown(null);
   };
 
-  // Organization Mapping - Dedicated maps per unit
+  // Organization Mapping - Simplified unit maps
   const organizationMaps = {
     'warehouse-1': [
-      { id: 'wh1-main', name: 'Main Floor Plan', type: 'primary', description: 'Primary storage and operations area' },
-      { id: 'wh1-mezzanine', name: 'Mezzanine Level', type: 'secondary', description: 'Upper level storage and offices' },
-      { id: 'wh1-loading', name: 'Loading Dock Area', type: 'specialized', description: 'Truck loading and receiving zones' },
-      { id: 'wh1-cold', name: 'Cold Storage Section', type: 'specialized', description: 'Temperature-controlled storage' }
+      { id: 'wh1-unit1', name: 'Unit 1', type: 'primary', description: 'Primary storage and operations area' },
+      { id: 'wh1-unit2', name: 'Unit 2', type: 'secondary', description: 'Upper level storage and offices' },
+      { id: 'wh1-unit3', name: 'Unit 3', type: 'specialized', description: 'Truck loading and receiving zones' },
+      { id: 'wh1-unit4', name: 'Unit 4', type: 'specialized', description: 'Temperature-controlled storage' }
     ],
     'warehouse-2': [
-      { id: 'wh2-main', name: 'Main Operations Floor', type: 'primary', description: 'Central processing and storage' },
-      { id: 'wh2-assembly', name: 'Assembly Area', type: 'specialized', description: 'Product assembly and packaging' },
-      { id: 'wh2-quality', name: 'Quality Control Zone', type: 'specialized', description: 'Inspection and testing area' },
-      { id: 'wh2-returns', name: 'Returns Processing', type: 'secondary', description: 'Returns handling and sorting' }
+      { id: 'wh2-unit1', name: 'Unit 1', type: 'primary', description: 'Central processing and storage' },
+      { id: 'wh2-unit2', name: 'Unit 2', type: 'specialized', description: 'Product assembly and packaging' },
+      { id: 'wh2-unit3', name: 'Unit 3', type: 'specialized', description: 'Inspection and testing area' },
+      { id: 'wh2-unit4', name: 'Unit 4', type: 'secondary', description: 'Returns handling and sorting' }
     ],
     'warehouse-3': [
-      { id: 'wh3-main', name: 'Distribution Center', type: 'primary', description: 'Main distribution operations' },
-      { id: 'wh3-sorting', name: 'Automated Sorting', type: 'specialized', description: 'Conveyor and sorting systems' },
-      { id: 'wh3-staging', name: 'Staging Area', type: 'secondary', description: 'Order staging and preparation' }
-    ],
-    'distribution-center-1': [
-      { id: 'dc1-inbound', name: 'Inbound Processing', type: 'primary', description: 'Receiving and intake operations' },
-      { id: 'dc1-storage', name: 'Bulk Storage', type: 'primary', description: 'High-density storage systems' },
-      { id: 'dc1-outbound', name: 'Outbound Fulfillment', type: 'primary', description: 'Order picking and shipping' },
-      { id: 'dc1-cross-dock', name: 'Cross-Dock Operations', type: 'specialized', description: 'Direct transfer operations' }
-    ],
-    'distribution-center-2': [
-      { id: 'dc2-main', name: 'Main Distribution Floor', type: 'primary', description: 'Primary distribution operations' },
-      { id: 'dc2-express', name: 'Express Fulfillment', type: 'specialized', description: 'Fast-track order processing' },
-      { id: 'dc2-bulk', name: 'Bulk Handling', type: 'secondary', description: 'Large item processing' }
-    ],
-    'cold-storage-1': [
-      { id: 'cs1-freezer', name: 'Freezer Section (-25°C)', type: 'primary', description: 'Deep freeze storage' },
-      { id: 'cs1-chilled', name: 'Chilled Section (2-8°C)', type: 'primary', description: 'Refrigerated storage' },
-      { id: 'cs1-staging', name: 'Temperature Staging', type: 'secondary', description: 'Temperature transition area' }
-    ],
-    'cold-storage-2': [
-      { id: 'cs2-main', name: 'Main Cold Storage', type: 'primary', description: 'Primary refrigerated area' },
-      { id: 'cs2-produce', name: 'Fresh Produce Section', type: 'specialized', description: 'Optimized for fresh goods' },
-      { id: 'cs2-pharma', name: 'Pharmaceutical Storage', type: 'specialized', description: 'Medical-grade cold storage' }
-    ],
-    'processing-facility': [
-      { id: 'pf-production', name: 'Production Floor', type: 'primary', description: 'Main manufacturing area' },
-      { id: 'pf-packaging', name: 'Packaging Lines', type: 'specialized', description: 'Automated packaging systems' },
-      { id: 'pf-quality', name: 'Quality Assurance', type: 'secondary', description: 'Testing and quality control' },
-      { id: 'pf-raw', name: 'Raw Materials', type: 'secondary', description: 'Raw material storage' }
-    ],
-    'returns-center': [
-      { id: 'rc-intake', name: 'Returns Intake', type: 'primary', description: 'Initial returns processing' },
-      { id: 'rc-inspection', name: 'Inspection Area', type: 'specialized', description: 'Product evaluation and testing' },
-      { id: 'rc-refurb', name: 'Refurbishment Zone', type: 'specialized', description: 'Product repair and restoration' },
-      { id: 'rc-disposal', name: 'Disposal Processing', type: 'secondary', description: 'Waste and disposal handling' }
-    ],
-    'cross-dock': [
-      { id: 'cd-receiving', name: 'Receiving Docks', type: 'primary', description: 'Inbound truck operations' },
-      { id: 'cd-sorting', name: 'Sorting Hub', type: 'primary', description: 'Central sorting operations' },
-      { id: 'cd-shipping', name: 'Shipping Docks', type: 'primary', description: 'Outbound truck operations' },
-      { id: 'cd-staging', name: 'Staging Areas', type: 'secondary', description: 'Temporary holding zones' }
+      { id: 'wh3-unit1', name: 'Unit 1', type: 'primary', description: 'Main distribution operations' },
+      { id: 'wh3-unit2', name: 'Unit 2', type: 'specialized', description: 'Conveyor and sorting systems' },
+      { id: 'wh3-unit3', name: 'Unit 3', type: 'secondary', description: 'Order staging and preparation' }
     ]
   };
 
@@ -166,196 +120,174 @@ const TopNavbar = ({
   };
 
   return (
-    <nav className="top-navbar" onClick={closeDropdowns}>
-      <div className="navbar-brand">
-        <div className="org-unit-selector">
-          <div className="org-unit-label">Select Org Unit</div>
-          <div className="dropdown-container">
+    <nav className="modern-navbar" onClick={closeDropdowns}>
+      {/* Left Section - Brand & Selectors */}
+      <div className="navbar-left">
+        <div className="brand-section">
+          <div className="brand-icon">🏭</div>
+          <div className="brand-text">
+            <div className="brand-title">WorCoor</div>
+            <div className="brand-subtitle">Warehouse Designer</div>
+          </div>
+        </div>
+        
+        <div className="selector-group">
+          {/* Warehouse Selector */}
+          <div className="selector-item">
             <button 
-              className="org-unit-dropdown-toggle"
+              className="modern-selector"
               onClick={(e) => { e.stopPropagation(); toggleDropdown('orgUnit'); }}
             >
-              <span className="org-unit-icon">🏭</span>
-              <div className="org-unit-info">
-                <div className="org-unit-name">
-                  {selectedOrgUnit ? selectedOrgUnit.name : 'Warehouse Management System'}
-                </div>
-                <div className="org-unit-subtitle">
-                  {selectedOrgUnit 
-                    ? `${selectedOrgUnit.location} - Layout Designer`
-                    : itemCount > 0 
-                      ? 'Professional Layout Designer' 
-                      : 'Professional Layout Designer - Start by adding components'}
-                </div>
-              </div>
-              <span className="dropdown-arrow">▼</span>
+              <span className="selector-label">Warehouse</span>
+              <span className="selector-value">
+                {selectedOrgUnit ? selectedOrgUnit.name : 'Select Warehouse'}
+              </span>
+              <span className="selector-arrow">▼</span>
             </button>
             {activeDropdown === 'orgUnit' && (
-              <div className="dropdown-menu org-unit-menu">
-                <div className="dropdown-header">Select Organizational Unit</div>
+              <div className="modern-dropdown">
                 {orgUnits.map(unit => (
                   <button 
                     key={unit.id}
-                    className={`org-unit-option ${selectedOrgUnit?.id === unit.id ? 'selected' : ''}`}
+                    className={`dropdown-option ${selectedOrgUnit?.id === unit.id ? 'selected' : ''}`}
                     onClick={() => handleOrgUnitChange(unit)}
                   >
-                    <div className="org-unit-option-content">
-                      <div className="org-unit-option-name">{unit.name}</div>
-                      <div className="org-unit-option-location">{unit.location}</div>
-                    </div>
+                    <span className="option-text">{unit.name}</span>
+                    <span className="option-meta">{unit.location}</span>
                   </button>
                 ))}
               </div>
             )}
           </div>
-          
-          {/* Organization Mapping Dropdown */}
+
+          {/* Unit Selector */}
           {selectedOrgUnit && (
-            <div className="org-map-selector">
-              <div className="org-map-label">Organization Mapping</div>
-              <div className="dropdown-container">
-                <button 
-                  className="org-map-dropdown-toggle"
-                  onClick={(e) => { e.stopPropagation(); toggleDropdown('orgMap'); }}
-                >
-                  <span className="org-map-icon">🗺️</span>
-                  <div className="org-map-info">
-                    <div className="org-map-name">
-                      {selectedOrgMap ? selectedOrgMap.name : 'Select Map'}
-                    </div>
-                    <div className="org-map-subtitle">
-                      {selectedOrgMap 
-                        ? `${selectedOrgMap.type.charAt(0).toUpperCase() + selectedOrgMap.type.slice(1)} Map`
-                        : `${getAvailableMaps().length} maps available`}
-                    </div>
-                  </div>
-                  <span className="dropdown-arrow">▼</span>
-                </button>
-                {activeDropdown === 'orgMap' && (
-                  <div className="dropdown-menu org-map-menu">
-                    <div className="dropdown-header">
-                      Select Map for {selectedOrgUnit.name}
-                    </div>
-                    
-                    {/* Group maps by type */}
-                    {['primary', 'specialized', 'secondary'].map(mapType => {
-                      const mapsOfType = getAvailableMaps().filter(map => map.type === mapType);
-                      if (mapsOfType.length === 0) return null;
-                      
-                      return (
-                        <div key={mapType} className="map-type-group">
-                          <div className="map-type-header">
-                            <span className="map-type-icon">{getMapTypeIcon(mapType)}</span>
-                            <span className="map-type-label">
-                              {mapType.charAt(0).toUpperCase() + mapType.slice(1)} Maps
-                            </span>
-                            <span className="map-type-count">({mapsOfType.length})</span>
-                          </div>
-                          
-                          {mapsOfType.map(map => (
-                            <button 
-                              key={map.id}
-                              className={`org-map-option ${selectedOrgMap?.id === map.id ? 'selected' : ''}`}
-                              onClick={() => handleOrgMapChange(map)}
-                            >
-                              <div className="map-option-icon" style={{ color: getMapTypeColor(map.type) }}>
-                                {getMapTypeIcon(map.type)}
-                              </div>
-                              <div className="map-option-content">
-                                <div className="map-option-name">{map.name}</div>
-                                <div className="map-option-description">{map.description}</div>
-                              </div>
-                              <div className="map-type-badge" style={{ backgroundColor: getMapTypeColor(map.type) }}>
-                                {map.type}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+            <div className="selector-item">
+              <button 
+                className="modern-selector"
+                onClick={(e) => { e.stopPropagation(); toggleDropdown('orgMap'); }}
+              >
+                <span className="selector-label">Unit</span>
+                <span className="selector-value">
+                  {selectedOrgMap ? selectedOrgMap.name : 'Select Unit'}
+                </span>
+                <span className="selector-arrow">▼</span>
+              </button>
+              {activeDropdown === 'orgMap' && (
+                <div className="modern-dropdown">
+                  {getAvailableMaps().map(map => (
+                    <button 
+                      key={map.id}
+                      className={`dropdown-option ${selectedOrgMap?.id === map.id ? 'selected' : ''}`}
+                      onClick={() => handleOrgMapChange(map)}
+                    >
+                      <span className="option-text">{map.name}</span>
+                      <span className="option-meta">{map.description}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      <div className="navbar-content">
-        {/* File Menu */}
-        <div className="navbar-section">
-          <div className="dropdown-container">
+      {/* Center Section - Actions */}
+      <div className="navbar-center">
+        <div className="action-group">
+          {/* File Actions */}
+          <div className="action-item">
             <button 
-              className="navbar-btn dropdown-toggle"
+              className="action-btn"
               onClick={(e) => { e.stopPropagation(); toggleDropdown('file'); }}
             >
-              📁 File
+              <span className="action-text">File</span>
             </button>
             {activeDropdown === 'file' && (
-              <div className="dropdown-menu">
-                <button onClick={onSave}>💾 Save Layout</button>
-                <div className="dropdown-divider"></div>
-                <button onClick={() => onExportLayout('png')}>🖼️ Export PNG</button>
-                <button onClick={() => onExportLayout('svg')}>📊 Export SVG</button>
-                <button onClick={() => onExportLayout('pdf')}>📄 Export PDF</button>
-                <div className="dropdown-divider"></div>
-                <button onClick={onClear} className="danger">🗑️ Clear All</button>
+              <div className="action-dropdown">
+                <button onClick={onSave} className="action-option">
+                  <span className="option-icon">💾</span>
+                  <span>Save Layout</span>
+                </button>
+                <div className="dropdown-separator"></div>
+                <button onClick={() => onExportLayout('png')} className="action-option">
+                  <span className="option-icon">🖼️</span>
+                  <span>Export PNG</span>
+                </button>
+                <button onClick={() => onExportLayout('svg')} className="action-option">
+                  <span className="option-icon">🎨</span>
+                  <span>Export SVG</span>
+                </button>
+                <button onClick={() => onExportLayout('pdf')} className="action-option">
+                  <span className="option-icon">📋</span>
+                  <span>Export PDF</span>
+                </button>
+                <div className="dropdown-separator"></div>
+                <button onClick={onClear} className="action-option danger">
+                  <span className="option-icon">🗑️</span>
+                  <span>Clear All</span>
+                </button>
               </div>
             )}
           </div>
-        </div>
 
-        {/* Tools Menu */}
-        <div className="navbar-section">
-          <div className="dropdown-container">
+          {/* View Actions */}
+          <div className="action-item">
             <button 
-              className="navbar-btn dropdown-toggle"
-              onClick={(e) => { e.stopPropagation(); toggleDropdown('tools'); }}
-            >
-              🔧 Tools
-            </button>
-            {activeDropdown === 'tools' && (
-              <div className="dropdown-menu">
-                <button onClick={onFacilityManager}>🏢 Facility Manager</button>
-                <div className="dropdown-divider"></div>
-                <button onClick={onSearch}>🔍 Search Items</button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* View Menu */}
-        <div className="navbar-section">
-          <div className="dropdown-container">
-            <button 
-              className="navbar-btn dropdown-toggle"
+              className="action-btn"
               onClick={(e) => { e.stopPropagation(); toggleDropdown('view'); }}
             >
-              👁️ View
+              <span className="action-text">View</span>
             </button>
             {activeDropdown === 'view' && (
-              <div className="dropdown-menu">
+              <div className="action-dropdown">
                 <button 
                   onClick={onToggleGrid}
-                  className={gridVisible ? 'active' : ''}
+                  className={`action-option ${gridVisible ? 'active' : ''}`}
                 >
-                  ⊞ {gridVisible ? 'Hide' : 'Show'} Grid
+                  <span className="option-icon">⚏</span>
+                  <span>{gridVisible ? 'Hide' : 'Show'} Grid</span>
                 </button>
                 <button 
                   onClick={onToggleSnap}
-                  className={snapEnabled ? 'active' : ''}
+                  className={`action-option ${snapEnabled ? 'active' : ''}`}
                 >
-                  🧲 {snapEnabled ? 'Disable' : 'Enable'} Snap
+                  <span className="option-icon">🎯</span>
+                  <span>{snapEnabled ? 'Disable' : 'Enable'} Snap</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Tools Actions */}
+          <div className="action-item">
+            <button 
+              className="action-btn"
+              onClick={(e) => { e.stopPropagation(); toggleDropdown('tools'); }}
+            >
+              <span className="action-text">Tools</span>
+            </button>
+            {activeDropdown === 'tools' && (
+              <div className="action-dropdown">
+                <button onClick={onFacilityManager} className="action-option">
+                  <span className="option-icon">🏢</span>
+                  <span>Facility Manager</span>
+                </button>
+                <button onClick={onSearch} className="action-option">
+                  <span className="option-icon">🔍</span>
+                  <span>Search Items</span>
                 </button>
               </div>
             )}
           </div>
         </div>
+      </div>
 
-        {/* Edit Menu */}
-        <div className="navbar-section">
+      {/* Right Section - Controls & Status */}
+      <div className="navbar-right">
+        <div className="control-group">
           <button 
-            className={`navbar-btn ${!canUndo ? 'disabled' : ''}`}
+            className={`control-btn ${!canUndo ? 'disabled' : ''}`}
             onClick={onUndo}
             disabled={!canUndo}
             title="Undo"
@@ -363,7 +295,7 @@ const TopNavbar = ({
             ↶
           </button>
           <button 
-            className={`navbar-btn ${!canRedo ? 'disabled' : ''}`}
+            className={`control-btn ${!canRedo ? 'disabled' : ''}`}
             onClick={onRedo}
             disabled={!canRedo}
             title="Redo"
@@ -371,21 +303,14 @@ const TopNavbar = ({
             ↷
           </button>
         </div>
-
-
-        {/* Status Info */}
-        <div className="navbar-section status-section">
-          <div className="status-info">
-            <span className="item-count">{itemCount} items</span>
+        
+        <div className="status-group">
+          <div className="status-badge">
+            <span className="status-count">{itemCount}</span>
+            <span className="status-label">items</span>
           </div>
         </div>
-
-        {/* Quick Actions */}
-        <div className="navbar-section quick-actions">
-          {/* Stack mode toggle removed */}
-        </div>
       </div>
-
     </nav>
   );
 };

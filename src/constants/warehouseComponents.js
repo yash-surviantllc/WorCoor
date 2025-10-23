@@ -95,7 +95,7 @@ export const COMPONENT_COLORS = {
   // Storage Components - Realistic Colors
   [COMPONENT_TYPES.STORAGE_UNIT]: '#4CAF50', // Green - Storage containers/units
   [COMPONENT_TYPES.SKU_HOLDER]: '#2196F3', // Blue - Horizontal storage racks/shelves
-  [COMPONENT_TYPES.VERTICAL_SKU_HOLDER]: '#FF9800', // Orange - Vertical storage racks/shelves
+  [COMPONENT_TYPES.VERTICAL_SKU_HOLDER]: '#FF5722', // Deep Orange - Vertical storage racks/shelves
   
   // Zone Components
   [COMPONENT_TYPES.WAREHOUSE_BLOCK]: '#FF9800', // Orange - Warehouse blocks
@@ -227,7 +227,14 @@ export const WAREHOUSE_COMPONENTS = [
         gridStep: 60,
         resizable: false,
         hasSku: true, // Enable SKU functionality
-        singleSku: true // Single SKU per unit (not compartmentalized)
+        singleSku: true, // Single SKU per unit (not compartmentalized)
+        // Enhanced Labeling Properties
+        autoLabel: true, // Enable automatic labeling
+        labelPrefix: "SU", // Storage Unit prefix
+        labelFormat: "SU-{index:03d}", // Format: SU-001, SU-002, etc.
+        showLabel: true, // Display label by default
+        labelPosition: "center", // Label position within component
+        categoryBasedLabeling: true // Enable category-based label enhancement
       },
       {
         type: COMPONENT_TYPES.SKU_HOLDER,
@@ -242,7 +249,6 @@ export const WAREHOUSE_COMPONENTS = [
         gridStep: 60,
         resizable: true,
         minSize: { width: 60, height: 60 }, // Minimum 1×1 grid block = 1 compartment
-        maxSize: { width: 300, height: 300 }, // Maximum 5×5 grid blocks = 25 compartments
         isContainer: true,
         containerLevel: 3,
         containerPadding: 4,
@@ -264,7 +270,6 @@ export const WAREHOUSE_COMPONENTS = [
         gridStep: 60,
         resizable: true,
         minSize: { width: 60, height: 60 }, // Minimum 1×1 grid block = 1 compartment
-        maxSize: { width: 300, height: 300 }, // Maximum 5×5 grid blocks = 25 compartments
         isContainer: true,
         containerLevel: 3,
         containerPadding: 4,

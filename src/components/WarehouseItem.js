@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { useDrag } from 'react-dnd';
 import { DRAG_TYPES, STACKABLE_COMPONENTS, STATUS_COLORS, OCCUPANCY_STATUS, ORIENTATION_COLORS } from '../constants/warehouseComponents';
 import { getComponentColor } from '../utils/componentColors';
 import { renderShapeComponent } from '../utils/shapeRenderer';
+import { getContextualLabel, generateStorageUnitLabelInfo } from '../utils/componentLabeling';
 
 const WarehouseItem = ({ 
   item, 
@@ -157,13 +158,21 @@ const WarehouseItem = ({
         top: item.y,
         width: item.width,
         height: item.height,
-        backgroundColor: item.isHollow ? 'transparent' : (isContainer ? 'transparent' : (getComponentColor(item.type, item.category) || '#ffffff')),
-        border: item.type === 'storage_unit' || item.type === 'sku_holder' || item.type === 'vertical_sku_holder' ? 'none' : 
+        backgroundColor: item.isHollow ? 'transparent' : 
+          (item.type === 'storage_unit' ? getComponentColor(item.type, item.category) : 
+           item.type === 'sku_holder' ? 'rgba(33, 150, 243, 0.15)' :
+           item.type === 'vertical_sku_holder' ? 'rgba(255, 87, 34, 0.15)' :
+           isContainer ? 'transparent' : 
+           getComponentColor(item.type, item.category)),
+        border: item.type === 'storage_unit' ? `2px solid ${getComponentColor(item.type, item.category) === '#4CAF50' ? '#388E3C' : getComponentColor(item.type, item.category)}` :
+               item.type === 'sku_holder' || item.type === 'vertical_sku_holder' ? '2px solid #000000' : 
                (item.type === 'square_boundary' ? '4px solid #000000' : 
                (isMainBoundary ? '4px solid #263238' : 
                (isZone ? `3px solid ${getComponentColor(item.type)}` : 
                (isContainer ? `3px solid ${getComponentColor(item.type)}` : 
                (isContained ? `2px dashed ${getComponentColor(item.type) || statusColor}` : `3px solid ${getComponentColor(item.type) || statusColor}`))))),
+        borderRadius: item.type === 'storage_unit' ? '4px' : '0px',
+        boxShadow: item.type === 'storage_unit' ? `0 1px 3px ${getComponentColor(item.type, item.category)}33` : 'none',
         opacity: isDragging ? 0.7 : 1,
         position: 'absolute',
         zIndex: isMainBoundary ? 0 : (isZone ? 1 : (isContainer ? 1 : (isContained ? 10 : 5)))
@@ -175,6 +184,35 @@ const WarehouseItem = ({
       {/* Shape rendering for shape components */}
       {item.isShape && renderShapeComponent(item)}
       
+      {/* Storage Racks - Show only Location ID in black text */}
+      {(item.type === 'sku_holder' || item.type === 'vertical_sku_holder') && !item.showCompartments && (() => {
+        // Only show location ID if user has actually selected one from dropdown
+        const locationInfo = item.locationId || null;
+        
+        return locationInfo ? (
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            textAlign: 'center',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            fontFamily: 'Arial, sans-serif',
+            maxWidth: '95%'
+          }}>
+            {/* Location ID - Only show when user selects from dropdown - Black text */}
+            <div style={{
+              color: '#000000',
+              fontSize: '11px',
+              fontWeight: 'bold'
+            }}>
+              {locationInfo}
+            </div>
+          </div>
+        ) : null;
+      })()}
+
       {/* SKU compartment grid rendering for SKU Holder components */}
       {item.skuGrid && item.showCompartments && (() => {
         // Calculate compartments based on 60px grid system
@@ -186,6 +224,13 @@ const WarehouseItem = ({
         const rows = Math.max(1, Math.floor(item.height / gridSize));
         
         const totalCompartments = rows * cols;
+        
+        // Determine colors based on rack type
+        const isVertical = item.type === 'vertical_sku_holder';
+        const borderColor = '#000000'; // Black borders for all racks
+        const bgColorFilled = isVertical ? '#FFE0D6' : '#E0F7FA'; // Light orange for vertical, light cyan for horizontal
+        const bgColorEmpty = isVertical ? '#FFF3E0' : '#E3F2FD'; // Light orange for vertical, light blue for horizontal
+        const textColor = isVertical ? '#BF360C' : '#006064'; // Dark orange for vertical, dark cyan for horizontal
         
         return (
           <div style={{
@@ -200,7 +245,8 @@ const WarehouseItem = ({
             gap: '3px',
             zIndex: 2,
             padding: '2px',
-            borderRadius: '4px'
+            borderRadius: '0px',
+            backgroundColor: isVertical ? 'rgba(255, 87, 34, 0.15)' : 'rgba(33, 150, 243, 0.15)'
           }}>
             {Array.from({ length: totalCompartments }).map((_, index) => {
               const row = Math.floor(index / cols);
@@ -212,36 +258,50 @@ const WarehouseItem = ({
                 <div
                   key={index}
                   style={{
-                    border: hasItem ? '2px solid #00BCD4' : '1px dashed #00BCD4',
-                    borderRadius: '4px',
-                    backgroundColor: hasItem ? '#E0F7FA' : 'rgba(255, 255, 255, 0.8)',
-                    boxShadow: hasItem ? '0 2px 4px rgba(0, 188, 212, 0.2), inset 0 1px 0 rgba(255,255,255,0.5)' : 'inset 0 1px 2px rgba(0, 188, 212, 0.1)',
+                    border: hasItem ? `2px solid #000000` : `1px solid #000000`,
+                    borderRadius: '0px',
+                    backgroundColor: hasItem ? bgColorFilled : bgColorEmpty,
+                    boxShadow: hasItem ? `0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.5)` : `inset 0 1px 2px rgba(0,0,0,0.1)`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: '0.6rem',
-                    color: '#006064',
+                    color: textColor,
                     fontWeight: 'bold',
                     position: 'relative',
                     minHeight: '16px',
                     cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    ':hover': {
-                      backgroundColor: hasItem ? '#B2EBF2' : 'rgba(224, 247, 250, 0.6)',
-                      borderColor: '#00ACC1'
-                    }
+                    transition: isVertical ? 'none' : 'all 0.2s ease'
                   }}
                   onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = hasItem ? '#B2EBF2' : 'rgba(224, 247, 250, 0.9)';
-                    e.target.style.borderColor = '#00ACC1';
-                    e.target.style.transform = 'scale(1.05)';
-                    e.target.style.boxShadow = hasItem ? '0 4px 8px rgba(0, 188, 212, 0.3), inset 0 1px 0 rgba(255,255,255,0.7)' : '0 2px 6px rgba(0, 188, 212, 0.2)';
+                    // Apply hover effects for both horizontal and vertical racks
+                    if (isVertical) {
+                      // Vertical rack hover: only background color change, no glow/shadow
+                      const hoverBgFilled = '#FFD4C4'; // Slightly darker orange for filled
+                      const hoverBgEmpty = '#FFE8DC'; // Slightly darker orange for empty
+                      e.target.style.backgroundColor = hasItem ? hoverBgFilled : hoverBgEmpty;
+                      // Keep original border and shadow - no glow effect
+                      e.target.style.borderColor = '#000000';
+                      e.target.style.boxShadow = hasItem ? `0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.5)` : `inset 0 1px 2px rgba(0,0,0,0.1)`;
+                    } else {
+                      // Horizontal rack hover: blue effect with glow
+                      const hoverBgFilled = '#B2EBF2';
+                      const hoverBgEmpty = '#BBDEFB';
+                      const hoverBorder = '#333333';
+                      e.target.style.backgroundColor = hasItem ? hoverBgFilled : hoverBgEmpty;
+                      e.target.style.borderColor = hoverBorder;
+                      e.target.style.transform = 'scale(1.05)';
+                      e.target.style.boxShadow = hasItem ? `0 4px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.7)` : `0 2px 6px rgba(0,0,0,0.2)`;
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = hasItem ? '#E0F7FA' : 'rgba(255, 255, 255, 0.8)';
-                    e.target.style.borderColor = hasItem ? '#00BCD4' : '#00BCD4';
-                    e.target.style.transform = 'scale(1)';
-                    e.target.style.boxShadow = hasItem ? '0 2px 4px rgba(0, 188, 212, 0.2), inset 0 1px 0 rgba(255,255,255,0.5)' : 'inset 0 1px 2px rgba(0, 188, 212, 0.1)';
+                    // Reset hover effects for both rack types
+                    e.target.style.backgroundColor = hasItem ? bgColorFilled : bgColorEmpty;
+                    e.target.style.borderColor = '#000000';
+                    if (!isVertical) {
+                      e.target.style.transform = 'scale(1)';
+                    }
+                    e.target.style.boxShadow = hasItem ? `0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.5)` : `inset 0 1px 2px rgba(0,0,0,0.1)`;
                   }}
                   title={hasItem ? (() => {
                     if (hasItem.isMultiLocation && hasItem.locationIds && hasItem.tags) {
@@ -305,16 +365,16 @@ const WarehouseItem = ({
                       <div style={{
                         width: '10px',
                         height: '10px',
-                        backgroundColor: '#00BCD4',
+                        backgroundColor: textColor,
                         borderRadius: '3px',
-                        border: '1px solid #006064',
-                        boxShadow: '0 1px 2px rgba(0, 96, 100, 0.3)'
+                        border: `1px solid #000000`,
+                        boxShadow: `0 1px 2px rgba(0,0,0,0.3)`
                       }} />
                     )
                   ) : (
                     <div style={{
                       fontSize: '0.8rem',
-                      color: '#00BCD4',
+                      color: textColor,
                       opacity: 0.6,
                       fontWeight: 'bold'
                     }}>
@@ -328,7 +388,52 @@ const WarehouseItem = ({
         );
       })()}
       
-      {/* Storage Units - no visual SKU display, managed through Properties Panel only */}
+      {/* Storage Units - Enhanced labeling with category and location ID */}
+      {item.type === 'storage_unit' && (() => {
+        const labelInfo = generateStorageUnitLabelInfo(item, 1);
+        const isFragile = item.category === 'fragile';
+        const textColor = isFragile ? '#000' : '#fff';
+        const shadowColor = isFragile ? 
+          '2px 2px 4px rgba(255,255,255,0.9), -1px -1px 2px rgba(0,0,0,0.3)' : 
+          '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(255,255,255,0.3)';
+        
+        // Only show location ID if user has actually selected one from dropdown
+        const locationId = item.locationId || null;
+        
+        return (
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            textAlign: 'center',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            fontFamily: 'Arial, sans-serif',
+            maxWidth: '95%'
+          }}>
+            {/* Storage Category Name - Simple Plain Text */}
+            <div style={{
+              color: textColor,
+              fontSize: '12px',
+              fontWeight: 'bold'
+            }}>
+              {labelInfo ? labelInfo.categoryText : 'Storage'}
+            </div>
+            
+            {/* Location ID - Only show when user selects from dropdown */}
+            {locationId && (
+              <div style={{
+                color: textColor,
+                fontSize: '10px',
+                marginTop: '2px'
+              }}>
+                {locationId}
+              </div>
+            )}
+          </div>
+        );
+      })()}
       
       {/* Stack visual indicator */}
       {hasStack && (
@@ -473,8 +578,8 @@ const WarehouseItem = ({
         </button>
       )}
 
-      {/* Hide text content for square boundary, SKU holder, and vertical SKU holder - keep them clean */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && (
+      {/* Hide text content for square boundary, SKU holder, vertical SKU holder, and storage unit - keep them clean */}
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && item.type !== 'storage_unit' && (
         <div style={{ 
           textAlign: 'center', 
           fontSize: '0.8rem',

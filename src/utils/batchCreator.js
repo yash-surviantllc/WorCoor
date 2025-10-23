@@ -5,6 +5,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { hierarchicalManager } from './hierarchicalContainer';
+import { getComponentColor } from './componentColors';
 
 export class BatchCreator {
   constructor() {
@@ -102,7 +103,7 @@ export class BatchCreator {
           y: y,
           width: unitWidth,
           height: unitHeight,
-          color: '#00BCD4',
+          color: getComponentColor('container_unit'),
           label: `${unitCounter}`,
           icon: '▫',
           containerLevel: 3,
@@ -150,7 +151,7 @@ export class BatchCreator {
           type: 'pallet_position',
           name: 'Pallet',
           defaultSize: { width: 30, height: 30 },
-          color: '#FFA726',
+          color: getComponentColor('storage_unit', 'bulk'),
           icon: '▫',
           unitType: 'pallet'
         }, { rows: 2, columns: 3 });
@@ -161,7 +162,7 @@ export class BatchCreator {
           type: 'pallet_position',
           name: 'Dispatch',
           defaultSize: { width: 30, height: 30 },
-          color: '#66BB6A',
+          color: getComponentColor('storage_unit'),
           icon: '▫',
           unitType: 'pallet'
         }, { rows: 2, columns: 3 });
@@ -176,7 +177,7 @@ export class BatchCreator {
           type: 'pallet_position',
           name: 'Temp',
           defaultSize: { width: 25, height: 25 },
-          color: '#BDBDBD',
+          color: getComponentColor('storage_unit', 'dry_storage'),
           icon: '▫',
           unitType: 'pallet'
         }, { rows: 2, columns: 4 });

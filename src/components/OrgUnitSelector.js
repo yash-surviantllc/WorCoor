@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import '../styles/OrgUnitSelector.css';
+import showMessage from '../utils/showMessage';
 
 const OrgUnitSelector = ({ isVisible, onClose, onSave }) => {
   const [selectedStatus, setSelectedStatus] = useState('');
@@ -12,7 +14,7 @@ const OrgUnitSelector = ({ isVisible, onClose, onSave }) => {
 
   const handleSave = () => {
     if (!selectedStatus) {
-      alert('Please select a map type (operational status).');
+      showMessage.warning('Please select a map type (operational status).');
       return;
     }
 

@@ -8,6 +8,7 @@ import WarehousePropertiesPanel from './WarehousePropertiesPanel';
 import WarehouseDesignerCanvas from './WarehouseDesignerCanvas';
 import ColorLegend from './ColorLegend';
 import { getComponentColor } from '../utils/componentColors';
+import showMessage from '../utils/showMessage';
 
 const WarehouseDesigner = ({ onBack }) => {
   const [items, setItems] = useState([]);
@@ -23,10 +24,19 @@ const WarehouseDesigner = ({ onBack }) => {
   const selectedItem = items.find(item => item.id === selectedItemId);
   const selectedZone = items.find(item => item.id === selectedItemId && item.containerLevel === 2);
 
+  // Zoom handlers
+  const handleZoomIn = useCallback(() => {
+    setZoomLevel(prev => Math.min(prev * 1.25, 5)); // Max zoom 5x
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoomLevel(prev => Math.max(prev / 1.25, 0.1)); // Min zoom 0.1x
+  }, []);
+
   // Create warehouse boundary
   const handleCreateBoundary = useCallback(() => {
     if (boundaryCreated) {
-      alert('Warehouse boundary already exists');
+      showMessage.warning('Warehouse boundary already exists');
       return;
     }
 
@@ -67,7 +77,7 @@ const WarehouseDesigner = ({ onBack }) => {
     const components = items.filter(item => item.type !== 'square_boundary');
     
     if (components.length === 0) {
-      alert('Please add some components first before generating a boundary.');
+      showMessage.warning('Please add some components first before generating a boundary.');
       return;
     }
 
@@ -111,7 +121,7 @@ const WarehouseDesigner = ({ onBack }) => {
     setItems(prev => [...prev, boundary]);
     setBoundaryCreated(true);
     
-    alert(`Boundary auto-generated!\nSize: ${boundaryWidth}×${boundaryHeight}px\nComponents enclosed: ${components.length}`);
+    showMessage.success(`Boundary auto-generated!\nSize: ${boundaryWidth}×${boundaryHeight}px\nComponents enclosed: ${components.length}`);
   }, [items, boundaryCreated]);
 
   // Add item to canvas
@@ -278,7 +288,7 @@ const WarehouseDesigner = ({ onBack }) => {
   const handleBulkLabelEdit = useCallback(() => {
     const zones = items.filter(item => item.containerLevel === 2);
     if (zones.length === 0) {
-      alert('No zones found to label');
+      showMessage.warning('No zones found to label');
       return;
     }
 
@@ -287,7 +297,7 @@ const WarehouseDesigner = ({ onBack }) => {
 
     const startCode = startLetter.toUpperCase().charCodeAt(0);
     if (startCode < 65 || startCode > 90) {
-      alert('Please enter a valid letter (A-Z)');
+      showMessage.error('Please enter a valid letter (A-Z)');
       return;
     }
 
@@ -370,6 +380,8 @@ const WarehouseDesigner = ({ onBack }) => {
               onSelectItem={handleSelectItem}
               onCanvasClick={handleCanvasClick}
               onAutoFillZone={handleAutoFillZone}
+              onZoomIn={handleZoomIn}
+              onZoomOut={handleZoomOut}
             />
           </div>
 

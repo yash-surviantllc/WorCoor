@@ -1,5 +1,6 @@
 import React from 'react';
 import { batchCreator } from '../utils/batchCreator';
+import showMessage from '../utils/showMessage';
 
 const ZoneContextMenu = ({ 
   isVisible, 
@@ -89,7 +90,7 @@ const ZoneContextMenu = ({
           const capacity = batchCreator.calculateZoneCapacity(zone, {
             defaultSize: { width: 25, height: 25 }
           });
-          alert(`Zone ${zone.label} can hold up to ${capacity} units`);
+          showMessage.info(`Zone ${zone.label} can hold up to ${capacity} units`);
           onClose();
         }}
       >

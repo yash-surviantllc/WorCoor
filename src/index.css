@@ -164,7 +164,7 @@ code {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: linear-gradient(135deg, var(--primary-50) 0%, var(--secondary-50) 100%);
+  background: #ffffff;
   font-family: var(--font-family-primary);
   overflow: hidden !important;
   position: fixed !important;
@@ -230,7 +230,7 @@ code {
   position: fixed;
   top: 60px;
   left: 0;
-  bottom: 40px;
+  bottom: 0;
   z-index: 100;
 }
 
@@ -246,7 +246,7 @@ code {
   position: fixed;
   top: 60px;
   right: 0;
-  bottom: 40px;
+  bottom: 0;
   z-index: 100;
 }
 
@@ -582,7 +582,7 @@ code {
   top: 60px !important;
   left: 320px !important;
   right: 320px !important;
-  bottom: 40px !important;
+  bottom: 0 !important;
   overflow: auto !important;
   cursor: default;
   user-select: none;

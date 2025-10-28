@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-const ContextMenu = ({ x, y, onClose, onAddLayerAbove, onAddLayerBelow, onManageStack, hasStack, canStack, item, onLockToggle }) => {
+const ContextMenu = ({ x, y, onClose, onAddLayerAbove, onAddLayerBelow, onManageStack, hasStack, canStack, item, onLockToggle, onDelete }) => {
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -128,6 +128,25 @@ const ContextMenu = ({ x, y, onClose, onAddLayerAbove, onAddLayerBelow, onManage
             {item.isSizeLocked ? 'Unlock Size' : 'Lock Size'}
           </div>
         </>
+      )}
+      
+      {/* Delete Option */}
+      {onDelete && (
+        <div 
+          style={{
+            ...menuItemStyle,
+            borderTop: '1px solid #e0e0e0',
+            marginTop: '4px',
+            paddingTop: '8px',
+            color: '#f44336',
+            fontWeight: '500'
+          }}
+          onClick={() => handleItemClick(onDelete)}
+          onMouseEnter={(e) => e.target.style.backgroundColor = '#ffebee'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+        >
+          <span>🗑️</span> Delete Item
+        </div>
       )}
       
       <div style={{ ...menuItemStyle, borderBottom: 'none', color: '#666', fontSize: '0.8rem' }}>

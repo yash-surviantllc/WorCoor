@@ -40,6 +40,7 @@ const TopNavbar = ({
   // Search & Dashboard
   onSearch,
   onToggleDashboard,
+  onNavigateToDashboard,
   
   // Boundary
   onAutoGenerateBoundary,
@@ -126,7 +127,12 @@ const TopNavbar = ({
     <nav className="modern-navbar" onClick={closeDropdowns}>
       {/* Left Section - Brand & Selectors */}
       <div className="navbar-left">
-        <div className="brand-section">
+        <div 
+          className="brand-section" 
+          onClick={onNavigateToDashboard}
+          style={{ cursor: 'pointer' }}
+          title="Go to Home Screen"
+        >
           <div className="brand-icon">🏭</div>
           <div className="brand-text">
             <div className="brand-title">WorCoor</div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import showMessage from '../utils/showMessage';
 
 const Toolbar = ({ onSave, onLoad, onClear, onExport, itemCount, stackMode, onToggleStackMode, onSearch, onToggleDashboard, zoomLevel, onZoomIn, onZoomOut, onZoomReset, onZoomFit }) => {
   const handleSave = () => {
@@ -18,7 +19,7 @@ const Toolbar = ({ onSave, onLoad, onClear, onExport, itemCount, stackMode, onTo
             const data = JSON.parse(e.target.result);
             onLoad(data);
           } catch (error) {
-            alert('Error loading file: Invalid JSON format');
+            showMessage.error('Error loading file: Invalid JSON format');
           }
         };
         reader.readAsText(file);

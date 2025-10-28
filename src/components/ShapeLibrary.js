@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { shapeCreator, SHAPE_CATEGORIES, SHAPE_TYPES } from '../utils/shapeCreator';
+import showMessage from '../utils/showMessage';
 
 const ShapeLibrary = ({ isVisible, onClose, onShapeSelect }) => {
   const [activeCategory, setActiveCategory] = useState(SHAPE_CATEGORIES.BASIC);
@@ -260,7 +261,7 @@ const CustomShapeForm = ({ onSubmit, onCancel }) => {
     }
     
     if (!finalPath) {
-      alert('Please provide a path or draw a shape');
+      showMessage.warning('Please provide a path or draw a shape');
       return;
     }
 

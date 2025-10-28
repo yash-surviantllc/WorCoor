@@ -461,7 +461,9 @@ const WarehouseDesignerCanvas = forwardRef(({
   onMoveItem, 
   onSelectItem, 
   onCanvasClick,
-  onAutoFillZone 
+  onAutoFillZone,
+  onZoomIn,
+  onZoomOut
 }, ref) => {
   const selectedZone = items.find(item => item.id === selectedItemId && item.containerLevel === 2);
 
@@ -481,6 +483,29 @@ const WarehouseDesignerCanvas = forwardRef(({
       isOver: monitor.isOver(),
     }),
   }));
+
+  // Handle horizontal scrolling with Shift key and zoom with Ctrl key
+  const handleWheel = useCallback((e) => {
+    if (e.shiftKey) {
+      // Horizontal scrolling with Shift key
+      e.preventDefault();
+      const canvas = ref.current;
+      if (canvas) {
+        // Scroll right when scrolling down, left when scrolling up
+        canvas.scrollLeft += e.deltaY;
+      }
+    } else if (e.ctrlKey || e.metaKey) {
+      // Zoom with Ctrl/Cmd key
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        // Scroll up = zoom in
+        onZoomIn && onZoomIn();
+      } else {
+        // Scroll down = zoom out
+        onZoomOut && onZoomOut();
+      }
+    }
+  }, [ref, onZoomIn, onZoomOut]);
 
   const canvasStyle = {
     width: '100%',
@@ -517,6 +542,7 @@ const WarehouseDesignerCanvas = forwardRef(({
       className="warehouse-canvas"
       style={canvasStyle}
       onClick={onCanvasClick}
+      onWheel={handleWheel}
     >
       <div style={canvasContentStyle}>
         {/* Render all items */}

@@ -37,6 +37,7 @@ import {
   validateItemResize,
   getFloorPlan 
 } from './utils/boundaryManager';
+import showMessage from './utils/showMessage';
 function App() {
   const [warehouseItems, setWarehouseItems] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState(null);
@@ -124,7 +125,7 @@ function App() {
           localStorage.removeItem('loadLayoutData');
           
           // Show confirmation
-          alert(`Layout "${layoutData.name || 'Loaded Layout'}" loaded successfully!\n\nThis layout has been optimized to remove white space and focus on operational content.`);
+          showMessage.success(`Layout "${layoutData.name || 'Loaded Layout'}" loaded successfully!\n\nThis layout has been optimized to remove white space and focus on operational content.`);
         }
       } catch (error) {
         console.error('Error loading layout:', error);
@@ -197,7 +198,7 @@ function App() {
   const handleAddItem = useCallback((newItem) => {
     // If no org unit is selected, user needs to select one from the navbar dropdown first
     if (!selectedOrgUnit) {
-      alert('Please select an organizational unit from the dropdown in the top navigation bar before adding components.');
+      showMessage.warning('Please select an organizational unit from the dropdown in the top navigation bar before adding components.');
       return;
     }
     
@@ -831,7 +832,7 @@ function App() {
   const handleSave = useCallback(() => {
     // If no org unit selected, prompt user to select one
     if (!selectedOrgUnit) {
-      alert('Please select an organizational unit from the dropdown in the top navigation bar before saving.');
+      showMessage.warning('Please select an organizational unit from the dropdown in the top navigation bar before saving.');
       return;
     }
     
@@ -929,7 +930,7 @@ function App() {
       ? `\n\nUltra-tight optimization: Removed ${operationalMetadata.whitespaceRemoved.x}px × ${operationalMetadata.whitespaceRemoved.y}px of white space\nFinal size: ${operationalMetadata.croppedDimensions.width}px × ${operationalMetadata.croppedDimensions.height}px\nZero padding applied for maximum focus`
       : '';
     
-    alert(`Layout "${layoutName}" saved successfully!\n\nOrganizational Unit: ${selectedOrgUnit.name} (${selectedOrgUnit.location})\nStatus: ${statusLabels[operationalStatus]}${croppingInfo}\n\nThis layout is now available in the Live Warehouse Maps section.`);
+    showMessage.success(`Layout "${layoutName}" saved successfully!\n\nOrganizational Unit: ${selectedOrgUnit.name} (${selectedOrgUnit.location})\nStatus: ${statusLabels[operationalStatus]}${croppingInfo}\n\nThis layout is now available in the Live Warehouse Maps section.`);
     
     // Close the map type selector modal
     setMapTypeSelectorVisible(false);
@@ -940,7 +941,7 @@ function App() {
       setWarehouseItems(data.items);
       setSelectedItemId(null);
     } else {
-      alert('Invalid file format');
+      showMessage.error('Invalid file format');
     }
   }, []);
 
@@ -1002,7 +1003,7 @@ function App() {
 
     const components = warehouseItems.filter(item => item.type !== 'square_boundary');
     if (components.length === 0) {
-      alert('Please add components first.');
+      showMessage.warning('Please add components first.');
       return;
     }
 
@@ -1031,7 +1032,7 @@ function App() {
     };
 
     setWarehouseItems(prev => [...prev, boundary]);
-    alert(`Boundary generated! ${boundary.width}×${boundary.height}px, ${components.length} components`);
+    showMessage.success(`Boundary generated! ${boundary.width}×${boundary.height}px, ${components.length} components`);
   }, [warehouseItems]);
 
 
@@ -1046,9 +1047,9 @@ function App() {
       if (file) {
         try {
           // CAD import functionality would be implemented here
-          alert('CAD import feature is not yet implemented');
+          showMessage.info('CAD import feature is not yet implemented');
         } catch (error) {
-          alert(`Failed to import CAD file: ${error.message}`);
+          showMessage.error(`Failed to import CAD file: ${error.message}`);
         }
       }
     };
@@ -1065,7 +1066,7 @@ function App() {
         includeLabels: true
       });
     } catch (error) {
-      alert(`Export failed: ${error.message}`);
+      showMessage.error(`Export failed: ${error.message}`);
     }
   }, [warehouseItems, gridVisible]);
 
@@ -1168,6 +1169,7 @@ function App() {
                 canStack={contextMenu.canStack}
                 item={contextMenu.item}
                 onLockToggle={handleLockToggle}
+                onDelete={() => handleDeleteItem(contextMenu.item.id)}
               />
             )}
 

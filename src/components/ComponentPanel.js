@@ -42,22 +42,44 @@ const DraggableComponent = ({ component }) => {
       }}
       title={`${component.description}${component.priority ? ` (${component.priority} priority)` : ''}\nDrag to canvas to add`}
     >
-      <div className="component-icon">{component.icon}</div>
-      <div className="component-name">{component.name}</div>
-      <div className="component-size">
-        {component.drawingTool ? '🎨 Draw Tool' : `${component.defaultSize?.width || 50}×${component.defaultSize?.height || 50}`}
+      <div className="component-name" style={{
+        color: 'white',
+        fontWeight: '600',
+        fontSize: '11px',
+        textAlign: 'center',
+        lineHeight: '1.3',
+        textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+        padding: '6px 4px',
+        wordWrap: 'break-word',
+        overflow: 'hidden',
+        display: '-webkit-box',
+        WebkitLineClamp: '2',
+        WebkitBoxOrient: 'vertical',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 'calc(100% - 20px)',
+        maxHeight: '100%'
+      }}>{component.name}</div>
+      <div className="component-size" style={{
+        position: 'absolute',
+        bottom: '2px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        color: '#333',
+        padding: '2px 6px',
+        borderRadius: '3px',
+        fontSize: '10px',
+        fontWeight: '500'
+      }}>
+        {component.drawingTool ? '🎨' : `${component.defaultSize?.width || 50}×${component.defaultSize?.height || 50}`}
       </div>
-      {component.drawingTool && (
-        <div className="drawing-tool-hint">
-          Drag to canvas to activate
-        </div>
-      )}
       {component.priority === 'high' && (
         <div className="priority-badge" style={{
           position: 'absolute',
           top: '2px',
           right: '2px',
-          background: 'var(--error-500)',
+          background: '#ff1744',
           color: 'white',
           borderRadius: '50%',
           width: '8px',
@@ -242,12 +264,6 @@ const ComponentPanel = () => {
             />
           ))
         )}
-      </div>
-      
-      <div className="panel-footer">
-        <div className="usage-tip">
-          💡 Drag components to canvas to build your warehouse layout
-        </div>
       </div>
     </div>
   );

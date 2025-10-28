@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import '../styles/EnhancedToolbar.css';
+import showMessage from '../utils/showMessage';
 
 const EnhancedToolbar = ({ 
   onFacilityManager,
@@ -213,7 +215,7 @@ const EnhancedToolbar = ({
                 // Import layout data
                 console.log('Importing layout:', data);
               } catch (error) {
-                alert('Invalid layout file format');
+                showMessage.error('Invalid layout file format');
               }
             };
             reader.readAsText(file);
@@ -237,7 +239,7 @@ const EnhancedToolbar = ({
                 // Import measurements data
                 console.log('Importing measurements:', data);
               } catch (error) {
-                alert('Invalid measurements file format');
+                showMessage.error('Invalid measurements file format');
               }
             };
             reader.readAsText(file);

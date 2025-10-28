@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import '../styles/MultiLocationSelector.css';
+import showMessage from '../utils/showMessage';
 
 const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds = [], itemType = '' }) => {
   const [selectedLevelId, setSelectedLevelId] = useState('');
@@ -48,18 +50,18 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
   const handleSave = () => {
     // Validate selections
     if (!selectedLevelId.trim() || !selectedLocId.trim()) {
-      alert('Please select both Level ID and Location ID');
+      showMessage.warning('Please select both Level ID and Location ID');
       return;
     }
 
     // Check if either ID is already in use
     if (existingLocationIds.includes(selectedLevelId)) {
-      alert(`Level ID ${selectedLevelId} is already in use. Please select a different one.`);
+      showMessage.error(`Level ID ${selectedLevelId} is already in use. Please select a different one.`);
       return;
     }
 
     if (existingLocationIds.includes(selectedLocId)) {
-      alert(`Location ID ${selectedLocId} is already in use. Please select a different one.`);
+      showMessage.error(`Location ID ${selectedLocId} is already in use. Please select a different one.`);
       return;
     }
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import showMessage from '../utils/showMessage';
 
 const SkuIdSelector = ({ isVisible, onClose, onSave, existingLocationIds = [], showCategories = false }) => {
   const [selectedLocationId, setSelectedLocationId] = useState('');
@@ -44,12 +45,12 @@ const SkuIdSelector = ({ isVisible, onClose, onSave, existingLocationIds = [], s
     const finalLocationId = useCustom ? customLocationId.trim() : selectedLocationId;
     
     if (!finalLocationId) {
-      alert('Please select or enter a Location ID');
+      showMessage.warning('Please select or enter a Location ID');
       return;
     }
 
     if (existingLocationIds.includes(finalLocationId)) {
-      alert('This Location ID is already in use. Please select a different one.');
+      showMessage.error('This Location ID is already in use. Please select a different one.');
       return;
     }
 

@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import SkuIdSelector from './SkuIdSelector';
 import { getContextualLabel, generateStorageUnitLabelInfo } from '../utils/componentLabeling';
+import showMessage from '../utils/showMessage';
 
 const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
   const [skuIdSelectorVisible, setSkuIdSelectorVisible] = useState(false);
@@ -154,9 +155,8 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
   };
 
   const handleDelete = () => {
-    if (window.confirm('Are you sure you want to delete this item?')) {
-      onDeleteItem(selectedItem.id);
-    }
+    onDeleteItem(selectedItem.id);
+    showMessage.success('Item deleted successfully');
   };
 
   return (
@@ -418,7 +418,7 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
         <button 
           className="btn btn-danger"
           onClick={handleDelete}
-          style={{ width: '100%' }}
+          style={{ width: '100%', color: 'black' }}
         >
           🗑️ Delete Item
         </button>
@@ -514,9 +514,8 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
                 </button>
                 <button
                   onClick={() => {
-                    if (window.confirm('Remove SKU ID from this Storage Unit?')) {
-                      onUpdateItem(selectedItem.id, { skuId: null, skuData: null });
-                    }
+                    onUpdateItem(selectedItem.id, { skuId: null, skuData: null });
+                    showMessage.success('SKU ID removed from Storage Unit');
                   }}
                   style={{
                     padding: '4px 8px',
@@ -730,11 +729,10 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
                             </button>
                             <button
                               onClick={() => {
-                                if (window.confirm(`Delete item at location "${itemData.locationId || itemData.uniqueId || itemData.sku}"?`)) {
-                                  const newContents = { ...selectedItem.compartmentContents };
-                                  delete newContents[compartmentId];
-                                  onUpdateItem(selectedItem.id, { compartmentContents: newContents });
-                                }
+                                const newContents = { ...selectedItem.compartmentContents };
+                                delete newContents[compartmentId];
+                                onUpdateItem(selectedItem.id, { compartmentContents: newContents });
+                                showMessage.success(`Item at location "${itemData.locationId || itemData.uniqueId || itemData.sku}" deleted`);
                               }}
                               style={{
                                 padding: '0.2rem 0.4rem',
@@ -799,7 +797,7 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
                           };
                           onUpdateItem(selectedItem.id, { compartmentContents: newContents });
                         } else {
-                          alert('No empty compartments available. Resize the SKU Holder to add more space.');
+                          showMessage.warning('No empty compartments available. Resize the SKU Holder to add more space.');
                         }
                       }
                     }}
@@ -817,9 +815,8 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
                   </button>
                   <button
                     onClick={() => {
-                      if (window.confirm('Clear all SKUs from this holder?')) {
-                        onUpdateItem(selectedItem.id, { compartmentContents: {} });
-                      }
+                      onUpdateItem(selectedItem.id, { compartmentContents: {} });
+                      showMessage.success('All SKUs cleared from this holder');
                     }}
                     style={{
                       padding: '0.25rem 0.5rem',

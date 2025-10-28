@@ -95,7 +95,7 @@ export const COMPONENT_COLORS = {
   // Storage Components - Realistic Colors
   [COMPONENT_TYPES.STORAGE_UNIT]: '#4CAF50', // Green - Storage containers/units
   [COMPONENT_TYPES.SKU_HOLDER]: '#2196F3', // Blue - Horizontal storage racks/shelves
-  [COMPONENT_TYPES.VERTICAL_SKU_HOLDER]: '#FF5722', // Deep Orange - Vertical storage racks/shelves
+  [COMPONENT_TYPES.VERTICAL_SKU_HOLDER]: '#FF9800', // Orange - Vertical storage racks/shelves
   
   // Zone Components
   [COMPONENT_TYPES.WAREHOUSE_BLOCK]: '#FF9800', // Orange - Warehouse blocks

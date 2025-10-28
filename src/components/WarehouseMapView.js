@@ -1896,9 +1896,9 @@ const WarehouseMapView = ({ facilityData }) => {
                                 strokeDasharray: 'none'
                               };
                             } else if (itemType === 'vertical_sku_holder') {
-                              // Vertical Storage Racks - Solid deep orange border
+                              // Vertical Storage Racks - Solid orange border
                               return {
-                                stroke: '#E64A19',
+                                stroke: '#FF9800',
                                 strokeWidth: '3',
                                 strokeDasharray: 'none'
                               };

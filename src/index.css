@@ -799,11 +799,14 @@ div.warehouse-item[data-type="sku_holder"]:hover * {
   overflow: visible;
 }
 
-/* Vertical Storage Rack - EXACT same design as horizontal with same blue colors */
-.warehouse-item[data-type="vertical_sku_holder"] {
-  border: none !important;
-  background: #2196F3 !important;
-  box-shadow: none !important;
+/* Vertical Storage Rack - Orange color scheme */
+.warehouse-item[data-type="vertical_sku_holder"],
+body .warehouse-item[data-type="vertical_sku_holder"],
+div.warehouse-item[data-type="vertical_sku_holder"] {
+  border: 2px solid #FF9800 !important;
+  background: #FF9800 !important;
+  background-color: #FF9800 !important;
+  box-shadow: 0 1px 3px rgba(255, 152, 0, 0.3) !important;
   border-radius: 4px !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -820,13 +823,13 @@ div.warehouse-item[data-type="sku_holder"]:hover * {
   transition: none !important;
 }
 
-/* COMPLETE HOVER OVERRIDE FOR VERTICAL SKU HOLDER - EXACT SAME AS HORIZONTAL */
+/* COMPLETE HOVER OVERRIDE FOR VERTICAL SKU HOLDER - ORANGE COLORS */
 div.warehouse-item[data-type="vertical_sku_holder"]:hover {
   transform: none !important;
   z-index: 5 !important;
   box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.3) !important;
-  border-color: #00BCD4 !important;
-  background: linear-gradient(135deg, rgba(224, 247, 250, 0.9), rgba(224, 247, 250, 0.7)) !important;
+  border-color: #FF9800 !important;
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.9), rgba(255, 152, 0, 0.7)) !important;
   transition: none !important;
   animation: none !important;
   scale: 1 !important;
@@ -852,8 +855,8 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover * {
 
 .warehouse-item[data-type="vertical_sku_holder"].selected {
   border: none !important;
-  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.5) !important;
-  background: #2196F3 !important;
+  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.5) !important;
+  background: #FF9800 !important;
 }
 
 .warehouse-item[data-type="storage_unit"].selected {
@@ -1089,7 +1092,7 @@ div.warehouse-item[data-type="sku_holder"]:hover {
   background: linear-gradient(135deg, rgba(224, 247, 250, 0.9), rgba(224, 247, 250, 0.7)) !important;
 }
 
-/* MAXIMUM SPECIFICITY OVERRIDE - Vertical SKU Holder (EXACT same as horizontal) */
+/* MAXIMUM SPECIFICITY OVERRIDE - Vertical SKU Holder - Orange color scheme */
 body .warehouse-canvas .warehouse-item[data-type="vertical_sku_holder"]:hover,
 body .warehouse-item[data-type="vertical_sku_holder"]:hover,
 div.warehouse-item[data-type="vertical_sku_holder"]:hover {
@@ -1101,8 +1104,8 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
   translate: 0 0 !important;
   rotate: 0deg !important;
   box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.3) !important;
-  border-color: #00BCD4 !important;
-  background: linear-gradient(135deg, rgba(224, 247, 250, 0.9), rgba(224, 247, 250, 0.7)) !important;
+  border-color: #FF9800 !important;
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.9), rgba(255, 152, 0, 0.7)) !important;
 }
 
 /* Remove hover zoom effect for Floor Plan Components */

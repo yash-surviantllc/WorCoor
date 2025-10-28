@@ -196,15 +196,15 @@ const WarehouseItem = ({
       };
     }
 
-    // Vertical Storage Racks - Black borders with orange interior
+    // Vertical Storage Racks - Orange borders with orange interior
     if (isVerticalStorageRack) {
       return {
         ...baseStyle,
-        border: '2px solid #000000 !important', // Black border for vertical storage racks
+        border: '2px solid #FF9800 !important', // Orange border for vertical storage racks
         borderStyle: 'solid !important', // Force solid border style
-        backgroundColor: 'rgba(255, 87, 34, 0.15)', // Light orange background
+        backgroundColor: '#FF9800', // Orange background
         borderRadius: '4px',
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)' // Subtle shadow
+        boxShadow: '0 1px 3px rgba(255, 152, 0, 0.3)' // Orange shadow
       };
     }
 

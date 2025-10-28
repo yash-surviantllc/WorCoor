@@ -264,6 +264,15 @@ const TopNavbar = ({
                   <span className="option-icon">🎯</span>
                   <span>{snapEnabled ? 'Disable' : 'Enable'} Snap</span>
                 </button>
+                <div className="dropdown-separator"></div>
+                <button onClick={() => { onZoomReset(); closeDropdowns(); }} className="action-option">
+                  <span className="option-icon">🎯</span>
+                  <span>Reset to Center</span>
+                </button>
+                <button onClick={() => { onZoomFit(); closeDropdowns(); }} className="action-option">
+                  <span className="option-icon">🔲</span>
+                  <span>Fit to View</span>
+                </button>
               </div>
             )}
           </div>

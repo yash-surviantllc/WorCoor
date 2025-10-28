@@ -392,9 +392,9 @@ const WarehouseItem = ({
       {item.type === 'storage_unit' && (() => {
         const labelInfo = generateStorageUnitLabelInfo(item, 1);
         const isFragile = item.category === 'fragile';
-        const textColor = isFragile ? '#000' : '#fff';
+        const textColor = '#fff';
         const shadowColor = isFragile ? 
-          '2px 2px 4px rgba(255,255,255,0.9), -1px -1px 2px rgba(0,0,0,0.3)' : 
+          '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(255,255,255,0.3)' : 
           '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(255,255,255,0.3)';
         
         // Only show location ID if user has actually selected one from dropdown
@@ -614,12 +614,21 @@ const WarehouseItem = ({
         </div>
       )}
       
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && item.type !== 'storage_unit' && item.label && (
+      {item.label && (
         <div style={{ 
           fontSize: '0.7rem', 
-          color: '#666',
+          color: '#333',
           textAlign: 'center',
-          position: 'relative',
+          position: 'absolute',
+          bottom: '-18px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          whiteSpace: 'nowrap',
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          padding: '2px 6px',
+          borderRadius: '3px',
+          border: '1px solid #ddd',
+          fontWeight: '500',
           zIndex: 1
         }}>
           {item.label}

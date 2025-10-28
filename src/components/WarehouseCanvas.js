@@ -34,6 +34,8 @@ const WarehouseCanvas = ({
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawingStart, setDrawingStart] = useState(null);
   const [drawingPreview, setDrawingPreview] = useState(null);
+  const [selectionBox, setSelectionBox] = useState(null);
+  const [selectedItems, setSelectedItems] = useState([]);
 
   // Prevent browser zoom when canvas is focused and handle drawing mode keys
   useEffect(() => {
@@ -427,6 +429,19 @@ const WarehouseCanvas = ({
       isDragging.current = true;
       lastPanPoint.current = { x: e.clientX, y: e.clientY };
       canvasRef.current.style.cursor = 'grabbing';
+      return;
+    }
+    
+    // Selection box mode - only on empty canvas with left click
+    if (e.button === 0 && !e.altKey && (e.target === e.currentTarget || e.target.classList.contains('drop-zone'))) {
+      const coords = getCanvasCoordinates(e.clientX, e.clientY);
+      setSelectionBox({
+        startX: coords.x,
+        startY: coords.y,
+        currentX: coords.x,
+        currentY: coords.y
+      });
+      e.preventDefault();
     }
   }, [drawingMode, getCanvasCoordinates]);
 
@@ -512,7 +527,31 @@ const WarehouseCanvas = ({
       
       lastPanPoint.current = { x: e.clientX, y: e.clientY };
     }
-  }, [isDrawing, drawingStart, drawingMode, getCanvasCoordinates, panOffset, zoomLevel, onPanChange]);
+    // Update selection box
+    if (selectionBox) {
+      const coords = getCanvasCoordinates(e.clientX, e.clientY);
+      setSelectionBox(prev => ({
+        ...prev,
+        currentX: coords.x,
+        currentY: coords.y
+      }));
+      
+      // Calculate which items are within selection box
+      const minX = Math.min(selectionBox.startX, coords.x);
+      const maxX = Math.max(selectionBox.startX, coords.x);
+      const minY = Math.min(selectionBox.startY, coords.y);
+      const maxY = Math.max(selectionBox.startY, coords.y);
+      
+      const itemsInBox = items.filter(item => {
+        const itemCenterX = item.x + item.width / 2;
+        const itemCenterY = item.y + item.height / 2;
+        return itemCenterX >= minX && itemCenterX <= maxX &&
+               itemCenterY >= minY && itemCenterY <= maxY;
+      });
+      
+      setSelectedItems(itemsInBox.map(item => item.id));
+    }
+  }, [isDrawing, drawingStart, drawingMode, getCanvasCoordinates, panOffset, zoomLevel, onPanChange, selectionBox, items]);
 
   const handleMouseUp = useCallback(() => {
     // Complete drawing
@@ -562,12 +601,18 @@ const WarehouseCanvas = ({
       return;
     }
     
+    // Complete selection
+    if (selectionBox) {
+      setSelectionBox(null);
+      // Selection is already stored in selectedItems
+    }
+    
     // End panning
     isDragging.current = false;
     if (canvasRef.current) {
       canvasRef.current.style.cursor = drawingMode ? 'crosshair' : '';
     }
-  }, [isDrawing, drawingPreview, drawingMode, onAddItem]);
+  }, [isDrawing, drawingPreview, drawingMode, onAddItem, selectionBox]);
 
   return (
     <div 
@@ -633,7 +678,7 @@ const WarehouseCanvas = ({
               key={item.id}
               item={item}
               onSelect={onSelectItem}
-              isSelected={selectedItemId === item.id}
+              isSelected={selectedItemId === item.id || selectedItems.includes(item.id)}
               onUpdate={onUpdateItem}
               onRightClick={onRightClick}
               onInfoClick={onInfoClick}
@@ -642,6 +687,23 @@ const WarehouseCanvas = ({
             />
           ))}
         </div>
+        
+        {/* Selection box */}
+        {selectionBox && (
+          <div
+            style={{
+              position: 'absolute',
+              left: Math.min(selectionBox.startX, selectionBox.currentX),
+              top: Math.min(selectionBox.startY, selectionBox.currentY),
+              width: Math.abs(selectionBox.currentX - selectionBox.startX),
+              height: Math.abs(selectionBox.currentY - selectionBox.startY),
+              border: '2px dashed #2196F3',
+              backgroundColor: 'rgba(33, 150, 243, 0.1)',
+              pointerEvents: 'none',
+              zIndex: 1000
+            }}
+          />
+        )}
         
         {/* Drawing preview */}
         {drawingPreview && (

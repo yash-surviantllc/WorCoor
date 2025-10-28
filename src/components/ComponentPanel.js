@@ -207,12 +207,12 @@ const ComponentPanel = () => {
     
     const filtered = WAREHOUSE_COMPONENTS.map(category => ({
       ...category,
-      items: category.items.filter(item => 
+      components: category.components ? category.components.filter(item => 
         item.name.toLowerCase().includes(term.toLowerCase()) ||
         item.description.toLowerCase().includes(term.toLowerCase()) ||
         item.type.toLowerCase().includes(term.toLowerCase())
-      )
-    })).filter(category => category.items.length > 0);
+      ) : []
+    })).filter(category => category.components && category.components.length > 0);
     
     setFilteredComponents(filtered);
     

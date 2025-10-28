@@ -51,6 +51,7 @@ function App() {
   const [lastRefresh, setLastRefresh] = useState(Date.now());
   const [zoomLevel, setZoomLevel] = useState(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [centerCanvasTrigger, setCenterCanvasTrigger] = useState(0);
   
   // New state for enhanced features
   const [facilityManagerVisible, setFacilityManagerVisible] = useState(false);
@@ -371,9 +372,16 @@ function App() {
   const handleZoomReset = useCallback(() => {
     setZoomLevel(1);
     setPanOffset({ x: 0, y: 0 });
+    setCenterCanvasTrigger(prev => prev + 1);
   }, []);
 
+  const isZoomFitEnabled = false;
+
   const handleZoomFit = useCallback(() => {
+    if (!isZoomFitEnabled) {
+      console.log('Fit to View is temporarily disabled');
+      return;
+    }
     if (warehouseItems.length === 0) return;
     
     // Calculate bounding box of all items
@@ -409,7 +417,7 @@ function App() {
       x: (availableWidth - contentWidth * scale) / 2 - bounds.minX * scale + padding,
       y: (availableHeight - contentHeight * scale) / 2 - bounds.minY * scale + padding
     });
-  }, [warehouseItems]);
+  }, [warehouseItems, isZoomFitEnabled]);
 
   const handlePanChange = useCallback((newPanOffset, newZoomLevel) => {
     setPanOffset(newPanOffset);
@@ -1146,6 +1154,7 @@ function App() {
                   panOffset={panOffset}
                   onPanChange={handlePanChange}
                   onRequestSkuId={handleLocationIdRequest}
+                  centerCanvasTrigger={centerCanvasTrigger}
                 />
                 
                 <PropertiesPanel

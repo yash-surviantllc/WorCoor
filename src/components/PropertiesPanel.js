@@ -196,9 +196,13 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
         <input
           type="text"
           className="property-input"
-          value={selectedItem.name}
-          onChange={(e) => handleInputChange('name', e.target.value)}
+          value={selectedItem.name || ''}
+          readOnly
+          disabled
         />
+        <div style={{ fontSize: '0.75rem', color: '#6c757d', marginTop: '0.25rem' }}>
+          Component names are fixed for consistency.
+        </div>
       </div>
 
       <div className="property-group">
@@ -754,129 +758,6 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
                   </div>
                 </div>
               )}
-              
-              {/* SKU Management Actions */}
-              <div style={{ marginTop: '1rem', marginBottom: '1rem' }}>
-                <div style={{ fontSize: '0.8rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Quick Actions:</div>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={() => {
-                      const customId = prompt('Enter custom SKU ID:');
-                      if (customId && customId.trim()) {
-                        // Find first empty compartment
-                        let emptyCompartment = null;
-                        for (let r = 0; r < rows && !emptyCompartment; r++) {
-                          for (let c = 0; c < cols && !emptyCompartment; c++) {
-                            const compartmentId = `${r}-${c}`;
-                            if (!selectedItem.compartmentContents || !selectedItem.compartmentContents[compartmentId]) {
-                              emptyCompartment = compartmentId;
-                            }
-                          }
-                        }
-                        if (emptyCompartment) {
-                          const newContents = { 
-                            ...selectedItem.compartmentContents, 
-                            [emptyCompartment]: {
-                              uniqueId: customId.trim(),
-                              sku: `SKU-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-                              quantity: 1,
-                              status: 'planned',
-                              category: '',
-                              storageSpace: `${Math.floor(selectedItem.width / gridSize)}x${Math.floor(selectedItem.height / gridSize)}`,
-                              availability: 'available',
-                              createdAt: new Date().toISOString(),
-                              lastModified: new Date().toISOString(),
-                              metadata: {
-                                weight: null,
-                                dimensions: null,
-                                temperature: null,
-                                hazardous: false,
-                                priority: 'normal'
-                              }
-                            }
-                          };
-                          onUpdateItem(selectedItem.id, { compartmentContents: newContents });
-                        } else {
-                          showMessage.warning('No empty compartments available. Resize the SKU Holder to add more space.');
-                        }
-                      }
-                    }}
-                    style={{
-                      padding: '0.25rem 0.5rem',
-                      fontSize: '0.7rem',
-                      backgroundColor: '#00BCD4',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '3px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    + Add SKU
-                  </button>
-                  <button
-                    onClick={() => {
-                      onUpdateItem(selectedItem.id, { compartmentContents: {} });
-                      showMessage.success('All SKUs cleared from this holder');
-                    }}
-                    style={{
-                      padding: '0.25rem 0.5rem',
-                      fontSize: '0.7rem',
-                      backgroundColor: '#F44336',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '3px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Clear All
-                  </button>
-                  <button
-                    onClick={() => {
-                      // Auto-fill with sample SKUs with unique IDs
-                      const newContents = {};
-                      let skuCounter = 1;
-                      const timestamp = Date.now();
-                      for (let r = 0; r < rows; r++) {
-                        for (let c = 0; c < cols; c++) {
-                          const compartmentId = `${r}-${c}`;
-                          const uniqueId = `${selectedItem.name || 'HOLDER'}-${String(skuCounter).padStart(3, '0')}`;
-                          newContents[compartmentId] = { 
-                            uniqueId: uniqueId,
-                            sku: `SKU-${String(skuCounter).padStart(3, '0')}`, 
-                            quantity: 1,
-                            status: 'planned',
-                            category: 'general',
-                            storageSpace: `${Math.floor(selectedItem.width / gridSize)}x${Math.floor(selectedItem.height / gridSize)}`,
-                            availability: 'available',
-                            createdAt: new Date(timestamp + skuCounter * 1000).toISOString(),
-                            lastModified: new Date(timestamp + skuCounter * 1000).toISOString(),
-                            metadata: {
-                              weight: null,
-                              dimensions: null,
-                              temperature: null,
-                              hazardous: false,
-                              priority: 'normal'
-                            }
-                          };
-                          skuCounter++;
-                        }
-                      }
-                      onUpdateItem(selectedItem.id, { compartmentContents: newContents });
-                    }}
-                    style={{
-                      padding: '0.25rem 0.5rem',
-                      fontSize: '0.7rem',
-                      backgroundColor: '#4CAF50',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '3px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Fill All
-                  </button>
-                </div>
-              </div>
               
               <div style={{ fontSize: '0.75rem', color: '#666', fontStyle: 'italic' }}>
                 <strong>Usage:</strong> Click compartments to add/edit SKU IDs. Each 60×60px grid block = 1 SKU compartment.<br/>

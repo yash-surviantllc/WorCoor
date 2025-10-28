@@ -23,7 +23,8 @@ const WarehouseCanvas = ({
   zoomLevel,
   panOffset,
   onPanChange,
-  onRequestSkuId
+  onRequestSkuId,
+  centerCanvasTrigger
 }) => {
   const canvasRef = useRef(null);
   const isDragging = useRef(false);
@@ -107,6 +108,13 @@ const WarehouseCanvas = ({
       });
     }
   };
+
+  // Re-center when trigger changes
+  useEffect(() => {
+    if (centerCanvasTrigger > 0) {
+      centerCanvas();
+    }
+  }, [centerCanvasTrigger]);
 
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: [DRAG_TYPES.COMPONENT, DRAG_TYPES.WAREHOUSE_ITEM],

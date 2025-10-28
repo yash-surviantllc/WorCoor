@@ -21,11 +21,15 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
     return allIds;
   };
 
-  // Generate available LOC IDs (LOC-001, LOC-002...)
-  const generateAvailableLocIds = () => {
+  // Generate available Location IDs with Level prefix (e.g., L1-Loc01)
+  const generateAvailableLocIds = (levelId) => {
+    if (!levelId) {
+      return [];
+    }
+
     const allIds = [];
     for (let i = 1; i <= 999; i++) {
-      const locId = `LOC-${i.toString().padStart(3, '0')}`;
+      const locId = `${levelId}-Loc${i.toString().padStart(2, '0')}`;
       if (!existingLocationIds.includes(locId)) {
         allIds.push(locId);
       }
@@ -34,17 +38,30 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
   };
 
   const availableLevelIds = generateAvailableLevelIds();
-  const availableLocIds = generateAvailableLocIds();
+  const availableLocIds = generateAvailableLocIds(selectedLevelId);
 
   useEffect(() => {
-    // Initialize with first available IDs
-    if (availableLevelIds.length > 0) {
+    if (!selectedLevelId && availableLevelIds.length > 0) {
       setSelectedLevelId(availableLevelIds[0]);
     }
-    if (availableLocIds.length > 0) {
-      setSelectedLocId(availableLocIds[0]);
+  }, [availableLevelIds, selectedLevelId]);
+
+  useEffect(() => {
+    if (!selectedLevelId) {
+      setSelectedLocId('');
+      return;
     }
-  }, [availableLevelIds.length, availableLocIds.length]);
+
+    const locOptions = generateAvailableLocIds(selectedLevelId);
+    if (locOptions.length === 0) {
+      setSelectedLocId('');
+      return;
+    }
+
+    if (!locOptions.includes(selectedLocId)) {
+      setSelectedLocId(locOptions[0]);
+    }
+  }, [selectedLevelId, existingLocationIds]);
 
 
   const handleSave = () => {
@@ -162,7 +179,7 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
           {/* Location ID Dropdown */}
           <div style={{ marginBottom: '20px' }}>
             <div style={{ fontWeight: 'bold', marginBottom: '12px', color: '#333' }}>
-              📍 Location ID (LOC-001, LOC-002...):
+              📍 Location ID ({selectedLevelId ? `${selectedLevelId}-Loc01` : 'Lx-Loc01'}...):
             </div>
             <div style={{ 
               padding: '12px',
@@ -189,7 +206,7 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
                 ))}
               </select>
               <div style={{ fontSize: '0.8em', color: '#666', marginTop: '8px' }}>
-                Select the location ID for inventory tracking and identification
+                Select the location slot for this level (e.g., {selectedLevelId ? `${selectedLevelId}-Loc01` : 'Lx-Loc01'})
               </div>
             </div>
           </div>

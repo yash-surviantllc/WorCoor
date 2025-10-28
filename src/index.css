@@ -30,35 +30,7 @@
   will-change: transform;
 }
 
-/* Horizontal Storage Rack - Blue interior with black border */
-.storage-rack,
-.warehouse-item[data-type="sku_holder"] {
-  border: 2px solid #000000 !important;
-  border-style: solid !important;
-  border-radius: 4px !important;
-  background-color: rgba(33, 150, 243, 0.15) !important;
-}
-
-/* Vertical Storage Rack - Orange interior with black border, no hover */
-.vertical-storage-rack,
-.warehouse-item[data-type="vertical_sku_holder"] {
-  border: 2px solid #000000 !important;
-  border-style: solid !important;
-  border-radius: 4px !important;
-  background-color: rgba(255, 87, 34, 0.15) !important;
-  transition: none !important;
-}
-
-/* Remove ALL hover effects for vertical storage racks */
-.vertical-storage-rack:hover,
-.warehouse-item[data-type="vertical_sku_holder"]:hover {
-  transform: none !important;
-  transition: none !important;
-  border: 2px solid #000000 !important;
-  background-color: rgba(255, 87, 34, 0.15) !important;
-  box-shadow: none !important;
-  scale: 1 !important;
-}
+/* Storage Rack Styles - Both horizontal and vertical defined below (lines 750+) with proper hover effects */
 
 .storage-unit,
 .storage-component {
@@ -815,36 +787,83 @@ div.warehouse-item[data-type="sku_holder"]:hover * {
   background: #2196F3 !important;
 }
 
-/* Storage Unit - Clean appearance with no borders */
+/* Storage Unit - Clean appearance with consistent green color */
 .warehouse-item[data-type="storage_unit"] {
   border: none !important;
-  border-radius: 4px !important;
-  /* Color handled by JavaScript based on category */
-}
-
-/* Vertical Storage Rack - No borders, color handled by JavaScript */
-.warehouse-item[data-type="vertical_sku_holder"] {
-  border: none !important;
+  background: #4CAF50 !important;
   box-shadow: none !important;
   border-radius: 4px !important;
-  /* Background color handled by JavaScript getComponentColor() function */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  position: relative;
+  overflow: visible;
+}
+
+/* Vertical Storage Rack - EXACT same design as horizontal with same blue colors */
+.warehouse-item[data-type="vertical_sku_holder"] {
+  border: none !important;
+  background: #2196F3 !important;
+  box-shadow: none !important;
+  border-radius: 4px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  position: relative;
+  overflow: visible;
+}
+
+/* Ensure Vertical SKU Holder never has any animations or transitions */
+.warehouse-item[data-type="vertical_sku_holder"],
+.warehouse-item[data-type="vertical_sku_holder"] *,
+.warehouse-item[data-type="vertical_sku_holder"]::before,
+.warehouse-item[data-type="vertical_sku_holder"]::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* COMPLETE HOVER OVERRIDE FOR VERTICAL SKU HOLDER - EXACT SAME AS HORIZONTAL */
+div.warehouse-item[data-type="vertical_sku_holder"]:hover {
+  transform: none !important;
+  z-index: 5 !important;
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.3) !important;
+  border-color: #00BCD4 !important;
+  background: linear-gradient(135deg, rgba(224, 247, 250, 0.9), rgba(224, 247, 250, 0.7)) !important;
+  transition: none !important;
+  animation: none !important;
+  scale: 1 !important;
+  translate: 0 0 !important;
+  rotate: 0deg !important;
+}
+
+/* Disable all pseudo-element effects */
+div.warehouse-item[data-type="vertical_sku_holder"]:hover::before,
+div.warehouse-item[data-type="vertical_sku_holder"]:hover::after {
+  opacity: 0 !important;
+  transform: none !important;
+  scale: 1 !important;
+  translate: 0 0 !important;
+}
+
+/* Disable all child element hover effects */
+div.warehouse-item[data-type="vertical_sku_holder"]:hover * {
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
 }
 
 .warehouse-item[data-type="vertical_sku_holder"].selected {
   border: none !important;
-  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.5) !important;
-  background: #FF9800 !important;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.5) !important;
+  background: #2196F3 !important;
 }
 
 .warehouse-item[data-type="storage_unit"].selected {
   border: none !important;
   box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.5) !important;
-  /* Background color handled by JavaScript based on category */
+  background: #4CAF50 !important;
 }
 
 /* Override hover effects for storage components - keep them realistic */
-.warehouse-item[data-type="storage_unit"]:hover,
-.warehouse-item[data-type="vertical_sku_holder"]:hover {
+.warehouse-item[data-type="storage_unit"]:hover {
   transform: none !important;
   border: none !important;
   z-index: 15;
@@ -1070,7 +1089,7 @@ div.warehouse-item[data-type="sku_holder"]:hover {
   background: linear-gradient(135deg, rgba(224, 247, 250, 0.9), rgba(224, 247, 250, 0.7)) !important;
 }
 
-/* MAXIMUM SPECIFICITY OVERRIDE - Vertical SKU Holder must NEVER have ANY hover effects */
+/* MAXIMUM SPECIFICITY OVERRIDE - Vertical SKU Holder (EXACT same as horizontal) */
 body .warehouse-canvas .warehouse-item[data-type="vertical_sku_holder"]:hover,
 body .warehouse-item[data-type="vertical_sku_holder"]:hover,
 div.warehouse-item[data-type="vertical_sku_holder"]:hover {
@@ -1079,12 +1098,11 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
   transition: none !important;
   animation: none !important;
   scale: 1 !important;
-  translate: none !important;
-  rotate: none !important;
-  box-shadow: none !important;
-  border: 2px solid #000000 !important;
-  background-color: rgba(255, 87, 34, 0.15) !important;
-  background: rgba(255, 87, 34, 0.15) !important;
+  translate: 0 0 !important;
+  rotate: 0deg !important;
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.3) !important;
+  border-color: #00BCD4 !important;
+  background: linear-gradient(135deg, rgba(224, 247, 250, 0.9), rgba(224, 247, 250, 0.7)) !important;
 }
 
 /* Remove hover zoom effect for Floor Plan Components */
@@ -5854,34 +5872,33 @@ input:checked + .toggle-slider:before {
   overflow: hidden;
 }
 
-/* Square Boundary specific styling - Hollow border only */
+/* Square Boundary specific styling - Solid border with white background to hide grid */
 .warehouse-item[data-type="square_boundary"] {
-  background: transparent !important;
-  background-color: transparent !important;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
   border: 4px solid #000000 !important;
   border-radius: 0 !important;
   cursor: move;
   box-shadow: none !important;
-  /* Ensure completely hollow interior */
+  /* Hide grid pattern behind boundary */
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  /* Major grid alignment indicator */
-  outline: 2px dashed rgba(33, 150, 243, 0.3);
-  outline-offset: -6px;
+  /* No outline - solid border only */
+  outline: none !important;
 }
 
 .warehouse-item[data-type="square_boundary"]:hover {
   border-color: #000000 !important;
-  background: transparent !important;
-  background-color: transparent !important;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.3) !important;
   transform: none !important;
 }
 
 .warehouse-item[data-type="square_boundary"].selected {
   border-color: #000000 !important;
-  background: transparent !important;
-  background-color: transparent !important;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.5) !important;
 }
 
@@ -6099,12 +6116,7 @@ input:checked + .toggle-slider:before {
   background: rgba(255, 255, 255, 0.1) !important;
 }
 
-/* Storage racks always have solid black borders */
-.warehouse-item[data-type="sku_holder"],
-.warehouse-item[data-type="vertical_sku_holder"] {
-  border: 2px solid #000000 !important;
-  border-style: solid !important;
-}
+/* Storage racks styling handled above (lines 730-850) - no borders, clean design */
 
 .warehouse-item[data-container="true"]:hover {
   background: rgba(255, 255, 255, 0.2) !important;

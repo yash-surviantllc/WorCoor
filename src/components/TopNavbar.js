@@ -41,6 +41,9 @@ const TopNavbar = ({
   onSearch,
   onToggleDashboard,
   
+  // Boundary
+  onAutoGenerateBoundary,
+  
   // Status
   itemCount
 }) => {
@@ -269,6 +272,11 @@ const TopNavbar = ({
             </button>
             {activeDropdown === 'tools' && (
               <div className="action-dropdown">
+                <button onClick={onAutoGenerateBoundary} className="action-option">
+                  <span className="option-icon">⬜</span>
+                  <span>Auto-Generate Boundary</span>
+                </button>
+                <div className="dropdown-separator"></div>
                 <button onClick={onFacilityManager} className="action-option">
                   <span className="option-icon">🏢</span>
                   <span>Facility Manager</span>

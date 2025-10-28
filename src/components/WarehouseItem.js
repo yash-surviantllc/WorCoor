@@ -159,20 +159,20 @@ const WarehouseItem = ({
         width: item.width,
         height: item.height,
         backgroundColor: item.isHollow ? 'transparent' : 
-          (item.type === 'storage_unit' ? getComponentColor(item.type, item.category) : 
-           item.type === 'sku_holder' ? 'rgba(33, 150, 243, 0.15)' :
-           item.type === 'vertical_sku_holder' ? 'rgba(255, 87, 34, 0.15)' :
+          (item.type === 'storage_unit' ? '#4CAF50' : 
+           item.type === 'sku_holder' ? '#2196F3' :
+           item.type === 'vertical_sku_holder' ? '#2196F3' :
            isContainer ? 'transparent' : 
            getComponentColor(item.type, item.category)),
-        border: item.type === 'storage_unit' ? `2px solid ${getComponentColor(item.type, item.category) === '#4CAF50' ? '#388E3C' : getComponentColor(item.type, item.category)}` :
-               item.type === 'sku_holder' || item.type === 'vertical_sku_holder' ? '2px solid #000000' : 
+        border: item.type === 'storage_unit' ? 'none' :
+               item.type === 'sku_holder' || item.type === 'vertical_sku_holder' ? 'none' : 
                (item.type === 'square_boundary' ? '4px solid #000000' : 
                (isMainBoundary ? '4px solid #263238' : 
                (isZone ? `3px solid ${getComponentColor(item.type)}` : 
                (isContainer ? `3px solid ${getComponentColor(item.type)}` : 
                (isContained ? `2px dashed ${getComponentColor(item.type) || statusColor}` : `3px solid ${getComponentColor(item.type) || statusColor}`))))),
-        borderRadius: item.type === 'storage_unit' ? '4px' : '0px',
-        boxShadow: item.type === 'storage_unit' ? `0 1px 3px ${getComponentColor(item.type, item.category)}33` : 'none',
+        borderRadius: item.type === 'storage_unit' || item.type === 'sku_holder' || item.type === 'vertical_sku_holder' ? '4px' : '0px',
+        boxShadow: 'none',
         opacity: isDragging ? 0.7 : 1,
         position: 'absolute',
         zIndex: isMainBoundary ? 0 : (isZone ? 1 : (isContainer ? 1 : (isContained ? 10 : 5)))
@@ -225,12 +225,12 @@ const WarehouseItem = ({
         
         const totalCompartments = rows * cols;
         
-        // Determine colors based on rack type
+        // Determine colors based on rack type - BOTH USE SAME BLUE COLORS
         const isVertical = item.type === 'vertical_sku_holder';
         const borderColor = '#000000'; // Black borders for all racks
-        const bgColorFilled = isVertical ? '#FFE0D6' : '#E0F7FA'; // Light orange for vertical, light cyan for horizontal
-        const bgColorEmpty = isVertical ? '#FFF3E0' : '#E3F2FD'; // Light orange for vertical, light blue for horizontal
-        const textColor = isVertical ? '#BF360C' : '#006064'; // Dark orange for vertical, dark cyan for horizontal
+        const bgColorFilled = '#E0F7FA'; // Light cyan for both horizontal and vertical
+        const bgColorEmpty = '#E3F2FD'; // Light blue for both horizontal and vertical
+        const textColor = '#006064'; // Dark cyan for both horizontal and vertical
         
         return (
           <div style={{

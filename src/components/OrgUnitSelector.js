@@ -1,22 +1,7 @@
 import React, { useState } from 'react';
 
 const OrgUnitSelector = ({ isVisible, onClose, onSave }) => {
-  const [selectedOrgUnit, setSelectedOrgUnit] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
-
-  // Organizational Units based on your image
-  const orgUnits = [
-    { id: 'warehouse-1', name: 'Warehouse 1', location: 'Building A' },
-    { id: 'warehouse-2', name: 'Warehouse 2', location: 'Building B' },
-    { id: 'warehouse-3', name: 'Warehouse 3', location: 'Building C' },
-    { id: 'distribution-center-1', name: 'Distribution Center 1', location: 'Building D' },
-    { id: 'distribution-center-2', name: 'Distribution Center 2', location: 'Building E' },
-    { id: 'cold-storage-1', name: 'Cold Storage 1', location: 'Building F' },
-    { id: 'cold-storage-2', name: 'Cold Storage 2', location: 'Building G' },
-    { id: 'processing-facility', name: 'Processing Facility', location: 'Building H' },
-    { id: 'returns-center', name: 'Returns Center', location: 'Building I' },
-    { id: 'cross-dock', name: 'Cross Dock', location: 'Building J' }
-  ];
 
   const statusOptions = [
     { id: 'operational', name: 'Operational', description: 'Ready for live operations' },
@@ -26,26 +11,22 @@ const OrgUnitSelector = ({ isVisible, onClose, onSave }) => {
   ];
 
   const handleSave = () => {
-    if (!selectedOrgUnit || !selectedStatus) {
-      alert('Please select both an organizational unit and operational status.');
+    if (!selectedStatus) {
+      alert('Please select a map type (operational status).');
       return;
     }
 
-    const selectedUnit = orgUnits.find(unit => unit.id === selectedOrgUnit);
     const selectedStatusObj = statusOptions.find(status => status.id === selectedStatus);
 
     onSave({
-      orgUnit: selectedUnit,
       status: selectedStatusObj
     });
 
     // Reset form
-    setSelectedOrgUnit('');
     setSelectedStatus('');
   };
 
   const handleCancel = () => {
-    setSelectedOrgUnit('');
     setSelectedStatus('');
     onClose();
   };
@@ -150,37 +131,28 @@ const OrgUnitSelector = ({ isVisible, onClose, onSave }) => {
     <div style={modalOverlayStyle} onClick={handleCancel}>
       <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          📋 Select Organizational Unit
+          🗺️ Select Map Type
+        </div>
+
+        <div style={{
+          fontSize: '14px',
+          color: '#6b7280',
+          marginBottom: '20px',
+          textAlign: 'center'
+        }}>
+          Choose the operational status for this warehouse layout
         </div>
 
         <div style={sectionStyle}>
           <label style={labelStyle}>
-            Organizational Unit *
-          </label>
-          <select
-            style={selectStyle}
-            value={selectedOrgUnit}
-            onChange={(e) => setSelectedOrgUnit(e.target.value)}
-          >
-            <option value="">Select an organizational unit...</option>
-            {orgUnits.map(unit => (
-              <option key={unit.id} value={unit.id}>
-                {unit.name} ({unit.location})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={sectionStyle}>
-          <label style={labelStyle}>
-            Operational Status *
+            Map Type (Operational Status) *
           </label>
           <select
             style={selectStyle}
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
           >
-            <option value="">Select operational status...</option>
+            <option value="">Select map type...</option>
             {statusOptions.map(status => (
               <option key={status.id} value={status.id}>
                 {status.name} - {status.description}
@@ -189,7 +161,7 @@ const OrgUnitSelector = ({ isVisible, onClose, onSave }) => {
           </select>
         </div>
 
-        {selectedOrgUnit && selectedStatus && (
+        {selectedStatus && (
           <div style={{
             backgroundColor: '#f0f9ff',
             border: '1px solid #0ea5e9',
@@ -198,10 +170,13 @@ const OrgUnitSelector = ({ isVisible, onClose, onSave }) => {
             marginBottom: '16px'
           }}>
             <div style={{ fontSize: '12px', color: '#0369a1', fontWeight: '500' }}>
-              Layout will be saved as:
+              Layout will be saved with status:
             </div>
             <div style={{ fontSize: '14px', color: '#0c4a6e', fontWeight: '600', marginTop: '4px' }}>
-              {orgUnits.find(u => u.id === selectedOrgUnit)?.name} - {statusOptions.find(s => s.id === selectedStatus)?.name}
+              {statusOptions.find(s => s.id === selectedStatus)?.name}
+            </div>
+            <div style={{ fontSize: '12px', color: '#0369a1', marginTop: '4px' }}>
+              {statusOptions.find(s => s.id === selectedStatus)?.description}
             </div>
           </div>
         )}
@@ -214,9 +189,9 @@ const OrgUnitSelector = ({ isVisible, onClose, onSave }) => {
             Cancel
           </button>
           <button
-            style={(!selectedOrgUnit || !selectedStatus) ? disabledButtonStyle : saveButtonStyle}
+            style={!selectedStatus ? disabledButtonStyle : saveButtonStyle}
             onClick={handleSave}
-            disabled={!selectedOrgUnit || !selectedStatus}
+            disabled={!selectedStatus}
           >
             Save Layout
           </button>

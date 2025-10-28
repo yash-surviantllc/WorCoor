@@ -12,7 +12,8 @@ const WarehouseToolbar = ({
   onBack,
   showLabels,
   onToggleLabels,
-  onBulkLabelEdit
+  onBulkLabelEdit,
+  onAutoGenerateBoundary
 }) => {
   const toolbarStyle = {
     display: 'flex',
@@ -76,6 +77,13 @@ const WarehouseToolbar = ({
           onClick={() => onModeChange('boundary')}
         >
           📐 Create Boundary
+        </button>
+        <button 
+          style={buttonStyle}
+          onClick={onAutoGenerateBoundary}
+          title="Automatically generate boundary around all components"
+        >
+          ⬜ Auto-Boundary
         </button>
         <button 
           style={mode === 'zone' ? activeButtonStyle : buttonStyle}

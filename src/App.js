@@ -19,6 +19,7 @@ import WarehouseDesigner from './components/WarehouseDesigner';
 import FullscreenMap from './components/FullscreenMap';
 import SkuIdSelector from './components/SkuIdSelector';
 import MultiLocationSelector from './components/MultiLocationSelector';
+import OrgUnitSelector from './components/OrgUnitSelector';
 import { STACK_MODES, STACKABLE_COMPONENTS, OCCUPANCY_STATUS, STORAGE_ORIENTATION } from './constants/warehouseComponents';
 import { getComponentColor, forceRefreshStorageUnitColors } from './utils/componentColors';
 import { generateStorageUnitLabel, generateStorageComponentLabel, applyEnhancedLabeling } from './utils/componentLabeling';
@@ -66,6 +67,7 @@ function App() {
   const [skuIdSelectorVisible, setSkuIdSelectorVisible] = useState(false);
   const [multiLocationSelectorVisible, setMultiLocationSelectorVisible] = useState(false);
   const [pendingSkuRequest, setPendingSkuRequest] = useState(null);
+  const [mapTypeSelectorVisible, setMapTypeSelectorVisible] = useState(false);
 
   const selectedItem = warehouseItems.find(item => item.id === selectedItemId);
 
@@ -833,8 +835,13 @@ function App() {
       return;
     }
     
-    // Use the selected org unit's default operational status
-    const operationalStatus = 'operational'; // Default to operational for org unit layouts
+    // Show map type selector modal before saving
+    setMapTypeSelectorVisible(true);
+  }, [selectedOrgUnit]);
+
+  const handleMapTypeSelected = useCallback((selection) => {
+    const { status } = selection;
+    const operationalStatus = status.id; // Use selected status from modal
     
     // Use ultra-tight cropping to eliminate ALL white space
     const croppedLayout = LayoutCropper.createUltraTightCrop(warehouseItems);
@@ -922,8 +929,11 @@ function App() {
       ? `\n\nUltra-tight optimization: Removed ${operationalMetadata.whitespaceRemoved.x}px × ${operationalMetadata.whitespaceRemoved.y}px of white space\nFinal size: ${operationalMetadata.croppedDimensions.width}px × ${operationalMetadata.croppedDimensions.height}px\nZero padding applied for maximum focus`
       : '';
     
-    alert(`Layout "${layoutName}" saved successfully!\n\nOrganizational Unit: ${selectedOrgUnit.name} (${selectedOrgUnit.location})\nStatus: Operational${croppingInfo}\n\nThis layout is now available in the Live Warehouse Maps section.`);
-  }, [warehouseItems, layoutName, layoutNameSet, selectedOrgUnit]);
+    alert(`Layout "${layoutName}" saved successfully!\n\nOrganizational Unit: ${selectedOrgUnit.name} (${selectedOrgUnit.location})\nStatus: ${statusLabels[operationalStatus]}${croppingInfo}\n\nThis layout is now available in the Live Warehouse Maps section.`);
+    
+    // Close the map type selector modal
+    setMapTypeSelectorVisible(false);
+  }, [warehouseItems, layoutName, layoutNameSet, selectedOrgUnit, selectedOrgMap]);
 
   const handleLoad = useCallback((data) => {
     if (data.items && Array.isArray(data.items)) {
@@ -980,6 +990,49 @@ function App() {
       return !prev;
     });
   }, []);
+
+  // Auto-generate boundary
+  const handleAutoGenerateBoundary = useCallback(() => {
+    const existingBoundary = warehouseItems.find(item => item.type === 'square_boundary');
+    if (existingBoundary) {
+      const confirm = window.confirm('A boundary already exists. Replace it?');
+      if (!confirm) return;
+      setWarehouseItems(prev => prev.filter(item => item.type !== 'square_boundary'));
+    }
+
+    const components = warehouseItems.filter(item => item.type !== 'square_boundary');
+    if (components.length === 0) {
+      alert('Please add components first.');
+      return;
+    }
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    components.forEach(item => {
+      minX = Math.min(minX, item.x);
+      minY = Math.min(minY, item.y);
+      maxX = Math.max(maxX, item.x + (item.width || 100));
+      maxY = Math.max(maxY, item.y + (item.height || 80));
+    });
+
+    const padding = 60;
+    const boundary = {
+      id: uuidv4(),
+      type: 'square_boundary',
+      name: 'Warehouse Boundary',
+      x: Math.max(0, minX - padding),
+      y: Math.max(0, minY - padding),
+      width: Math.ceil((maxX - minX + padding * 2) / 60) * 60,
+      height: Math.ceil((maxY - minY + padding * 2) / 60) * 60,
+      color: getComponentColor('square_boundary'),
+      containerLevel: 1,
+      isContainer: true,
+      containerPadding: 20,
+      resizable: true
+    };
+
+    setWarehouseItems(prev => [...prev, boundary]);
+    alert(`Boundary generated! ${boundary.width}×${boundary.height}px, ${components.length} components`);
+  }, [warehouseItems]);
 
 
   // CAD Import handler
@@ -1067,6 +1120,7 @@ function App() {
               canUndo={undoStack.length > 0}
               canRedo={redoStack.length > 0}
               onSearch={handleSearch}
+              onAutoGenerateBoundary={handleAutoGenerateBoundary}
               itemCount={warehouseItems.length}
               onNavigateToDashboard={handleNavigateToDashboard}
               showMainDashboard={showMainDashboard}
@@ -1205,6 +1259,13 @@ function App() {
           onSave={handleLocationIdSelect}
           existingLocationIds={pendingSkuRequest ? getExistingLocationIds(pendingSkuRequest.itemId) : []}
           itemType={pendingSkuRequest ? warehouseItems.find(item => item.id === pendingSkuRequest.itemId)?.type : ''}
+        />
+
+        {/* Map Type Selector Modal - Select operational status before saving */}
+        <OrgUnitSelector
+          isVisible={mapTypeSelectorVisible}
+          onClose={() => setMapTypeSelectorVisible(false)}
+          onSave={handleMapTypeSelected}
         />
       </div>
     </DndProvider>

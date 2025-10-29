@@ -5875,10 +5875,10 @@ input:checked + .toggle-slider:before {
   overflow: hidden;
 }
 
-/* Square Boundary specific styling - Solid border with white background to hide grid */
+/* Square Boundary specific styling - Solid border with transparent interior */
 .warehouse-item[data-type="square_boundary"] {
-  background: #ffffff !important;
-  background-color: #ffffff !important;
+  background: transparent !important;
+  background-color: transparent !important;
   border: 4px solid #000000 !important;
   border-radius: 0 !important;
   cursor: move;
@@ -5892,16 +5892,16 @@ input:checked + .toggle-slider:before {
 
 .warehouse-item[data-type="square_boundary"]:hover {
   border-color: #000000 !important;
-  background: #ffffff !important;
-  background-color: #ffffff !important;
+  background: transparent !important;
+  background-color: transparent !important;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.3) !important;
   transform: none !important;
 }
 
 .warehouse-item[data-type="square_boundary"].selected {
   border-color: #000000 !important;
-  background: #ffffff !important;
-  background-color: #ffffff !important;
+  background: transparent !important;
+  background-color: transparent !important;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.5) !important;
 }
 

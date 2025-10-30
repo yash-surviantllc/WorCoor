@@ -1,5 +1,107 @@
 import React, { useEffect, useState } from 'react';
 
+const renderDemoLayout = (demoData) => (
+  <svg width="100%" height="100%" viewBox="0 0 700 320" className="fullscreen-warehouse-svg">
+    <rect width="700" height="320" fill="#ffffff" stroke="#dee2e6" strokeWidth="2" rx="8" />
+
+    {/* Render zones */}
+    {demoData.zones && demoData.zones.map((zone, index) => (
+      <g key={index}>
+        <rect
+          x={zone.x}
+          y={zone.y}
+          width={zone.width}
+          height={zone.height}
+          fill={zone.color}
+          stroke="#333"
+          strokeWidth="2"
+          opacity="0.7"
+          rx="4"
+        />
+
+        {(() => {
+          const getFullscreenZoneLabel = () => {
+            if (zone.label && zone.label.trim()) return zone.label.trim();
+            if (zone.name && zone.name.trim()) return zone.name.trim();
+            if (zone.id && zone.id.trim()) return zone.id.trim();
+
+            const typeLabels = {
+              storage: 'ZONE',
+              receiving: 'RCV',
+              dispatch: 'DSP',
+              office: 'OFF',
+              overflow: 'OVF'
+            };
+
+            const prefix = typeLabels[zone.type] || 'ZONE';
+            return `${prefix}-${String(index + 1).padStart(2, '0')}`;
+          };
+
+          const label = getFullscreenZoneLabel();
+          if (!label) return null;
+
+          const fontSize = Math.min(Math.max(zone.width / 12, 10), 16);
+          let labelColor = '#2c3e50';
+          let bgColor = 'rgba(52, 152, 219, 0.15)';
+          let borderColor = '#3498db';
+
+          if (zone.type === 'receiving') {
+            labelColor = '#e67e22';
+            bgColor = 'rgba(230, 126, 34, 0.15)';
+            borderColor = '#f39c12';
+          } else if (zone.type === 'dispatch') {
+            labelColor = '#8e44ad';
+            bgColor = 'rgba(142, 68, 173, 0.15)';
+            borderColor = '#9b59b6';
+          } else if (zone.type === 'office') {
+            labelColor = '#27ae60';
+            bgColor = 'rgba(39, 174, 96, 0.15)';
+            borderColor = '#2ecc71';
+          }
+
+          return (
+            <g>
+              <rect
+                x={zone.x + zone.width / 2 - Math.max(label.length * fontSize * 0.35, 25)}
+                y={zone.y + zone.height + 8}
+                width={Math.max(label.length * fontSize * 0.7, 50)}
+                height={fontSize + 8}
+                fill={bgColor}
+                stroke={borderColor}
+                strokeWidth="1.5"
+                rx="4"
+              />
+              <text
+                x={zone.x + zone.width / 2}
+                y={zone.y + zone.height + fontSize + 12}
+                textAnchor="middle"
+                fontSize={fontSize}
+                fontWeight="600"
+                fill={labelColor}
+              >
+                {label}
+              </text>
+            </g>
+          );
+        })()}
+      </g>
+    ))}
+
+    {/* Render equipment */}
+    {demoData.equipment && demoData.equipment.map((equipment, index) => (
+      <circle
+        key={index}
+        cx={equipment.x}
+        cy={equipment.y}
+        r="8"
+        fill={equipment.status === 'active' ? '#28a745' : '#dc3545'}
+        stroke="#333"
+        strokeWidth="1"
+      />
+    ))}
+  </svg>
+);
+
 const FullscreenMap = () => {
   const [mapData, setMapData] = useState(null);
   const [error, setError] = useState(null);
@@ -416,6 +518,18 @@ const FullscreenMap = () => {
 
   // Helper function to render custom layout
   const renderCustomLayout = (items) => {
+    if (!items || items.length === 0) {
+      return (
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'transparent'
+          }}
+        />
+      );
+    }
+
     // Calculate ultra-tight bounds
     const minX = Math.min(...items.map(item => item.x), 0);
     const minY = Math.min(...items.map(item => item.y), 0);
@@ -471,24 +585,112 @@ const FullscreenMap = () => {
           const itemId = `item-${index}`;
           const opData = operationalData[itemId];
           const isInteractive = opData && (opData.type === 'storage' || opData.type === 'zone');
-          
+
+          const fillColor = item.fill || getItemBackgroundColor(item.type, opData);
+          const fillOpacity = typeof item.fillOpacity === 'number' ? item.fillOpacity : 0.8;
+          const strokeColor = item.borderColor || getItemBorderColor(item.type, opData);
+          const strokeWidth = item.borderWidth != null ? item.borderWidth : 2;
+          const strokeDasharray = item.borderStyle === 'dotted' ? '6 4' : undefined;
+          const cornerRadius = item.cornerRadius != null ? item.cornerRadius : 4;
+
+          if (item.displayAsLabel) {
+            return (
+              <g key={item.id || index}>
+                <text
+                  x={item.x}
+                  y={item.y}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={item.fontSize || 14}
+                  fontWeight={item.fontWeight || '600'}
+                  fill={item.textColor || '#333333'}
+                >
+                  {item.text}
+                </text>
+              </g>
+            );
+          }
+
           return (
-            <g key={index}>
+            <g key={item.id || index}>
               {/* Main item rectangle */}
               <rect
                 x={item.x}
                 y={item.y}
                 width={item.width}
                 height={item.height}
-                fill={getItemBackgroundColor(item.type, opData)}
-                stroke={getItemBorderColor(item.type, opData)}
-                strokeWidth="2"
-                rx="4"
-                opacity="0.8"
+                fill={fillColor}
+                fillOpacity={fillOpacity}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
+                strokeDasharray={strokeDasharray}
+                rx={cornerRadius}
                 style={{ cursor: isInteractive ? 'pointer' : 'default' }}
                 onClick={isInteractive ? () => handleItemClick(item, index) : undefined}
               />
-              
+
+              {/* Optional internal grid */}
+              {item.grid && item.width && item.height && (() => {
+                const { rows, cols, padding = 0, gap = 0, fill: cellFill = '#FFFFFF', stroke: cellStroke = '#B0BEC5' } = item.grid;
+                const effectiveWidth = item.width - padding * 2 - gap * (cols - 1);
+                const effectiveHeight = item.height - padding * 2 - gap * (rows - 1);
+                const cellWidth = cols > 0 ? effectiveWidth / cols : 0;
+                const cellHeight = rows > 0 ? effectiveHeight / rows : 0;
+
+                if (cellWidth <= 0 || cellHeight <= 0) {
+                  return null;
+                }
+
+                const cells = [];
+                for (let row = 0; row < rows; row++) {
+                  for (let col = 0; col < cols; col++) {
+                    const cellX = item.x + padding + col * (cellWidth + gap);
+                    const cellY = item.y + padding + row * (cellHeight + gap);
+                    cells.push(
+                      <rect
+                        key={`${item.id}-cell-${row}-${col}`}
+                        x={cellX}
+                        y={cellY}
+                        width={cellWidth}
+                        height={cellHeight}
+                        fill={cellFill}
+                        stroke={cellStroke}
+                        strokeWidth="0.75"
+                        rx={Math.min(cellWidth, cellHeight) * 0.1}
+                      />
+                    );
+                  }
+                }
+
+                return <g>{cells}</g>;
+              })()}
+
+              {/* Embedded text lines */}
+              {item.textLines && item.textLines.length > 0 && (
+                <g>
+                  {item.textLines.map((line, lineIndex) => {
+                    const totalLines = item.textLines.length;
+                    const fontSize = item.textSize || 14;
+                    const verticalSpacing = fontSize + 4;
+                    const textStartY = item.y + (item.height / 2) - ((totalLines - 1) * verticalSpacing) / 2;
+                    return (
+                      <text
+                        key={`${item.id}-line-${lineIndex}`}
+                        x={item.x + item.width / 2}
+                        y={textStartY + lineIndex * verticalSpacing}
+                        textAnchor="middle"
+                        fontSize={fontSize}
+                        fontWeight={item.fontWeight || '600'}
+                        fill={item.textColor || '#204051'}
+                        style={{ pointerEvents: 'none' }}
+                      >
+                        {line}
+                      </text>
+                    );
+                  })}
+                </g>
+              )}
+
               {/* Operational status indicator */}
               {opData && opData.status && (
                 <circle
@@ -537,7 +739,7 @@ const FullscreenMap = () => {
               )}
               
               {/* Item label */}
-              {item.width > 60 && item.height > 30 && (
+              {item.width > 60 && item.height > 30 && !item.disableAutoLabel && (
                 <text
                   x={item.x + item.width / 2}
                   y={item.y + item.height / 2}
@@ -972,6 +1174,7 @@ const FullscreenMap = () => {
   }
 
   const { unit, isCustomLayout, layoutData, demoData } = mapData;
+  const isEmptyCustomLayout = isCustomLayout && layoutData && Array.isArray(layoutData.items) && layoutData.items.length === 0;
 
   return (
     <div className="fullscreen-map-container">
@@ -1090,12 +1293,10 @@ const FullscreenMap = () => {
       <div className="fullscreen-map-content">
         <div className="map-display-area">
           {isCustomLayout && layoutData && layoutData.items ? (
-            // Render custom layout
             <div className="fullscreen-custom-layout">
               {renderCustomLayout(layoutData.items)}
             </div>
           ) : demoData ? (
-            // Render demo data
             <div className="fullscreen-demo-layout">
               {renderDemoLayout(demoData)}
             </div>
@@ -1112,14 +1313,14 @@ const FullscreenMap = () => {
           <div className="operational-info-panel">
             <div className="info-panel-header">
               <h3>{getItemDisplayName(selectedItem)}</h3>
-              <button 
+              <button
                 className="close-info-btn"
                 onClick={() => setShowInfoPanel(false)}
               >
                 ×
               </button>
             </div>
-            
+
             <div className="info-panel-content">
               {renderOperationalInfo(selectedItem)}
             </div>
@@ -1127,130 +1328,19 @@ const FullscreenMap = () => {
         )}
       </div>
 
-      <div className="fullscreen-map-footer">
-        <div className="map-info">
-          <span>Created: {layoutData ? new Date(layoutData.timestamp).toLocaleDateString() : 'N/A'}</span>
-          <span>Items: {unit.items || 0}</span>
-          <span>Zones: {unit.zones || 0}</span>
-          {unit.utilization && <span>Utilization: {unit.utilization}%</span>}
+      {!isEmptyCustomLayout && (
+        <div className="fullscreen-map-footer">
+          <div className="map-info">
+            <span>Created: {layoutData ? new Date(layoutData.timestamp).toLocaleDateString() : 'N/A'}</span>
+            <span>Items: {unit.items || 0}</span>
+            <span>Zones: {unit.zones || 0}</span>
+            {unit.temperature && <span>Temperature: {unit.temperature}</span>}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
-
-// Helper function to render demo layout
-const renderDemoLayout = (demoData) => {
-  return (
-    <svg width="100%" height="100%" viewBox="0 0 700 320" className="fullscreen-warehouse-svg">
-      <rect width="700" height="320" fill="#ffffff" stroke="#dee2e6" strokeWidth="2" rx="8"/>
-      
-      {/* Render zones */}
-      {demoData.zones && demoData.zones.map((zone, index) => (
-        <g key={index}>
-          <rect
-            x={zone.x}
-            y={zone.y}
-            width={zone.width}
-            height={zone.height}
-            fill={zone.color}
-            stroke="#333"
-            strokeWidth="2"
-            opacity="0.7"
-            rx="4"
-          />
-          
-          {/* Unified Zone Label - Below Every Zone */}
-          {(() => {
-            // Generate smart label for fullscreen demo zones
-            const getFullscreenZoneLabel = () => {
-              if (zone.label && zone.label.trim()) return zone.label.trim();
-              if (zone.name && zone.name.trim()) return zone.name.trim();
-              if (zone.id && zone.id.trim()) return zone.id.trim();
-              
-              // Auto-generate based on type
-              const typeLabels = {
-                'storage': 'ZONE',
-                'receiving': 'RCV',
-                'dispatch': 'DSP',
-                'office': 'OFF',
-                'overflow': 'OVF'
-              };
-              
-              const prefix = typeLabels[zone.type] || 'ZONE';
-              return `${prefix}-${String(index + 1).padStart(2, '0')}`;
-            };
-
-            const label = getFullscreenZoneLabel();
-            if (!label) return null;
-
-            // Calculate label styling for fullscreen demo zones
-            const fontSize = Math.min(Math.max(zone.width / 12, 10), 16);
-            let labelColor = '#2c3e50';
-            let bgColor = 'rgba(52, 152, 219, 0.15)';
-            let borderColor = '#3498db';
-            
-            // Different colors for different zone types
-            if (zone.type === 'receiving') {
-              labelColor = '#e67e22';
-              bgColor = 'rgba(230, 126, 34, 0.15)';
-              borderColor = '#f39c12';
-            } else if (zone.type === 'dispatch') {
-              labelColor = '#8e44ad';
-              bgColor = 'rgba(142, 68, 173, 0.15)';
-              borderColor = '#9b59b6';
-            } else if (zone.type === 'office') {
-              labelColor = '#27ae60';
-              bgColor = 'rgba(39, 174, 96, 0.15)';
-              borderColor = '#2ecc71';
-            }
-
-            return (
-              <g>
-                {/* Label background */}
-                <rect
-                  x={zone.x + zone.width / 2 - Math.max(label.length * fontSize * 0.35, 25)}
-                  y={zone.y + zone.height + 8}
-                  width={Math.max(label.length * fontSize * 0.7, 50)}
-                  height={fontSize + 8}
-                  fill={bgColor}
-                  stroke={borderColor}
-                  strokeWidth="1.5"
-                  rx="4"
-                />
-                {/* Label text */}
-                <text
-                  x={zone.x + zone.width / 2}
-                  y={zone.y + zone.height + fontSize + 12}
-                  textAnchor="middle"
-                  fontSize={fontSize}
-                  fontWeight="600"
-                  fill={labelColor}
-                >
-                  {label}
-                </text>
-              </g>
-            );
-          })()}
-        </g>
-      ))}
-      
-      {/* Render equipment */}
-      {demoData.equipment && demoData.equipment.map((equipment, index) => (
-        <circle
-          key={index}
-          cx={equipment.x}
-          cy={equipment.y}
-          r="8"
-          fill={equipment.status === 'active' ? '#28a745' : '#dc3545'}
-          stroke="#333"
-          strokeWidth="1"
-        />
-      ))}
-    </svg>
-  );
-};
-
 
 // Helper functions for item styling
 const getItemBackgroundColor = (type, opData) => {

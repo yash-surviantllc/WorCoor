@@ -33,6 +33,8 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
     onUpdateItem(selectedItem.id, { [property]: value });
   };
 
+  const isSpareUnit = selectedItem.type === 'spare_unit';
+
   // Get all existing SKU IDs from the selected item
   const getExistingSkuIds = () => {
     if (!selectedItem.compartmentContents) return [];
@@ -197,11 +199,19 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
           type="text"
           className="property-input"
           value={selectedItem.name || ''}
-          readOnly
-          disabled
+          readOnly={!isSpareUnit}
+          disabled={!isSpareUnit}
+          onChange={(e) => {
+            if (isSpareUnit) {
+              handleInputChange('name', e.target.value);
+            }
+          }}
+          placeholder={isSpareUnit ? 'Enter spare unit name' : ''}
         />
         <div style={{ fontSize: '0.75rem', color: '#6c757d', marginTop: '0.25rem' }}>
-          Component names are fixed for consistency.
+          {isSpareUnit
+            ? 'Rename this spare unit to match its purpose (e.g., Spare Rack A1).'
+            : 'Component names are fixed for consistency.'}
         </div>
       </div>
 

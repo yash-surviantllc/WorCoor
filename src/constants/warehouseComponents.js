@@ -18,7 +18,8 @@ export const COMPONENT_TYPES = {
   // Storage Components (1×1 to 2×2)
   STORAGE_UNIT: 'storage_unit',
   SKU_HOLDER: 'sku_holder',
-  VERTICAL_SKU_HOLDER: 'vertical_sku_holder'
+  VERTICAL_SKU_HOLDER: 'vertical_sku_holder',
+  SPARE_UNIT: 'spare_unit'
 };
 
 // Drag and drop types
@@ -96,6 +97,7 @@ export const COMPONENT_COLORS = {
   [COMPONENT_TYPES.STORAGE_UNIT]: '#4CAF50', // Green - Storage containers/units
   [COMPONENT_TYPES.SKU_HOLDER]: '#2196F3', // Blue - Horizontal storage racks/shelves
   [COMPONENT_TYPES.VERTICAL_SKU_HOLDER]: '#FF9800', // Orange - Vertical storage racks/shelves
+  [COMPONENT_TYPES.SPARE_UNIT]: '#8D6E63', // Brown - Spare units (placeholder storage)
   
   // Zone Components
   [COMPONENT_TYPES.WAREHOUSE_BLOCK]: '#FF9800', // Orange - Warehouse blocks
@@ -279,6 +281,21 @@ export const WAREHOUSE_COMPONENTS = [
         maxSKUsPerCompartment: 1, // One SKU unit per compartment
         supportsMultipleLocationIds: true, // Support multiple location IDs (L1, L2, L3)
         supportsMultipleTags: true // Support multiple tags per location
+      },
+      {
+        type: COMPONENT_TYPES.SPARE_UNIT,
+        name: "Spare Unit",
+        icon: "🧱",
+        color: "#8D6E63", // Brown tone to distinguish spare units
+        defaultSize: { width: 60, height: 60 }, // 1×1 grid block placeholder
+        description: "Placeholder spare storage slot reserved for future allocation",
+        priority: "medium",
+        snapToGrid: true,
+        gridAligned: true,
+        gridStep: 60,
+        resizable: false,
+        isPlaceholder: true,
+        allowEmpty: true
       }
     ]
   }

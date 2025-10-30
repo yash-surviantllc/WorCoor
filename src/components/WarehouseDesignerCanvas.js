@@ -120,6 +120,7 @@ const WarehouseItem = ({
   const isStorageRack = item.type === 'sku_holder'; // Horizontal storage racks (SKU holders)
   const isVerticalStorageRack = item.type === 'vertical_sku_holder'; // Vertical storage racks
   const isStorageUnit = item.type === 'storage_unit'; // Storage units
+  const isSpareUnit = item.type === 'spare_unit';
   
   // Zone selection states
   let zoneState = 'inactive';
@@ -188,11 +189,10 @@ const WarehouseItem = ({
     if (isStorageRack) {
       return {
         ...baseStyle,
-        border: '2px solid #000000 !important', // Black border for horizontal storage racks
-        borderStyle: 'solid !important', // Force solid border style
-        backgroundColor: 'rgba(33, 150, 243, 0.15)', // Light blue background
-        borderRadius: '4px',
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)' // Subtle shadow
+        border: '2px solid #1976D2',
+        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+        borderRadius: '0px',
+        boxShadow: '0 1px 3px rgba(25, 118, 210, 0.2)'
       };
     }
 
@@ -200,11 +200,11 @@ const WarehouseItem = ({
     if (isVerticalStorageRack) {
       return {
         ...baseStyle,
-        border: '2px solid #FF9800 !important', // Orange border for vertical storage racks
-        borderStyle: 'solid !important', // Force solid border style
-        backgroundColor: '#FF9800', // Orange background
-        borderRadius: '4px',
-        boxShadow: '0 1px 3px rgba(255, 152, 0, 0.3)' // Orange shadow
+        border: '2px solid #FF9800 !important',
+        borderStyle: 'solid !important',
+        backgroundColor: '#FF9800',
+        borderRadius: '0px',
+        boxShadow: '0 1px 3px rgba(255, 152, 0, 0.3)'
       };
     }
 
@@ -215,11 +215,28 @@ const WarehouseItem = ({
       
       return {
         ...baseStyle,
-        border: `2px solid ${borderColor} !important`, // Dynamic border color
-        borderStyle: 'solid !important', // Force solid border style
-        backgroundColor: storageUnitColor, // Use the actual component color
-        borderRadius: '4px',
-        boxShadow: `0 1px 3px ${borderColor}33` // Dynamic shadow with transparency
+        border: `2px solid ${borderColor} !important`,
+        borderStyle: 'solid !important',
+        backgroundColor: storageUnitColor,
+        borderRadius: '0px',
+        boxShadow: `0 1px 3px ${borderColor}33`
+      };
+    }
+
+    // Spare Units - Neutral brown styling for placeholders
+    if (isSpareUnit) {
+      const spareColor = getComponentColor(item.type) || '#8D6E63';
+      return {
+        ...baseStyle,
+        border: '2px solid #5D4037',
+        backgroundColor: spareColor,
+        color: '#fff',
+        borderRadius: '0px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '4px',
+        textAlign: 'center'
       };
     }
 
@@ -243,16 +260,17 @@ const WarehouseItem = ({
     const getSmartLabel = () => {
       // For storage components, only show label if locationId is assigned
       const isStorageComponent = item.type === 'storage_unit' || item.type === 'sku_holder' || item.type === 'vertical_sku_holder';
-      
+
       if (isStorageComponent) {
         // Only show locationId for storage components, nothing else
         return item.locationId || null;
       }
-      
+
       // For other components: Priority: custom label > locationTag > name > auto-generated
-      if (item.label && item.label.trim() && item.label !== item.name) return item.label.trim();
+      if (item.label && item.label.trim()) return item.label.trim();
       if (item.locationTag && item.locationTag.trim()) return item.locationTag.trim();
-      
+      if (item.name && item.name.trim()) return item.name.trim();
+
       // Auto-generate label based on type for non-storage components
       const typeLabels = {
         'warehouse_block': 'BLOCK',
@@ -265,7 +283,7 @@ const WarehouseItem = ({
         'solid_boundary': 'WALL',
         'dotted_boundary': 'LINE'
       };
-      
+
       const prefix = typeLabels[item.type];
       if (!prefix) return null;
       
@@ -276,7 +294,7 @@ const WarehouseItem = ({
       if (isZone && index <= 26) {
         return String.fromCharCode(64 + index); // A, B, C, etc.
       }
-      
+
       return `${prefix}-${index.toString().padStart(2, '0')}`;
     };
 
@@ -333,6 +351,24 @@ const WarehouseItem = ({
           borderRadius: '6px',
           border: '1px solid #95a5a6',
           boxShadow: '0 2px 4px rgba(149, 165, 166, 0.2)',
+          minWidth: '50px'
+        };
+      }
+
+      if (isSpareUnit) {
+        const fontSize = Math.min(Math.max(item.width / 9, 12), 16);
+        const padding = Math.max(fontSize * 0.3, 3);
+        
+        return {
+          ...baseStyle,
+          fontSize: `${fontSize}px`,
+          fontWeight: '600',
+          color: '#4E342E',
+          backgroundColor: 'rgba(141, 110, 99, 0.15)',
+          padding: `${padding}px ${padding * 1.6}px`,
+          borderRadius: '5px',
+          border: '1px solid #5D4037',
+          boxShadow: '0 1px 3px rgba(93, 64, 55, 0.2)',
           minWidth: '50px'
         };
       }

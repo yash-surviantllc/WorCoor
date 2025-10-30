@@ -5,6 +5,7 @@ import showMessage from '../utils/showMessage';
 const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds = [], itemType = '' }) => {
   const [selectedLevelId, setSelectedLevelId] = useState('');
   const [selectedLocId, setSelectedLocId] = useState('');
+  const [attachedLevelIds, setAttachedLevelIds] = useState([]);
 
   // Check if this is for vertical storage rack
   const isVerticalStorageRack = itemType === 'vertical_sku_holder';
@@ -37,12 +38,16 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
     return allIds;
   };
 
-  const availableLevelIds = generateAvailableLevelIds();
+  const availableLevelIds = generateAvailableLevelIds().filter(id => !attachedLevelIds.includes(id));
   const availableLocIds = generateAvailableLocIds(selectedLevelId);
 
   useEffect(() => {
     if (!selectedLevelId && availableLevelIds.length > 0) {
       setSelectedLevelId(availableLevelIds[0]);
+    }
+
+    if (availableLevelIds.length === 0) {
+      setSelectedLevelId('');
     }
   }, [availableLevelIds, selectedLevelId]);
 
@@ -66,26 +71,21 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
 
   const handleSave = () => {
     // Validate selections
-    if (!selectedLevelId.trim() || !selectedLocId.trim()) {
-      showMessage.warning('Please select both Level ID and Location ID');
+    if (attachedLevelIds.length === 0) {
+      showMessage.warning('Attach at least one Level ID before saving');
       return;
     }
 
-    // Check if either ID is already in use
-    if (existingLocationIds.includes(selectedLevelId)) {
-      showMessage.error(`Level ID ${selectedLevelId} is already in use. Please select a different one.`);
-      return;
-    }
-
-    if (existingLocationIds.includes(selectedLocId)) {
-      showMessage.error(`Location ID ${selectedLocId} is already in use. Please select a different one.`);
+    const duplicateIds = attachedLevelIds.filter(id => existingLocationIds.includes(id));
+    if (duplicateIds.length > 0) {
+      showMessage.error(`The following Level IDs are already in use: ${duplicateIds.join(', ')}. Remove them before saving.`);
       return;
     }
 
     // Return both IDs as multiple location format
     const result = {
-      locationIds: [selectedLevelId, selectedLocId],
-      tags: ['Level', 'Location'],
+      locationIds: attachedLevelIds,
+      tags: attachedLevelIds.map((levelId, index) => `Level ${index + 1}`),
       category: 'storage', // Default category for storage racks
       isMultiple: true
     };
@@ -96,7 +96,33 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
   const handleClose = () => {
     setSelectedLevelId('');
     setSelectedLocId('');
+    setAttachedLevelIds([]);
     onClose();
+  };
+
+  const handleAttachLevelId = () => {
+    if (!selectedLevelId) {
+      showMessage.warning('Please select a Level ID to attach');
+      return;
+    }
+
+    if (attachedLevelIds.includes(selectedLevelId)) {
+      showMessage.warning(`${selectedLevelId} is already attached to this block`);
+      return;
+    }
+
+    if (existingLocationIds.includes(selectedLevelId)) {
+      showMessage.error(`Level ID ${selectedLevelId} is already in use. Choose another one.`);
+      return;
+    }
+
+    setAttachedLevelIds(prev => [...prev, selectedLevelId]);
+    showMessage.success(`${selectedLevelId} attached to this block`);
+  };
+
+  const handleRemoveAttachedLevelId = (levelId) => {
+    setAttachedLevelIds(prev => prev.filter(id => id !== levelId));
+    showMessage.info(`${levelId} removed from this block`);
   };
 
   if (!isVisible) return null;
@@ -176,44 +202,120 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
             </div>
           </div>
 
-          {/* Location ID Dropdown */}
+          {/* Location selection temporarily disabled */}
           <div style={{ marginBottom: '20px' }}>
             <div style={{ fontWeight: 'bold', marginBottom: '12px', color: '#333' }}>
-              📍 Location ID ({selectedLevelId ? `${selectedLevelId}-Loc01` : 'Lx-Loc01'}...):
+              📍 Location ID Selection (Temporarily Disabled)
             </div>
-            <div style={{ 
-              padding: '12px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '6px',
-              border: '1px solid #dee2e6'
-            }}>
-              <select
-                value={selectedLocId}
-                onChange={(e) => setSelectedLocId(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  fontSize: '0.9em',
-                  backgroundColor: 'white'
-                }}
-              >
-                {availableLocIds.slice(0, 50).map(locId => (
-                  <option key={locId} value={locId}>
-                    {locId}
-                  </option>
-                ))}
-              </select>
-              <div style={{ fontSize: '0.8em', color: '#666', marginTop: '8px' }}>
-                Select the location slot for this level (e.g., {selectedLevelId ? `${selectedLevelId}-Loc01` : 'Lx-Loc01'})
+            <div
+              style={{
+                padding: '12px',
+                backgroundColor: '#fff8e1',
+                borderRadius: '6px',
+                border: '1px dashed #ffb300',
+                color: '#bf6f00',
+                fontSize: '0.85em'
+              }}
+            >
+              Location ID dropdown is disabled for this flow. Attach the level IDs below to reserve multiple heights for this block.
+            </div>
+          </div>
+
+          {/* Attach level IDs */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '12px', color: '#333' }}>
+              ➕ Attach Level IDs to this Block
+            </div>
+            <div
+              style={{
+                padding: '12px',
+                backgroundColor: '#f1f8e9',
+                borderRadius: '6px',
+                border: '1px solid #c5e1a5'
+              }}
+            >
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
+                <select
+                  value={selectedLevelId}
+                  onChange={(e) => setSelectedLevelId(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    border: '1px solid #8bc34a',
+                    borderRadius: '4px',
+                    fontSize: '0.9em',
+                    backgroundColor: 'white'
+                  }}
+                  disabled={availableLevelIds.length === 0}
+                >
+                  {availableLevelIds.length === 0 ? (
+                    <option value="">
+                      All levels attached
+                    </option>
+                  ) : (
+                    availableLevelIds.slice(0, 50).map(levelId => (
+                      <option key={levelId} value={levelId}>
+                        {levelId}
+                      </option>
+                    ))
+                  )}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleAttachLevelId}
+                  className="btn btn-primary"
+                  style={{ padding: '8px 16px' }}
+                  disabled={!selectedLevelId}
+                >
+                  Attach ID
+                </button>
               </div>
+
+              {attachedLevelIds.length === 0 ? (
+                <div style={{ fontSize: '0.85em', color: '#689f38' }}>
+                  No level IDs attached yet. Select a level and click "Attach ID" to add it.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {attachedLevelIds.map(levelId => (
+                    <div
+                      key={levelId}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 10px',
+                        backgroundColor: '#dcedc8',
+                        borderRadius: '16px',
+                        border: '1px solid #aed581',
+                        fontSize: '0.85em'
+                      }}
+                    >
+                      <span style={{ fontWeight: '600', color: '#33691e' }}>{levelId}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAttachedLevelId(levelId)}
+                        style={{
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#2e7d32',
+                          cursor: 'pointer',
+                          fontWeight: 'bold'
+                        }}
+                        title={`Remove ${levelId}`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
 
           <div style={{ marginTop: '16px', fontSize: '0.8em', color: '#666' }}>
-            <strong>Used Location IDs:</strong> {existingLocationIds.length}
+            <strong>Used Level IDs (all racks):</strong> {existingLocationIds.length}
             {existingLocationIds.length > 0 && (
               <span> (Latest: {existingLocationIds[existingLocationIds.length - 1]})</span>
             )}
@@ -227,9 +329,9 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
           <button 
             className="btn btn-primary" 
             onClick={handleSave}
-            disabled={!selectedLevelId.trim() || !selectedLocId.trim()}
+            disabled={attachedLevelIds.length === 0}
           >
-            Add Location IDs
+            Save Level IDs
           </button>
         </div>
       </div>

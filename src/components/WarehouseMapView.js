@@ -1,64 +1,63 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import WarehouseDesigner from './WarehouseDesigner';
+import Dashboard from './Dashboard';
 
 const WarehouseMapView = ({ facilityData }) => {
   const [selectedZone, setSelectedZone] = useState(null);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [selectedUnit, setSelectedUnit] = useState(null);
-  const [currentSection, setCurrentSection] = useState('dashboard');
-  const [showCreateUnitModal, setShowCreateUnitModal] = useState(false);
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [notificationsList, setNotifications] = useState([]);
-  const [showDemoMapModal, setShowDemoMapModal] = useState(false);
   const [selectedUnitForDemo, setSelectedUnitForDemo] = useState(null);
-  const [savedLayouts, setSavedLayouts] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [showDemoMapModal, setShowDemoMapModal] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showCreateUnitModal, setShowCreateUnitModal] = useState(false);
+  const [currentSection, setCurrentSection] = useState('dashboard');
   const [searchType, setSearchType] = useState('location'); // 'location' or 'item'
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [globalSearchResults, setGlobalSearchResults] = useState([]);
   const [showGlobalSearchDropdown, setShowGlobalSearchDropdown] = useState(false);
-  const [globalSearchType, setGlobalSearchType] = useState('all'); // 'all', 'items', 'locations', 'zones'
-  
-  // Enhanced dropdown search states (same as fullscreen)
-  const [selectedLocationTag, setSelectedLocationTag] = useState('');
-  const [selectedSku, setSelectedSku] = useState('');
-  const [selectedAsset, setSelectedAsset] = useState('');
-  const [availableLocationTags, setAvailableLocationTags] = useState([]);
-  const [availableSkus, setAvailableSkus] = useState([]);
-  const [availableAssets, setAvailableAssets] = useState([]);
+  const [globalSearchType, setGlobalSearchType] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [highlightedItems, setHighlightedItems] = useState([]);
   const [dropdownSearchActive, setDropdownSearchActive] = useState(false);
+  const [availableLocationTags, setAvailableLocationTags] = useState([]);
+  const [availableSkus, setAvailableSkus] = useState([]);
+  const [availableAssets, setAvailableAssets] = useState([]);
+  const [selectedLocationTag, setSelectedLocationTag] = useState('');
+  const [selectedSku, setSelectedSku] = useState('');
+  const [selectedAsset, setSelectedAsset] = useState('');
+  const [savedLayouts, setSavedLayouts] = useState([]);
+  const [selectedUnit, setSelectedUnit] = useState(null);
 
   // Load saved layouts from localStorage and extract dropdown options
+  const refreshSavedLayouts = useCallback(() => {
+    const storedLayouts = localStorage.getItem('warehouseLayouts');
+    if (storedLayouts) {
+      const parsedLayouts = JSON.parse(storedLayouts);
+      setSavedLayouts(parsedLayouts);
+      extractDropdownOptionsFromLayouts(parsedLayouts);
+    } else {
+      setSavedLayouts([]);
+      extractDropdownOptionsFromLayouts([]);
+    }
+  }, []);
+
   useEffect(() => {
-    const loadSavedLayouts = () => {
-      const layouts = JSON.parse(localStorage.getItem('warehouseLayouts') || '[]');
-      setSavedLayouts(layouts);
-      
-      // Extract dropdown options from saved layouts
-      extractDropdownOptionsFromLayouts(layouts);
-    };
-    
-    loadSavedLayouts();
-    
-    // Listen for storage changes to update in real-time
+    refreshSavedLayouts();
+
     const handleStorageChange = () => {
-      loadSavedLayouts();
+      refreshSavedLayouts();
     };
-    
+
     window.addEventListener('storage', handleStorageChange);
-    
-    // Also listen for custom events when layouts are saved
     window.addEventListener('layoutSaved', handleStorageChange);
-    
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('layoutSaved', handleStorageChange);
     };
-  }, []);
+  }, [refreshSavedLayouts]);
 
   // Extract dropdown options from saved layouts
   const extractDropdownOptionsFromLayouts = (layouts) => {
@@ -196,6 +195,95 @@ const WarehouseMapView = ({ facilityData }) => {
     isCustomLayout: true,
     layoutData: layout.layoutData
   }));
+
+  const mockOrgLayoutUnit = {
+    id: 'mock-org1',
+    name: 'Org 1',
+    subtitle: 'Reference Layout',
+    status: 'PLANNING',
+    statusColor: getStatusColor('planning'),
+    utilization: 72,
+    zones: 6,
+    temperature: null,
+    details: 'Static recreation of the provided Org 1 layout',
+    isCustomLayout: true,
+    isMockLayout: true,
+    layoutData: {
+      name: 'Org 1 Reference Layout',
+      timestamp: '2025-10-30T10:00:00.000Z',
+      metadata: {
+        description: 'Org 1 map reproduced from reference artwork',
+        isMockLayout: true
+      },
+      items: [
+        { id: 'org1-boundary', type: 'square_boundary', name: 'Org 1 Boundary', x: 0, y: 0, width: 1080, height: 600, containerLevel: 1, isContainer: true, cornerRadius: 0, borderWidth: 3, borderColor: '#1976D2', fill: '#FFFFFF', fillOpacity: 0, disableAutoLabel: true },
+        { id: 'org1-packing-area', type: 'org1_zone', name: 'Packing Area', x: 18, y: 18, width: 208, height: 228, cornerRadius: 0, borderWidth: 3, borderColor: '#1976D2', fill: '#E3F2FD', fillOpacity: 1, textLines: ['Packing', 'Area'], textSize: 18, textColor: '#1565C0', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center', grid: { rows: 6, cols: 4, padding: 10, gap: 8, fill: '#C5E7FA', stroke: '#64B5F6' } },
+        { id: 'org1-back-office', type: 'warehouse_block', name: 'Back Office Space', x: 18, y: 332, width: 208, height: 150, cornerRadius: 0, borderWidth: 3, borderColor: '#0D47A1', fill: '#1565C0', fillOpacity: 1, textLines: ['Back Office', 'Space'], textSize: 18, textColor: '#FFFFFF', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
+        ...['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((letter, index) => ({
+          id: `org1-rack-${letter.toLowerCase()}`,
+          type: 'org1_rack',
+          name: `Rack ${letter}`,
+          x: 408 + index * 84,
+          y: 32,
+          width: 68,
+          height: 278,
+          cornerRadius: 0,
+          borderWidth: 2,
+          borderColor: '#00897B',
+          fill: '#C8FFF4',
+          fillOpacity: 1,
+          disableAutoLabel: true,
+          labelPosition: 'none',
+          grid: { rows: 10, cols: 2, padding: 10, gap: 6, fill: '#E0F2F1', stroke: '#26A69A' }
+        })),
+        ...['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((letter, index) => ({
+          id: `org1-rack-label-${letter.toLowerCase()}`,
+          type: 'org1_label',
+          displayAsLabel: true,
+          text: letter,
+          x: 408 + index * 84 + 34,
+          y: 324,
+          fontSize: 18,
+          fontWeight: '700',
+          textColor: '#37474F'
+        })),
+        { id: 'org1-receiving-1', type: 'org1_receiving', name: 'Receiving Area 1', x: 306, y: 332, width: 132, height: 112, cornerRadius: 0, borderWidth: 2, borderColor: '#F9A825', fill: '#FFE082', fillOpacity: 1, textLines: ['Receiving', 'Area 1'], textSize: 16, textColor: '#5D4037', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
+        { id: 'org1-receiving-2', type: 'org1_receiving', name: 'Receiving Area 2', x: 446, y: 332, width: 132, height: 112, cornerRadius: 0, borderWidth: 2, borderColor: '#F9A825', fill: '#FFE082', fillOpacity: 1, textLines: ['Receiving', 'Area 2'], textSize: 16, textColor: '#5D4037', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
+        { id: 'org1-dispatch-1', type: 'org1_dispatch', name: 'Dispatch Area 1', x: 586, y: 332, width: 132, height: 112, cornerRadius: 0, borderWidth: 2, borderColor: '#2E7D32', fill: '#A5D6A7', fillOpacity: 1, textLines: ['Dispatch', 'Area 1'], textSize: 16, textColor: '#1B5E20', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
+        { id: 'org1-dispatch-2', type: 'org1_dispatch', name: 'Dispatch Area 2', x: 726, y: 332, width: 132, height: 112, cornerRadius: 0, borderWidth: 2, borderColor: '#2E7D32', fill: '#A5D6A7', fillOpacity: 1, textLines: ['Dispatch', 'Area 2'], textSize: 16, textColor: '#1B5E20', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
+        { id: 'org1-transit-temp', type: 'org1_transit', name: 'Transit/Temp Area', x: 866, y: 332, width: 222, height: 112, cornerRadius: 0, borderWidth: 2, borderColor: '#8D6E63', fill: '#D7CCC8', fillOpacity: 1, textLines: ['Transit/Temp', 'Area'], textSize: 16, textColor: '#5D4037', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
+        { id: 'org1-walkway', type: 'org1_walkway', name: 'Gate Walkway', x: 18, y: 468, width: 1044, height: 88, cornerRadius: 0, borderWidth: 1, borderColor: '#E0E0E0', fill: '#FFFFFF', fillOpacity: 1, disableAutoLabel: true, labelPosition: 'none' },
+        ...(() => {
+          const segments = [
+            { id: 'org1-entrance', label: 'Entrance', width: 180 },
+            { id: 'org1-in-gate-1', label: 'In-Gate 1', width: 160 },
+            { id: 'org1-in-gate-2', label: 'In-Gate 2', width: 160 },
+            { id: 'org1-out-gate-1', label: 'Out Gate 1', width: 160 },
+            { id: 'org1-out-gate-2', label: 'Out Gate 2', width: 160 },
+            { id: 'org1-out-gate-3', label: 'Out Gate 3', width: 224 }
+          ];
+          let currentX = 18;
+          return segments.map(segment => {
+            const labelItem = {
+              id: segment.id,
+              type: 'org1_gate_label',
+              displayAsLabel: true,
+              text: segment.label,
+              x: currentX + segment.width / 2,
+              y: 520,
+              fontSize: 14,
+              fontWeight: '700',
+              textColor: '#333333'
+            };
+            currentX += segment.width;
+            return labelItem;
+          });
+        })()
+      ]
+    }
+  };
+
+  const customLayoutUnits = [mockOrgLayoutUnit, ...savedLayoutUnits];
   
   // Helper function to get status colors
   function getStatusColor(status) {
@@ -208,7 +296,16 @@ const WarehouseMapView = ({ facilityData }) => {
     return colors[status] || '#6C757D';
   }
   
-  const warehouseUnits = [...defaultUnits, ...savedLayoutUnits];
+  const warehouseUnits = [...defaultUnits, ...customLayoutUnits];
+
+  const selectedOrgUnitForDashboard = useMemo(() => {
+    if (!selectedUnitForDemo) return mockOrgLayoutUnit;
+    return warehouseUnits.find(unit => unit.id === selectedUnitForDemo) || mockOrgLayoutUnit;
+  }, [selectedUnitForDemo, warehouseUnits]);
+
+  const dashboardItems = useMemo(() => {
+    return selectedOrgUnitForDashboard?.layoutData?.items || [];
+  }, [selectedOrgUnitForDashboard]);
 
   // Hierarchical filter structure
   const hierarchicalFilters = {
@@ -236,7 +333,7 @@ const WarehouseMapView = ({ facilityData }) => {
     },
     customLayouts: {
       label: 'Custom Layouts',
-      children: savedLayoutUnits.reduce((acc, unit) => {
+      children: customLayoutUnits.reduce((acc, unit) => {
         acc[unit.id] = { label: unit.name, subtitle: unit.subtitle };
         return acc;
       }, {})
@@ -260,6 +357,10 @@ const WarehouseMapView = ({ facilityData }) => {
   };
 
   const filteredUnits = getFilteredUnits();
+
+  const selectedDemoUnit = warehouseUnits.find(unit => unit.id === selectedUnitForDemo);
+  const shouldShowDemoLegend = !selectedDemoUnit || !selectedDemoUnit.isCustomLayout;
+  const isDemoUnit = selectedDemoUnit && !selectedDemoUnit.isCustomLayout;
 
   // Demo map data for each unit
   const demoMapsData = {
@@ -534,7 +635,8 @@ const WarehouseMapView = ({ facilityData }) => {
         break;
       case 'dismiss':
         // Remove notification from list
-        setNotifications(prev => prev.filter(n => n.id !== notificationId));
+        // In this demo implementation we simply log the dismissal
+        console.log('Notification dismissed:', notificationId);
         break;
       default:
         break;
@@ -806,11 +908,10 @@ const WarehouseMapView = ({ facilityData }) => {
               unitResults.push({
                 id: itemId,
                 type: 'location',
-                title: `Location: ${searchData.unitId}`,
-                subtitle: `Zone ${searchData.location.zone}, Aisle ${searchData.location.aisle}, Position ${searchData.location.position}`,
-                unit: unit,
-                item: item,
-                searchData: searchData
+                title: `${item.name || item.type}: ${item.locationId || item.locationCode || 'No ID'}`,
+                subtitle: `Layout: ${unit.name}`,
+                layoutId: unit.id,
+                item: item
               });
             }
           }
@@ -1021,10 +1122,6 @@ const WarehouseMapView = ({ facilityData }) => {
     setSearchResults(results);
     setHighlightedItems(highlighted);
   };
-
-
-
-
 
   // Dropdown filter handlers
   const handleLocationTagChange = (e) => {
@@ -1732,7 +1829,7 @@ const WarehouseMapView = ({ facilityData }) => {
               )}
             </div>
             
-            <div className="demo-map-body">
+            <div className={`demo-map-body ${isDemoUnit ? '' : 'demo-map-body-single'}`}>
               <div className="demo-map-canvas">
                 {(() => {
                   const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
@@ -1744,6 +1841,21 @@ const WarehouseMapView = ({ facilityData }) => {
                   
                   if (unit && unit.isCustomLayout && unit.layoutData && unit.layoutData.items) {
                     const items = unit.layoutData.items;
+                    const hasItems = items.length > 0;
+
+                    if (!hasItems) {
+                      return (
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            backgroundColor: '#f8f9fa',
+                            border: '1px solid #e0e0e0',
+                            borderRadius: '12px'
+                          }}
+                        />
+                      );
+                    }
                     
                     // Use ultra-tight bounds - items are already cropped to start from (0,0)
                     const minX = Math.min(...items.map(item => item.x), 0);
@@ -1807,63 +1919,29 @@ const WarehouseMapView = ({ facilityData }) => {
                           strokeWidth="1" 
                           rx="4"
                         />
-                        <text x={viewBoxX + 20} y={viewBoxY + 30} fontSize="16" fontWeight="bold" fill="#333">
-                          {unit.name} - Live View
-                        </text>
-                        <text x={viewBoxX + viewBoxWidth - 20} y={viewBoxY + 30} fontSize="12" fill="#666" textAnchor="end">
-                          Status: {unit.status} | Items: {items.length}
-                        </text>
-                        
                         {/* Render actual layout items with operational data */}
                         {items.map((item, index) => {
                           // Generate operational data for each item (matching fullscreen logic)
-                          const itemId = `item-${index}`;
-                          const generateItemOperationalData = (item, index) => {
-                            if (item.type?.includes('storage') || item.type?.includes('sku')) {
-                              const capacity = Math.floor(Math.random() * 50) + 20;
-                              const occupied = Math.floor(capacity * (0.6 + Math.random() * 0.35));
-                              return {
-                                type: 'storage',
-                                unitId: `STG-${String(index + 1).padStart(3, '0')}`,
-                                location: {
-                                  zone: ['A', 'B', 'C', 'D', 'E'][Math.floor(Math.random() * 5)],
-                                  aisle: Math.floor(Math.random() * 10) + 1,
-                                  position: Math.floor(Math.random() * 20) + 1
-                                },
-                                capacity: capacity,
-                                occupied: occupied,
-                                utilization: Math.round((occupied / capacity) * 100),
-                                status: Math.random() > 0.1 ? 'operational' : 'maintenance'
-                              };
-                            } else if (item.type?.includes('zone')) {
-                              return {
-                                type: 'zone',
-                                zoneId: `${item.type.toUpperCase().substring(0, 3)}-${String(index + 1).padStart(2, '0')}`,
-                                throughput: Math.floor(Math.random() * 800) + 200,
-                                activeWorkers: Math.floor(Math.random() * 8) + 2,
-                                efficiency: (85 + Math.random() * 12).toFixed(1) + '%',
-                                status: 'operational'
-                              };
-                            }
-                            return null;
-                          };
+                          const opData = null;
+                    const isInteractive = false;
 
-                          const opData = generateItemOperationalData(item, index);
-                          const isInteractive = opData && (opData.type === 'storage' || opData.type === 'zone');
-                          
-                          // Get component color based on type (enhanced)
-                          const getItemColor = (type, opData) => {
+                          // Get component color based on predefined styling, fallback to type-based palette
+                          const getItemColor = (itemConfig, operationalData) => {
+                            if (itemConfig.fill) {
+                              return itemConfig.fill;
+                            }
+
+                            const type = itemConfig.type || '';
                             let baseColor = '#9E9E9E';
-                            if (type?.includes('storage')) baseColor = '#00BCD4';
-                            if (type?.includes('receiving')) baseColor = '#FFA726';
-                            if (type?.includes('dispatch')) baseColor = '#66BB6A';
-                            if (type?.includes('office')) baseColor = '#5C6BC0';
-                            if (type?.includes('transit')) baseColor = '#BDBDBD';
-                            if (type?.includes('boundary')) baseColor = '#2C3E50';
-                            
-                            // Adjust color based on operational status
-                            if (opData?.status === 'maintenance') {
-                              return baseColor + '80'; // Add transparency for maintenance
+                            if (type.includes('storage')) baseColor = '#00BCD4';
+                            if (type.includes('receiving')) baseColor = '#FFA726';
+                            if (type.includes('dispatch')) baseColor = '#66BB6A';
+                            if (type.includes('office')) baseColor = '#5C6BC0';
+                            if (type.includes('transit')) baseColor = '#BDBDBD';
+                            if (type.includes('boundary')) baseColor = '#2C3E50';
+
+                            if (operationalData?.status === 'maintenance') {
+                              return `${baseColor}80`;
                             }
                             return baseColor;
                           };
@@ -1884,10 +1962,20 @@ const WarehouseMapView = ({ facilityData }) => {
                             return '#17a2b8';
                           };
                           
-                          const itemColor = getItemColor(item.type || '', opData);
-                          
+                          const itemColor = getItemColor(item, opData);
+                          const fillOpacity = typeof item.fillOpacity === 'number' ? item.fillOpacity : 0.8;
+
                           // Enhanced border styling for different component types
-                          const getBorderStyle = (itemType) => {
+                          const getBorderStyle = (itemConfig) => {
+                            if (itemConfig.borderColor || itemConfig.borderWidth || itemConfig.borderStyle) {
+                              return {
+                                stroke: itemConfig.borderColor || '#333',
+                                strokeWidth: String(itemConfig.borderWidth ?? 2),
+                                strokeDasharray: itemConfig.borderStyle === 'dotted' ? '6 4' : 'none'
+                              };
+                            }
+
+                            const itemType = itemConfig.type;
                             if (itemType === 'sku_holder') {
                               // Horizontal Storage Racks - Solid blue border
                               return {
@@ -1919,10 +2007,31 @@ const WarehouseMapView = ({ facilityData }) => {
                             }
                           };
                           
-                          const borderStyle = getBorderStyle(item.type);
-                          
+                          const borderStyle = getBorderStyle(item);
+
+                          // Render standalone labels without rectangles
+                          if (item.displayAsLabel) {
+                            const fontSize = item.fontSize || 14;
+                            const textColor = item.textColor || '#333333';
+                            return (
+                              <g key={item.id || index}>
+                                <text
+                                  x={item.x}
+                                  y={item.y}
+                                  textAnchor="middle"
+                                  dominantBaseline="middle"
+                                  fontSize={fontSize}
+                                  fontWeight={item.fontWeight || '600'}
+                                  fill={textColor}
+                                >
+                                  {item.text}
+                                </text>
+                              </g>
+                            );
+                          }
+
                           return (
-                            <g key={item.id}>
+                            <g key={item.id || index}>
                               {/* Item rectangle with enhanced borders */}
                               <rect
                                 x={item.x}
@@ -1930,14 +2039,52 @@ const WarehouseMapView = ({ facilityData }) => {
                                 width={item.width}
                                 height={item.height}
                                 fill={itemColor}
-                                fillOpacity="0.8"
+                                fillOpacity={fillOpacity}
                                 stroke={borderStyle.stroke}
                                 strokeWidth={borderStyle.strokeWidth}
                                 strokeDasharray={borderStyle.strokeDasharray}
-                                rx="4"
+                                rx={item.cornerRadius ?? 0}
                                 style={{ cursor: isInteractive ? 'pointer' : 'default' }}
                               />
-                              
+
+                              {/* Optional internal grid pattern for specialized racks */}
+                              {item.grid && item.width && item.height && (
+                                (() => {
+                                  const { rows, cols, padding = 0, gap = 0, fill: cellFill = '#FFFFFF', stroke: cellStroke = '#B0BEC5' } = item.grid;
+                                  const effectiveWidth = item.width - padding * 2 - gap * (cols - 1);
+                                  const effectiveHeight = item.height - padding * 2 - gap * (rows - 1);
+                                  const cellWidth = cols > 0 ? effectiveWidth / cols : 0;
+                                  const cellHeight = rows > 0 ? effectiveHeight / rows : 0;
+
+                                  if (cellWidth <= 0 || cellHeight <= 0) {
+                                    return null;
+                                  }
+
+                                  const cells = [];
+                                  for (let row = 0; row < rows; row++) {
+                                    for (let col = 0; col < cols; col++) {
+                                      const cellX = item.x + padding + col * (cellWidth + gap);
+                                      const cellY = item.y + padding + row * (cellHeight + gap);
+                                      cells.push(
+                                        <rect
+                                          key={`${item.id}-cell-${row}-${col}`}
+                                          x={cellX}
+                                          y={cellY}
+                                          width={cellWidth}
+                                          height={cellHeight}
+                                          fill={cellFill}
+                                          stroke={cellStroke}
+                                          strokeWidth="0.75"
+                                          rx={0}
+                                        />
+                                      );
+                                    }
+                                  }
+
+                                  return <g>{cells}</g>;
+                                })()
+                              )}
+
                               {/* Operational status indicator */}
                               {opData && opData.status && (
                                 <circle
@@ -2087,6 +2234,31 @@ const WarehouseMapView = ({ facilityData }) => {
                                 </g>
                               )}
                               
+                              {/* Custom text inside component blocks when provided */}
+                              {item.textLines && item.textLines.length > 0 && (
+                                <g>
+                                  {item.textLines.map((line, lineIndex) => {
+                                    const totalLines = item.textLines.length;
+                                    const fontSize = item.textSize || 14;
+                                    const verticalSpacing = fontSize + 4;
+                                    const textStartY = item.y + (item.height / 2) - ((totalLines - 1) * verticalSpacing) / 2;
+                                    return (
+                                      <text
+                                        key={`${item.id}-line-${lineIndex}`}
+                                        x={item.x + item.width / 2}
+                                        y={textStartY + lineIndex * verticalSpacing}
+                                        textAnchor="middle"
+                                        fontSize={fontSize}
+                                        fontWeight={item.fontWeight || '600'}
+                                        fill={item.textColor || '#204051'}
+                                      >
+                                        {line}
+                                      </text>
+                                    );
+                                  })}
+                                </g>
+                              )}
+
                               {/* Unified Component Label - Below Every Component */}
                               {(() => {
                                 // Generate smart label for operational view
@@ -2124,7 +2296,7 @@ const WarehouseMapView = ({ facilityData }) => {
                                   return `${prefix}-${index.toString().padStart(2, '0')}`;
                                 };
 
-                                const label = getOperationalLabel();
+                                const label = item.disableAutoLabel ? null : getOperationalLabel();
                                 if (!label) return null;
 
                                 // Determine component type for styling
@@ -2537,32 +2709,15 @@ const WarehouseMapView = ({ facilityData }) => {
                 })()}
               </div>
               
-              <div className="demo-map-sidebar">
-                {(() => {
-                  const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
-                  
-                  // For custom layouts, show layout-specific metrics
-                  if (unit && unit.isCustomLayout && unit.layoutData) {
-                    const items = unit.layoutData.items || [];
-                    const skuHolders = items.filter(item => item.compartmentContents);
-                    const totalSKUs = skuHolders.reduce((sum, holder) => 
-                      sum + Object.keys(holder.compartmentContents || {}).length, 0
-                    );
+              {isDemoUnit && (
+                <div className="demo-map-sidebar">
+                  {(() => {
+                    const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
+                    const demoData = demoMapsData[selectedUnitForDemo];
                     
-                    return null; // Layout Metrics section removed
-                  }
-                  
-                  // Demo metrics section removed
-                  return null;
-                })()}
-                
-                {(() => {
-                  const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
-                  const demoData = demoMapsData[selectedUnitForDemo];
-                  
-                  // Only show demo zone/equipment info for demo units
-                  if (!unit || !unit.isCustomLayout) {
-                    if (!demoData) return null;
+                    if (!unit || unit.isCustomLayout || !demoData) {
+                      return null;
+                    }
                     
                     return (
                       <>
@@ -2611,32 +2766,31 @@ const WarehouseMapView = ({ facilityData }) => {
                         </div>
                       </>
                     );
-                  }
-                  
-                  return null;
-                })()}
-              </div>
+                  })()}
+                </div>
+              )}
             </div>
             
-            <div className="demo-map-footer">
-              <div className="demo-map-legend">
-                <div className="legend-item">
-                  <div className="legend-color active"></div>
-                  <span>Active Equipment</span>
-                </div>
-                <div className="legend-item">
-                  <div className="legend-color offline"></div>
-                  <span>Offline Equipment</span>
-                </div>
-                <div className="legend-item">
-                  <div className="legend-color zone"></div>
-                  <span>Storage Zones</span>
-                </div>
+            {isDemoUnit && (
+              <div className="demo-map-footer">
+                {shouldShowDemoLegend && (
+                  <div className="demo-map-legend">
+                    <div className="legend-item">
+                      <div className="legend-color active"></div>
+                      <span>Active Equipment</span>
+                    </div>
+                    <div className="legend-item">
+                      <div className="legend-color offline"></div>
+                      <span>Offline Equipment</span>
+                    </div>
+                    <div className="legend-item">
+                      <div className="legend-color zone"></div>
+                      <span>Storage Zones</span>
+                    </div>
+                  </div>
+                )}
               </div>
-              <button className="demo-map-btn" onClick={() => setShowDemoMapModal(false)}>
-                Close Map
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}

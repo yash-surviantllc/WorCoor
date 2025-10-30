@@ -50,11 +50,40 @@ const TopNavbar = ({
 }) => {
   const [activeDropdown, setActiveDropdown] = useState(null);
 
-  // Organizational Units - Only Warehouses
-  const orgUnits = [
-    { id: 'warehouse-1', name: 'Warehouse 1', location: 'Building A' },
-    { id: 'warehouse-2', name: 'Warehouse 2', location: 'Building B' },
-    { id: 'warehouse-3', name: 'Warehouse 3', location: 'Building C' }
+  // Organizational hierarchy with nested units (mirrors live warehouse map grouping)
+  const orgHierarchy = [
+    {
+      id: 'warehouse-1',
+      name: 'Warehouse 1',
+      location: 'Building A',
+      units: [
+        { id: 'wh1-unit1', name: 'Unit 1', description: 'Primary storage and operations area' },
+        { id: 'wh1-unit2', name: 'Unit 2', description: 'Upper level storage and offices' },
+        { id: 'wh1-unit3', name: 'Unit 3', description: 'Truck loading and receiving zones' },
+        { id: 'wh1-unit4', name: 'Unit 4', description: 'Temperature-controlled storage' }
+      ]
+    },
+    {
+      id: 'warehouse-2',
+      name: 'Warehouse 2',
+      location: 'Building B',
+      units: [
+        { id: 'wh2-unit1', name: 'Unit 1', description: 'Central processing and storage' },
+        { id: 'wh2-unit2', name: 'Unit 2', description: 'Product assembly and packaging' },
+        { id: 'wh2-unit3', name: 'Unit 3', description: 'Inspection and testing area' },
+        { id: 'wh2-unit4', name: 'Unit 4', description: 'Returns handling and sorting' }
+      ]
+    },
+    {
+      id: 'warehouse-3',
+      name: 'Warehouse 3',
+      location: 'Building C',
+      units: [
+        { id: 'wh3-unit1', name: 'Unit 1', description: 'Main distribution operations' },
+        { id: 'wh3-unit2', name: 'Unit 2', description: 'Conveyor and sorting systems' },
+        { id: 'wh3-unit3', name: 'Unit 3', description: 'Order staging and preparation' }
+      ]
+    }
   ];
 
   const toggleDropdown = (dropdown) => {
@@ -65,62 +94,24 @@ const TopNavbar = ({
     setActiveDropdown(null);
   };
 
-  // Organization Mapping - Simplified unit maps
-  const organizationMaps = {
-    'warehouse-1': [
-      { id: 'wh1-unit1', name: 'Unit 1', type: 'primary', description: 'Primary storage and operations area' },
-      { id: 'wh1-unit2', name: 'Unit 2', type: 'secondary', description: 'Upper level storage and offices' },
-      { id: 'wh1-unit3', name: 'Unit 3', type: 'specialized', description: 'Truck loading and receiving zones' },
-      { id: 'wh1-unit4', name: 'Unit 4', type: 'specialized', description: 'Temperature-controlled storage' }
-    ],
-    'warehouse-2': [
-      { id: 'wh2-unit1', name: 'Unit 1', type: 'primary', description: 'Central processing and storage' },
-      { id: 'wh2-unit2', name: 'Unit 2', type: 'specialized', description: 'Product assembly and packaging' },
-      { id: 'wh2-unit3', name: 'Unit 3', type: 'specialized', description: 'Inspection and testing area' },
-      { id: 'wh2-unit4', name: 'Unit 4', type: 'secondary', description: 'Returns handling and sorting' }
-    ],
-    'warehouse-3': [
-      { id: 'wh3-unit1', name: 'Unit 1', type: 'primary', description: 'Main distribution operations' },
-      { id: 'wh3-unit2', name: 'Unit 2', type: 'specialized', description: 'Conveyor and sorting systems' },
-      { id: 'wh3-unit3', name: 'Unit 3', type: 'secondary', description: 'Order staging and preparation' }
-    ]
-  };
-
-  const handleOrgUnitChange = (orgUnit) => {
+  const handleOrgUnitAndMapSelect = (orgUnit, unit) => {
     if (onOrgUnitSelect) {
       onOrgUnitSelect({ orgUnit, status: { id: 'operational', name: 'Operational' } });
     }
-    closeDropdowns();
-  };
-
-  const handleOrgMapChange = (orgMap) => {
     if (onOrgMapSelect) {
-      onOrgMapSelect(orgMap);
+      onOrgMapSelect(unit);
     }
     closeDropdowns();
   };
 
-  const getAvailableMaps = () => {
-    if (!selectedOrgUnit) return [];
-    return organizationMaps[selectedOrgUnit.id] || [];
-  };
-
-  const getMapTypeIcon = (type) => {
-    switch (type) {
-      case 'primary': return '🏢';
-      case 'secondary': return '🏬';
-      case 'specialized': return '🏭';
-      default: return '📍';
+  const getDropdownLabel = () => {
+    if (selectedOrgUnit && selectedOrgMap) {
+      return `${selectedOrgUnit.name} • ${selectedOrgMap.name}`;
     }
-  };
-
-  const getMapTypeColor = (type) => {
-    switch (type) {
-      case 'primary': return '#0969da';
-      case 'secondary': return '#7c3aed';
-      case 'specialized': return '#dc2626';
-      default: return '#6b7280';
+    if (selectedOrgUnit) {
+      return selectedOrgUnit.name;
     }
+    return 'Select Org Unit';
   };
 
   return (
@@ -141,63 +132,44 @@ const TopNavbar = ({
         </div>
         
         <div className="selector-group">
-          {/* Warehouse Selector */}
+          {/* Org Unit Selector */}
           <div className="selector-item">
             <button 
               className="modern-selector"
               onClick={(e) => { e.stopPropagation(); toggleDropdown('orgUnit'); }}
             >
-              <span className="selector-label">Warehouse</span>
-              <span className="selector-value">
-                {selectedOrgUnit ? selectedOrgUnit.name : 'Select Warehouse'}
-              </span>
+              <span className="selector-label">Org Unit</span>
+              <span className="selector-value">{getDropdownLabel()}</span>
               <span className="selector-arrow">▼</span>
             </button>
             {activeDropdown === 'orgUnit' && (
               <div className="modern-dropdown">
-                {orgUnits.map(unit => (
-                  <button 
-                    key={unit.id}
-                    className={`dropdown-option ${selectedOrgUnit?.id === unit.id ? 'selected' : ''}`}
-                    onClick={() => handleOrgUnitChange(unit)}
-                  >
-                    <span className="option-text">{unit.name}</span>
-                    <span className="option-meta">{unit.location}</span>
-                  </button>
+                {orgHierarchy.map(org => (
+                  <div key={org.id} className="dropdown-group">
+                    <div className="dropdown-group-header">
+                      <div className="group-title">{org.name}</div>
+                      <div className="group-subtitle">{org.location}</div>
+                    </div>
+                    <div className="dropdown-group-options">
+                      {org.units.map(unit => {
+                        const isSelected = selectedOrgUnit?.id === org.id && selectedOrgMap?.id === unit.id;
+                        return (
+                          <button
+                            key={unit.id}
+                            className={`dropdown-option ${isSelected ? 'selected' : ''}`}
+                            onClick={() => handleOrgUnitAndMapSelect(org, unit)}
+                          >
+                            <span className="option-text">{unit.name}</span>
+                            <span className="option-meta">{unit.description}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
           </div>
-
-          {/* Unit Selector */}
-          {selectedOrgUnit && (
-            <div className="selector-item">
-              <button 
-                className="modern-selector"
-                onClick={(e) => { e.stopPropagation(); toggleDropdown('orgMap'); }}
-              >
-                <span className="selector-label">Unit</span>
-                <span className="selector-value">
-                  {selectedOrgMap ? selectedOrgMap.name : 'Select Unit'}
-                </span>
-                <span className="selector-arrow">▼</span>
-              </button>
-              {activeDropdown === 'orgMap' && (
-                <div className="modern-dropdown">
-                  {getAvailableMaps().map(map => (
-                    <button 
-                      key={map.id}
-                      className={`dropdown-option ${selectedOrgMap?.id === map.id ? 'selected' : ''}`}
-                      onClick={() => handleOrgMapChange(map)}
-                    >
-                      <span className="option-text">{map.name}</span>
-                      <span className="option-meta">{map.description}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
 

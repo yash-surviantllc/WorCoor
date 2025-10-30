@@ -171,7 +171,7 @@ const WarehouseItem = ({
                (isZone ? `3px solid ${getComponentColor(item.type)}` : 
                (isContainer ? `3px solid ${getComponentColor(item.type)}` : 
                (isContained ? `2px dashed ${getComponentColor(item.type) || statusColor}` : `3px solid ${getComponentColor(item.type) || statusColor}`))))),
-        borderRadius: item.type === 'storage_unit' || item.type === 'sku_holder' || item.type === 'vertical_sku_holder' ? '4px' : '0px',
+        borderRadius: '0px',
         boxShadow: 'none',
         opacity: isDragging ? 0.7 : 1,
         position: 'absolute',
@@ -211,6 +211,30 @@ const WarehouseItem = ({
             </div>
           </div>
         ) : null;
+      })()}
+
+      {/* Spare Unit - Simple custom text display */}
+      {item.type === 'spare_unit' && (() => {
+        const displayText = (item.label && item.label.trim()) || (item.name && item.name.trim()) || 'Spare Unit';
+        return (
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            textAlign: 'center',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            fontFamily: 'Arial, sans-serif',
+            color: '#FFFFFF',
+            fontWeight: '600',
+            fontSize: '12px',
+            textShadow: '0 1px 2px rgba(0,0,0,0.35)',
+            maxWidth: '90%'
+          }}>
+            {displayText}
+          </div>
+        );
       })()}
 
       {/* SKU compartment grid rendering for SKU Holder components */}
@@ -551,7 +575,7 @@ const WarehouseItem = ({
       )}
 
       {/* Info Button - Hidden for square boundary, SKU holder, vertical SKU holder, and storage unit to keep them clean */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && item.type !== 'storage_unit' && (
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && item.type !== 'storage_unit' && item.type !== 'spare_unit' && (
         <button
           onClick={handleInfoClick}
           style={{
@@ -579,7 +603,7 @@ const WarehouseItem = ({
       )}
 
       {/* Hide text content for square boundary, SKU holder, vertical SKU holder, and storage unit - keep them clean */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && item.type !== 'storage_unit' && (
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && item.type !== 'storage_unit' && item.type !== 'spare_unit' && (
         <div style={{ 
           textAlign: 'center', 
           fontSize: '0.8rem',
@@ -614,29 +638,37 @@ const WarehouseItem = ({
         </div>
       )}
       
-      {item.label && (
-        <div style={{ 
-          fontSize: '0.7rem', 
-          color: '#333',
-          textAlign: 'center',
-          position: 'absolute',
-          bottom: '-18px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          whiteSpace: 'nowrap',
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          padding: '2px 6px',
-          borderRadius: '3px',
-          border: '1px solid #ddd',
-          fontWeight: '500',
-          zIndex: 1
-        }}>
-          {item.label}
-        </div>
-      )}
+      {(() => {
+        const trimmedLabel = item.label && item.label.trim ? item.label.trim() : (typeof item.label === 'string' ? item.label.trim() : '');
+        const fallbackName = item.name && item.name.trim ? item.name.trim() : (typeof item.name === 'string' ? item.name.trim() : '');
+        const externalLabel = trimmedLabel || fallbackName;
+
+        if (!externalLabel) return null;
+
+        return (
+          <div style={{ 
+            fontSize: '0.7rem', 
+            color: '#333',
+            textAlign: 'center',
+            position: 'absolute',
+            bottom: '-18px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            whiteSpace: 'nowrap',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            padding: '2px 6px',
+            borderRadius: '3px',
+            border: '1px solid #ddd',
+            fontWeight: '500',
+            zIndex: 1
+          }}>
+            {externalLabel}
+          </div>
+        );
+      })()}
 
       {/* Stack mode indicator - Hidden for square boundary, SKU holder, and vertical SKU holder */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && stackMode === 'enabled' && isStackable && (
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && item.type !== 'spare_unit' && stackMode === 'enabled' && isStackable && (
         <div style={{
           position: 'absolute',
           bottom: '2px',
@@ -653,7 +685,7 @@ const WarehouseItem = ({
       )}
 
       {/* Status and Utilization Indicators - Hidden for square boundary, SKU holder, and vertical SKU holder */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && (
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && item.type !== 'spare_unit' && (
       <div style={{
         position: 'absolute',
         bottom: '2px',
@@ -699,7 +731,7 @@ const WarehouseItem = ({
       )}
 
       {/* Real-time status pulse for active locations - Hidden for square boundary, SKU holder, and vertical SKU holder */}
-      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && item.inventoryData && item.inventoryData.lastActivity && 
+      {item.type !== 'square_boundary' && item.type !== 'sku_holder' && item.type !== 'vertical_sku_holder' && item.type !== 'spare_unit' && item.inventoryData && item.inventoryData.lastActivity && 
        new Date() - new Date(item.inventoryData.lastActivity) < 3600000 && ( // Within last hour
         <div style={{
           position: 'absolute',

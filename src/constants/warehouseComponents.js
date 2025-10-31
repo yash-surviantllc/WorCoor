@@ -295,7 +295,9 @@ export const WAREHOUSE_COMPONENTS = [
         gridStep: 60,
         resizable: false,
         isPlaceholder: true,
-        allowEmpty: true
+        allowEmpty: true,
+        hasSku: true,
+        singleSku: true
       }
     ]
   }

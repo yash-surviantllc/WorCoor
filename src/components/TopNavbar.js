@@ -126,8 +126,7 @@ const TopNavbar = ({
         >
           <div className="brand-icon">🏭</div>
           <div className="brand-text">
-            <div className="brand-title">WorCoor</div>
-            <div className="brand-subtitle">Warehouse Designer</div>
+            <div className="brand-title">Layout Builder</div>
           </div>
         </div>
         

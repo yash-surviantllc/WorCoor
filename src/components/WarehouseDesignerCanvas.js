@@ -204,7 +204,7 @@ const WarehouseItem = ({
         borderStyle: 'solid !important',
         backgroundColor: '#FF9800',
         borderRadius: '0px',
-        boxShadow: '0 1px 3px rgba(255, 152, 0, 0.3)'
+        boxShadow: 'none'
       };
     }
 
@@ -225,12 +225,25 @@ const WarehouseItem = ({
 
     // Spare Units - Neutral brown styling for placeholders
     if (isSpareUnit) {
-      const spareColor = getComponentColor(item.type) || '#8D6E63';
+      const spareColor = item.customColor || item.color || getComponentColor(item.type) || '#8D6E63';
+      const contrastColor = (() => {
+        if (!spareColor) return '#FFFFFF';
+        let hex = spareColor.replace('#', '');
+        if (hex.length === 3) {
+          hex = hex.split('').map((c) => c + c).join('');
+        }
+        if (hex.length !== 6) return '#FFFFFF';
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        return luminance > 0.6 ? '#000000' : '#FFFFFF';
+      })();
       return {
         ...baseStyle,
-        border: '2px solid #5D4037',
+        border: `2px solid ${contrastColor === '#000000' ? '#4E342E' : '#5D4037'}`,
         backgroundColor: spareColor,
-        color: '#fff',
+        color: contrastColor,
         borderRadius: '0px',
         display: 'flex',
         alignItems: 'center',

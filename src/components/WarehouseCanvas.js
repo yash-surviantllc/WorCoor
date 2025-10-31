@@ -816,45 +816,6 @@ const WarehouseCanvas = ({
         />
       ))}
 
-      {/* Center Canvas Floating Widget */}
-      <button
-        onClick={centerCanvas}
-        style={{
-          position: 'fixed',
-          bottom: '60px',
-          right: '340px',
-          width: '56px',
-          height: '56px',
-          backgroundColor: '#FF5722',
-          color: 'white',
-          border: '3px solid white',
-          borderRadius: '50%',
-          cursor: 'pointer',
-          fontSize: '24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 6px 20px rgba(255, 87, 34, 0.4)',
-          zIndex: 9999,
-          transition: 'all 0.2s ease',
-          pointerEvents: 'auto',
-          fontWeight: 'bold'
-        }}
-        onMouseEnter={(e) => {
-          e.target.style.transform = 'scale(1.2)';
-          e.target.style.backgroundColor = '#E64A19';
-          e.target.style.boxShadow = '0 8px 25px rgba(255, 87, 34, 0.6)';
-        }}
-        onMouseLeave={(e) => {
-          e.target.style.transform = 'scale(1)';
-          e.target.style.backgroundColor = '#FF5722';
-          e.target.style.boxShadow = '0 6px 20px rgba(255, 87, 34, 0.4)';
-        }}
-        title="🎯 Return to Grid Center"
-      >
-        ⌖
-      </button>
-
     </div>
   );
 };

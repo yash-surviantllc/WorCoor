@@ -6,6 +6,30 @@ import { getComponentColor } from '../utils/componentColors';
 import { renderShapeComponent } from '../utils/shapeRenderer';
 import { getContextualLabel, generateStorageUnitLabelInfo } from '../utils/componentLabeling';
 
+const getContrastColorForHex = (hexColor) => {
+  if (!hexColor || typeof hexColor !== 'string') {
+    return '#FFFFFF';
+  }
+
+  let hex = hexColor.replace('#', '').trim();
+
+  if (hex.length === 3) {
+    hex = hex.split('').map((char) => char + char).join('');
+  }
+
+  if (hex.length !== 6 || /[^0-9a-f]/i.test(hex)) {
+    return '#FFFFFF';
+  }
+
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+  return luminance > 0.6 ? '#000000' : '#FFFFFF';
+};
+
 const WarehouseItem = ({ 
   item, 
   isSelected, 
@@ -39,13 +63,12 @@ const WarehouseItem = ({
   const handleClick = (e) => {
     e.stopPropagation();
     
-    // Handle Storage Unit Location assignment
-    if (item.type === 'storage_unit' && item.hasSku && item.singleSku) {
-      if (!item.locationId && onRequestSkuId) {
-        // Request Location ID for empty Storage Unit
-        onRequestSkuId(item.id, 'single-sku', 0, 0);
-        return;
-      }
+    // Handle Storage Unit / Spare Unit Location assignment
+    const isSingleSkuUnit = (item.type === 'storage_unit' || item.type === 'spare_unit') && item.hasSku && item.singleSku;
+    if (isSingleSkuUnit && onRequestSkuId && !item.locationId) {
+      const selectorId = item.type === 'spare_unit' ? 'spare-unit' : 'single-sku';
+      onRequestSkuId(item.id, selectorId, 0, 0);
+      return;
     }
     
     onSelect(item.id);
@@ -135,6 +158,11 @@ const WarehouseItem = ({
   const isMainBoundary = containerLevel === 1;
   const isZone = containerLevel === 2;
   const isUnit = containerLevel === 3;
+  const isSpareUnit = item.type === 'spare_unit';
+  const spareUnitColor = isSpareUnit
+    ? (item.customColor || item.color || getComponentColor(item.type, item.category) || '#8D6E63')
+    : null;
+  const spareUnitTextColor = isSpareUnit ? getContrastColorForHex(spareUnitColor) : null;
   
   // Get status-based styling
   const occupancyStatus = item.occupancyStatus || OCCUPANCY_STATUS.EMPTY;
@@ -153,6 +181,7 @@ const WarehouseItem = ({
       data-container-level={containerLevel}
       data-position-locked={item.isPositionLocked || false}
       data-size-locked={item.isSizeLocked || false}
+      data-color={isSpareUnit ? spareUnitColor : item.color || ''}
       style={{
         left: item.x,
         top: item.y,
@@ -162,9 +191,10 @@ const WarehouseItem = ({
           (item.type === 'storage_unit' ? '#4CAF50' : 
            item.type === 'sku_holder' ? '#2196F3' :
            item.type === 'vertical_sku_holder' ? '#FF9800' :
+           isSpareUnit ? spareUnitColor :
            isContainer ? 'transparent' : 
            getComponentColor(item.type, item.category)),
-        border: item.type === 'storage_unit' ? 'none' :
+        border: item.type === 'storage_unit' || isSpareUnit ? 'none' :
                item.type === 'sku_holder' || item.type === 'vertical_sku_holder' ? 'none' : 
                (item.type === 'square_boundary' ? '4px solid #000000' : 
                (isMainBoundary ? '4px solid #263238' : 
@@ -226,7 +256,7 @@ const WarehouseItem = ({
             pointerEvents: 'none',
             userSelect: 'none',
             fontFamily: 'Arial, sans-serif',
-            color: '#FFFFFF',
+            color: spareUnitTextColor || '#FFFFFF',
             fontWeight: '600',
             fontSize: '12px',
             textShadow: '0 1px 2px rgba(0,0,0,0.35)',
@@ -255,20 +285,22 @@ const WarehouseItem = ({
         const bgColorFilled = isVertical ? '#FFE0B2' : '#E0F7FA'; // Light orange for vertical, light cyan for horizontal
         const bgColorEmpty = isVertical ? '#FFF3E0' : '#E3F2FD'; // Lighter orange for vertical, light blue for horizontal
         const textColor = isVertical ? '#E65100' : '#006064'; // Dark orange for vertical, dark cyan for horizontal
+        const gridInset = '0px';
+        const gridPadding = '0px';
         
         return (
           <div style={{
             position: 'absolute',
-            top: '6px',
-            left: '6px',
-            right: '6px',
-            bottom: '6px',
+            top: gridInset,
+            left: gridInset,
+            right: gridInset,
+            bottom: gridInset,
             display: 'grid',
             gridTemplateRows: `repeat(${rows}, 1fr)`,
             gridTemplateColumns: `repeat(${cols}, 1fr)`,
             gap: '3px',
             zIndex: 2,
-            padding: '2px',
+            padding: gridPadding,
             borderRadius: '0px',
             backgroundColor: isVertical ? 'rgba(255, 87, 34, 0.15)' : 'rgba(33, 150, 243, 0.15)'
           }}>
@@ -298,33 +330,29 @@ const WarehouseItem = ({
                     transition: isVertical ? 'none' : 'all 0.2s ease'
                   }}
                   onMouseEnter={(e) => {
-                    // Apply hover effects for both horizontal and vertical racks
+                    // Skip hover modifications for vertical racks
                     if (isVertical) {
-                      // Vertical rack hover: only background color change, no glow/shadow
-                      const hoverBgFilled = '#FFD4C4'; // Slightly darker orange for filled
-                      const hoverBgEmpty = '#FFE8DC'; // Slightly darker orange for empty
-                      e.target.style.backgroundColor = hasItem ? hoverBgFilled : hoverBgEmpty;
-                      // Keep original border and shadow - no glow effect
-                      e.target.style.borderColor = '#000000';
-                      e.target.style.boxShadow = hasItem ? `0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.5)` : `inset 0 1px 2px rgba(0,0,0,0.1)`;
-                    } else {
-                      // Horizontal rack hover: blue effect with glow
-                      const hoverBgFilled = '#B2EBF2';
-                      const hoverBgEmpty = '#BBDEFB';
-                      const hoverBorder = '#333333';
-                      e.target.style.backgroundColor = hasItem ? hoverBgFilled : hoverBgEmpty;
-                      e.target.style.borderColor = hoverBorder;
-                      e.target.style.transform = 'scale(1.05)';
-                      e.target.style.boxShadow = hasItem ? `0 4px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.7)` : `0 2px 6px rgba(0,0,0,0.2)`;
+                      return;
                     }
+
+                    // Horizontal rack hover: blue effect with glow
+                    const hoverBgFilled = '#B2EBF2';
+                    const hoverBgEmpty = '#BBDEFB';
+                    const hoverBorder = '#333333';
+                    e.target.style.backgroundColor = hasItem ? hoverBgFilled : hoverBgEmpty;
+                    e.target.style.borderColor = hoverBorder;
+                    e.target.style.transform = 'scale(1.05)';
+                    e.target.style.boxShadow = hasItem ? `0 4px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.7)` : `0 2px 6px rgba(0,0,0,0.2)`;
                   }}
                   onMouseLeave={(e) => {
-                    // Reset hover effects for both rack types
+                    if (isVertical) {
+                      return;
+                    }
+
+                    // Reset hover effects for horizontal racks
                     e.target.style.backgroundColor = hasItem ? bgColorFilled : bgColorEmpty;
                     e.target.style.borderColor = '#000000';
-                    if (!isVertical) {
-                      e.target.style.transform = 'scale(1)';
-                    }
+                    e.target.style.transform = 'scale(1)';
                     e.target.style.boxShadow = hasItem ? `0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.5)` : `inset 0 1px 2px rgba(0,0,0,0.1)`;
                   }}
                   title={hasItem ? (() => {
@@ -556,7 +584,7 @@ const WarehouseItem = ({
       )}
 
       {/* Location Code Badge - only for non-structural elements */}
-      {item.locationCode && !isContainer && (
+      {item.locationCode && !isContainer && item.type !== 'spare_unit' && (
         <div style={{
           position: 'absolute',
           top: isContained ? '8px' : '-8px',
@@ -638,7 +666,7 @@ const WarehouseItem = ({
         </div>
       )}
       
-      {(() => {
+      {item.type !== 'spare_unit' && (() => {
         const trimmedLabel = item.label && item.label.trim ? item.label.trim() : (typeof item.label === 'string' ? item.label.trim() : '');
         const fallbackName = item.name && item.name.trim ? item.name.trim() : (typeof item.name === 'string' ? item.name.trim() : '');
         const externalLabel = trimmedLabel || fallbackName;

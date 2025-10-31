@@ -215,9 +215,9 @@ code {
 }
 
 .component-panel {
-  width: 340px;
+  width: 300px;
+  min-width: 280px;
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border-right: 1px solid #e2e8f0;
   padding: 0;
   overflow-y: auto;
   display: flex;
@@ -576,7 +576,7 @@ code {
   background: #fafafa;
   position: fixed !important;
   top: 60px !important;
-  left: 320px !important;
+  left: 300px !important;
   right: 320px !important;
   bottom: 0 !important;
   overflow: auto !important;
@@ -684,9 +684,24 @@ code {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.3), transparent);
-  opacity: 0;
-  transition: var(--transition-fast);
+  background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0));
+  opacity: 0.4;
+  transition: opacity 0.2s ease-out;
+  pointer-events: none;
+}
+
+/* Spare Units - let inline color render without overlays */
+.warehouse-item[data-type="spare_unit"] {
+  border: none;
+  box-shadow: none;
+  border-radius: 4px;
+  background: none;
+  background-image: none;
+}
+
+.warehouse-item[data-type="spare_unit"]::before,
+.warehouse-item[data-type="spare_unit"]::after {
+  display: none;
 }
 
 /* Storage & Inventory Components */
@@ -802,7 +817,7 @@ div.warehouse-item[data-type="vertical_sku_holder"] {
   border: 2px solid #FF9800 !important;
   background: #FF9800 !important;
   background-color: #FF9800 !important;
-  box-shadow: 0 1px 3px rgba(255, 152, 0, 0.3) !important;
+  box-shadow: none !important;
   border-radius: 0px !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -823,7 +838,7 @@ div.warehouse-item[data-type="vertical_sku_holder"] {
 div.warehouse-item[data-type="vertical_sku_holder"]:hover {
   transform: none !important;
   z-index: 5 !important;
-  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.3) !important;
+  box-shadow: none !important;
   border-color: #FF9800 !important;
   background: linear-gradient(135deg, rgba(255, 152, 0, 0.9), rgba(255, 152, 0, 0.7)) !important;
   transition: none !important;
@@ -851,7 +866,7 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover * {
 
 .warehouse-item[data-type="vertical_sku_holder"].selected {
   border: none !important;
-  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.5) !important;
+  box-shadow: none !important;
   background: #FF9800 !important;
 }
 

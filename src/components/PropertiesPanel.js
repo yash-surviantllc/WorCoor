@@ -3,6 +3,43 @@ import SkuIdSelector from './SkuIdSelector';
 import { getContextualLabel, generateStorageUnitLabelInfo } from '../utils/componentLabeling';
 import showMessage from '../utils/showMessage';
 
+const normalizeHexColor = (value, fallback = '#8D6E63') => {
+  if (!value || typeof value !== 'string') {
+    return fallback;
+  }
+
+  let hex = value.trim();
+  if (!hex.startsWith('#')) {
+    hex = `#${hex}`;
+  }
+
+  if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
+    return hex.toUpperCase();
+  }
+
+  if (/^#[0-9A-Fa-f]{3}$/.test(hex)) {
+    const expanded = hex
+      .substring(1)
+      .split('')
+      .map((char) => char + char)
+      .join('');
+    return `#${expanded.toUpperCase()}`;
+  }
+
+  return fallback;
+};
+
+const SPARE_UNIT_PALETTE = [
+  '#5D4037', // Rich brown
+  '#3E2723', // Dark chocolate
+  '#795548', // Mocha
+  '#4E342E', // Deep espresso
+  '#BF360C', // Burnt orange
+  '#00695C', // Deep teal
+  '#283593', // Indigo
+  '#37474F'  // Slate gray
+];
+
 const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
   const [skuIdSelectorVisible, setSkuIdSelectorVisible] = useState(false);
   const [pendingCompartmentId, setPendingCompartmentId] = useState(null);
@@ -33,7 +70,13 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
     onUpdateItem(selectedItem.id, { [property]: value });
   };
 
+  const handleSpareUnitColorChange = (value) => {
+    const normalized = normalizeHexColor(value);
+    onUpdateItem(selectedItem.id, { customColor: normalized, color: normalized });
+  };
+
   const isSpareUnit = selectedItem.type === 'spare_unit';
+  const spareUnitBaseColor = normalizeHexColor(selectedItem.customColor || selectedItem.color || '#8D6E63');
 
   // Get all existing SKU IDs from the selected item
   const getExistingSkuIds = () => {
@@ -225,6 +268,62 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
           placeholder="Optional label"
         />
       </div>
+
+      {isSpareUnit && (
+        <div className="property-group">
+          <label className="property-label">Spare Unit Color</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+            {SPARE_UNIT_PALETTE.map((paletteColor) => {
+              const isSelected = spareUnitBaseColor === normalizeHexColor(paletteColor);
+              return (
+                <button
+                  key={paletteColor}
+                  type="button"
+                  onClick={() => handleSpareUnitColorChange(paletteColor)}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    border: isSelected ? '2px solid #212121' : '2px solid transparent',
+                    boxShadow: isSelected ? '0 0 0 3px rgba(255, 193, 7, 0.6)' : '0 1px 3px rgba(0,0,0,0.25)',
+                    backgroundColor: paletteColor,
+                    cursor: 'pointer',
+                    position: 'relative',
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                  }}
+                  aria-label={`Select spare unit color ${paletteColor}`}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                    e.currentTarget.style.boxShadow = '0 3px 6px rgba(0,0,0,0.3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = isSelected ? '0 0 0 3px rgba(255, 193, 7, 0.6)' : '0 1px 3px rgba(0,0,0,0.25)';
+                  }}
+                >
+                  {isSelected && (
+                    <span style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      color: '#ffffff',
+                      fontSize: '1rem',
+                      fontWeight: 700,
+                      textShadow: '0 1px 3px rgba(0,0,0,0.45)'
+                    }}>
+                      ✓
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: '#6c757d', marginTop: '0.35rem' }}>
+            Pick from curated colors to keep spare unit placeholders consistent.
+          </div>
+        </div>
+      )}
 
 
       <div className="property-group">
@@ -459,101 +558,6 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
             <div style={{ fontSize: '0.8rem', color: '#666' }}>
               Right-click to manage stack layers and SKUs
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Storage Unit SKU Management */}
-      {selectedItem.hasSku && selectedItem.singleSku && (
-        <div className="property-group" style={{ marginTop: '2rem' }}>
-          <label className="property-label">📦 Storage Unit SKU</label>
-          <div style={{ 
-            padding: '1rem', 
-            background: selectedItem.skuId ? '#E0F7FA' : '#FFF3E0', 
-            borderRadius: '6px',
-            fontSize: '0.85rem',
-            border: selectedItem.skuId ? '1px solid #00BCD4' : '1px solid #FF9800'
-          }}>
-            {selectedItem.skuId ? (
-              <div>
-                <div style={{ marginBottom: '0.5rem', color: '#006064' }}>
-                  <strong>SKU ID:</strong> {selectedItem.skuId}
-                </div>
-                {selectedItem.skuData && (
-                  <>
-                    <div style={{ marginBottom: '0.5rem', color: '#006064' }}>
-                      <strong>Status:</strong> {selectedItem.skuData.status || 'planned'}
-                    </div>
-                    <div style={{ marginBottom: '0.5rem', color: '#006064' }}>
-                      <strong>Quantity:</strong> {selectedItem.skuData.quantity || 1}
-                    </div>
-                    <div style={{ marginBottom: '0.5rem', color: '#006064' }}>
-                      <strong>Availability:</strong> {selectedItem.skuData.availability || 'available'}
-                    </div>
-                    <div style={{ marginBottom: '0.5rem', color: '#006064' }}>
-                      <strong>Category:</strong> {selectedItem.skuData.category ? 
-                        selectedItem.skuData.category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 
-                        'Storage'}
-                    </div>
-                  </>
-                )}
-                <button
-                  onClick={() => {
-                    const newSkuId = prompt('Edit SKU ID:', selectedItem.skuId);
-                    if (newSkuId && newSkuId.trim() && newSkuId !== selectedItem.skuId) {
-                      onUpdateItem(selectedItem.id, { 
-                        skuId: newSkuId.trim(),
-                        skuData: {
-                          ...selectedItem.skuData,
-                          locationId: newSkuId.trim(),
-                          uniqueId: newSkuId.trim(),
-                          sku: newSkuId.trim(),
-                          lastModified: new Date().toISOString()
-                        }
-                      });
-                    }
-                  }}
-                  style={{
-                    padding: '4px 8px',
-                    backgroundColor: '#00BCD4',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '0.75rem',
-                    cursor: 'pointer',
-                    marginRight: '8px'
-                  }}
-                >
-                  Edit SKU ID
-                </button>
-                <button
-                  onClick={() => {
-                    onUpdateItem(selectedItem.id, { skuId: null, skuData: null });
-                    showMessage.success('SKU ID removed from Storage Unit');
-                  }}
-                  style={{
-                    padding: '4px 8px',
-                    backgroundColor: '#f44336',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '0.75rem',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Remove SKU
-                </button>
-              </div>
-            ) : (
-              <div style={{ color: '#E65100', textAlign: 'center' }}>
-                <div style={{ marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                  No SKU assigned
-                </div>
-                <div style={{ fontSize: '0.8rem', marginBottom: '1rem' }}>
-                  Click on the Storage Unit to assign a sequential SKU ID
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}

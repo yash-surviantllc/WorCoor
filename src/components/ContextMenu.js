@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { COMPONENT_TYPES } from '../constants/warehouseComponents';
 
 const ContextMenu = ({ x, y, onClose, onAddLayerAbove, onAddLayerBelow, onManageStack, hasStack, canStack, item, onLockToggle, onDelete }) => {
   const menuRef = useRef(null);
@@ -60,9 +61,20 @@ const ContextMenu = ({ x, y, onClose, onAddLayerAbove, onAddLayerBelow, onManage
     onClose();
   };
 
+  const STACK_OPTION_BLOCKED_TYPES = new Set([
+    COMPONENT_TYPES.SKU_HOLDER,
+    COMPONENT_TYPES.VERTICAL_SKU_HOLDER,
+    COMPONENT_TYPES.STORAGE_UNIT,
+    COMPONENT_TYPES.SPARE_UNIT
+  ]);
+
+  const hideStackOptions = item && STACK_OPTION_BLOCKED_TYPES.has(item.type);
+  const showEnabledStackOptions = !hideStackOptions && canStack;
+  const showDisabledStackOptions = !hideStackOptions && !canStack;
+
   return (
     <div ref={menuRef} style={menuStyle}>
-      {canStack ? (
+      {showEnabledStackOptions && (
         <>
           <div 
             style={menuItemStyle}
@@ -81,7 +93,8 @@ const ContextMenu = ({ x, y, onClose, onAddLayerAbove, onAddLayerBelow, onManage
             <span>⬇️</span> Add Layer Below
           </div>
         </>
-      ) : (
+      )}
+      {showDisabledStackOptions && (
         <>
           <div style={disabledStyle}>
             <span>⬆️</span> Add Layer Above
@@ -92,7 +105,7 @@ const ContextMenu = ({ x, y, onClose, onAddLayerAbove, onAddLayerBelow, onManage
         </>
       )}
       
-      {hasStack && (
+      {hasStack && !hideStackOptions && (
         <div 
           style={menuItemStyle}
           onClick={() => handleItemClick(onManageStack)}
@@ -149,9 +162,11 @@ const ContextMenu = ({ x, y, onClose, onAddLayerAbove, onAddLayerBelow, onManage
         </div>
       )}
       
-      <div style={{ ...menuItemStyle, borderBottom: 'none', color: '#666', fontSize: '0.8rem' }}>
-        {canStack ? 'Right-click for stack options' : 'This component cannot be stacked'}
-      </div>
+      {!hideStackOptions && (
+        <div style={{ ...menuItemStyle, borderBottom: 'none', color: '#666', fontSize: '0.8rem' }}>
+          {canStack ? 'Right-click for stack options' : 'This component cannot be stacked'}
+        </div>
+      )}
     </div>
   );
 };

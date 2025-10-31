@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import '../styles/MultiLocationSelector.css';
 import showMessage from '../utils/showMessage';
 
-const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds = [], itemType = '' }) => {
+const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds = [], itemType = '', initialLevelIds = [] }) => {
   const [selectedLevelId, setSelectedLevelId] = useState('');
   const [selectedLocId, setSelectedLocId] = useState('');
   const [attachedLevelIds, setAttachedLevelIds] = useState([]);
@@ -14,10 +14,7 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
   const generateAvailableLevelIds = () => {
     const allIds = [];
     for (let i = 1; i <= 999; i++) {
-      const levelId = `L${i}`;
-      if (!existingLocationIds.includes(levelId)) {
-        allIds.push(levelId);
-      }
+      allIds.push(`L${i}`);
     }
     return allIds;
   };
@@ -42,8 +39,23 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
   const availableLocIds = generateAvailableLocIds(selectedLevelId);
 
   useEffect(() => {
+    if (isVisible) {
+      const seededIds = Array.isArray(initialLevelIds) ? [...initialLevelIds] : [];
+      setAttachedLevelIds(seededIds);
+      const nextAvailable = generateAvailableLevelIds().find(id => !seededIds.includes(id)) || '';
+      setSelectedLevelId(nextAvailable);
+    }
+  }, [isVisible, initialLevelIds]);
+
+  useEffect(() => {
     if (!selectedLevelId && availableLevelIds.length > 0) {
       setSelectedLevelId(availableLevelIds[0]);
+      return;
+    }
+
+    if (selectedLevelId && !availableLevelIds.includes(selectedLevelId)) {
+      setSelectedLevelId(availableLevelIds[0] || '');
+      return;
     }
 
     if (availableLevelIds.length === 0) {
@@ -76,12 +88,6 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
       return;
     }
 
-    const duplicateIds = attachedLevelIds.filter(id => existingLocationIds.includes(id));
-    if (duplicateIds.length > 0) {
-      showMessage.error(`The following Level IDs are already in use: ${duplicateIds.join(', ')}. Remove them before saving.`);
-      return;
-    }
-
     // Return both IDs as multiple location format
     const result = {
       locationIds: attachedLevelIds,
@@ -111,17 +117,22 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
       return;
     }
 
-    if (existingLocationIds.includes(selectedLevelId)) {
-      showMessage.error(`Level ID ${selectedLevelId} is already in use. Choose another one.`);
-      return;
-    }
-
-    setAttachedLevelIds(prev => [...prev, selectedLevelId]);
+    setAttachedLevelIds(prev => {
+      const updated = [...prev, selectedLevelId];
+      const nextAvailable = generateAvailableLevelIds().find(id => !updated.includes(id)) || '';
+      setSelectedLevelId(nextAvailable);
+      return updated;
+    });
     showMessage.success(`${selectedLevelId} attached to this block`);
   };
 
   const handleRemoveAttachedLevelId = (levelId) => {
-    setAttachedLevelIds(prev => prev.filter(id => id !== levelId));
+    setAttachedLevelIds(prev => {
+      const updated = prev.filter(id => id !== levelId);
+      const nextAvailable = generateAvailableLevelIds().find(id => !updated.includes(id)) || '';
+      setSelectedLevelId(nextAvailable);
+      return updated;
+    });
     showMessage.info(`${levelId} removed from this block`);
   };
 
@@ -199,25 +210,6 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
               <div style={{ fontSize: '0.8em', color: '#666', marginTop: '8px' }}>
                 Select the vertical level for storage (L1=bottom, L2=middle, L3=top, etc.)
               </div>
-            </div>
-          </div>
-
-          {/* Location selection temporarily disabled */}
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '12px', color: '#333' }}>
-              📍 Location ID Selection (Temporarily Disabled)
-            </div>
-            <div
-              style={{
-                padding: '12px',
-                backgroundColor: '#fff8e1',
-                borderRadius: '6px',
-                border: '1px dashed #ffb300',
-                color: '#bf6f00',
-                fontSize: '0.85em'
-              }}
-            >
-              Location ID dropdown is disabled for this flow. Attach the level IDs below to reserve multiple heights for this block.
             </div>
           </div>
 
@@ -313,12 +305,28 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
             </div>
           </div>
 
+          {/* Location selection temporarily disabled */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '12px', color: '#333' }}>
+              📍 Location ID Selection (Temporarily Disabled)
+            </div>
+            <div
+              style={{
+                padding: '12px',
+                backgroundColor: '#fff8e1',
+                borderRadius: '6px',
+                border: '1px dashed #ffb300',
+                color: '#bf6f00',
+                fontSize: '0.85em'
+              }}
+            >
+              Location ID dropdown is disabled for this flow. Attach the level IDs below to reserve multiple heights for this block.
+            </div>
+          </div>
+
 
           <div style={{ marginTop: '16px', fontSize: '0.8em', color: '#666' }}>
-            <strong>Used Level IDs (all racks):</strong> {existingLocationIds.length}
-            {existingLocationIds.length > 0 && (
-              <span> (Latest: {existingLocationIds[existingLocationIds.length - 1]})</span>
-            )}
+            <strong>Current block level IDs:</strong> {attachedLevelIds.length > 0 ? attachedLevelIds.join(', ') : 'None'}
           </div>
         </div>
 

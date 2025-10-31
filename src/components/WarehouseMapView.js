@@ -217,16 +217,16 @@ const WarehouseMapView = ({ facilityData }) => {
       },
       items: [
         { id: 'org1-boundary', type: 'square_boundary', name: 'Org 1 Boundary', x: 0, y: 0, width: 1080, height: 600, containerLevel: 1, isContainer: true, cornerRadius: 0, borderWidth: 3, borderColor: '#1976D2', fill: '#FFFFFF', fillOpacity: 0, disableAutoLabel: true },
-        { id: 'org1-packing-area', type: 'org1_zone', name: 'Packing Area', x: 18, y: 18, width: 208, height: 228, cornerRadius: 0, borderWidth: 3, borderColor: '#1976D2', fill: '#E3F2FD', fillOpacity: 1, textLines: ['Packing', 'Area'], textSize: 18, textColor: '#1565C0', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center', grid: { rows: 6, cols: 4, padding: 10, gap: 8, fill: '#C5E7FA', stroke: '#64B5F6' } },
-        { id: 'org1-back-office', type: 'warehouse_block', name: 'Back Office Space', x: 18, y: 332, width: 208, height: 150, cornerRadius: 0, borderWidth: 3, borderColor: '#0D47A1', fill: '#1565C0', fillOpacity: 1, textLines: ['Back Office', 'Space'], textSize: 18, textColor: '#FFFFFF', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
+        { id: 'org1-packing-area', type: 'org1_zone', name: 'Packing Area', x: 60, y: 60, width: 240, height: 240, cornerRadius: 0, borderWidth: 3, borderColor: '#1976D2', fill: '#E3F2FD', fillOpacity: 1, textLines: ['Packing', 'Area'], textSize: 18, textColor: '#1565C0', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center', grid: { rows: 6, cols: 4, padding: 12, gap: 6, fill: '#C5E7FA', stroke: '#64B5F6' } },
+        { id: 'org1-back-office', type: 'warehouse_block', name: 'Back Office Space', x: 60, y: 360, width: 240, height: 180, cornerRadius: 0, borderWidth: 3, borderColor: '#0D47A1', fill: '#1565C0', fillOpacity: 1, textLines: ['Back Office', 'Space'], textSize: 18, textColor: '#FFFFFF', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
         ...['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((letter, index) => ({
           id: `org1-rack-${letter.toLowerCase()}`,
           type: 'org1_rack',
           name: `Rack ${letter}`,
-          x: 408 + index * 84,
-          y: 32,
-          width: 68,
-          height: 278,
+          x: 360 + index * 90,
+          y: 60,
+          width: 60,
+          height: 300,
           cornerRadius: 0,
           borderWidth: 2,
           borderColor: '#00897B',
@@ -234,35 +234,35 @@ const WarehouseMapView = ({ facilityData }) => {
           fillOpacity: 1,
           disableAutoLabel: true,
           labelPosition: 'none',
-          grid: { rows: 10, cols: 2, padding: 10, gap: 6, fill: '#E0F2F1', stroke: '#26A69A' }
+          grid: { rows: 10, cols: 2, padding: 8, gap: 6, fill: '#E0F2F1', stroke: '#26A69A' }
         })),
         ...['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((letter, index) => ({
           id: `org1-rack-label-${letter.toLowerCase()}`,
           type: 'org1_label',
           displayAsLabel: true,
           text: letter,
-          x: 408 + index * 84 + 34,
-          y: 324,
+          x: 360 + index * 90 + 30,
+          y: 378,
           fontSize: 18,
           fontWeight: '700',
           textColor: '#37474F'
         })),
-        { id: 'org1-receiving-1', type: 'org1_receiving', name: 'Receiving Area 1', x: 306, y: 332, width: 132, height: 112, cornerRadius: 0, borderWidth: 2, borderColor: '#F9A825', fill: '#FFE082', fillOpacity: 1, textLines: ['Receiving', 'Area 1'], textSize: 16, textColor: '#5D4037', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
-        { id: 'org1-receiving-2', type: 'org1_receiving', name: 'Receiving Area 2', x: 446, y: 332, width: 132, height: 112, cornerRadius: 0, borderWidth: 2, borderColor: '#F9A825', fill: '#FFE082', fillOpacity: 1, textLines: ['Receiving', 'Area 2'], textSize: 16, textColor: '#5D4037', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
-        { id: 'org1-dispatch-1', type: 'org1_dispatch', name: 'Dispatch Area 1', x: 586, y: 332, width: 132, height: 112, cornerRadius: 0, borderWidth: 2, borderColor: '#2E7D32', fill: '#A5D6A7', fillOpacity: 1, textLines: ['Dispatch', 'Area 1'], textSize: 16, textColor: '#1B5E20', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
-        { id: 'org1-dispatch-2', type: 'org1_dispatch', name: 'Dispatch Area 2', x: 726, y: 332, width: 132, height: 112, cornerRadius: 0, borderWidth: 2, borderColor: '#2E7D32', fill: '#A5D6A7', fillOpacity: 1, textLines: ['Dispatch', 'Area 2'], textSize: 16, textColor: '#1B5E20', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
-        { id: 'org1-transit-temp', type: 'org1_transit', name: 'Transit/Temp Area', x: 866, y: 332, width: 222, height: 112, cornerRadius: 0, borderWidth: 2, borderColor: '#8D6E63', fill: '#D7CCC8', fillOpacity: 1, textLines: ['Transit/Temp', 'Area'], textSize: 16, textColor: '#5D4037', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
-        { id: 'org1-walkway', type: 'org1_walkway', name: 'Gate Walkway', x: 18, y: 468, width: 1044, height: 88, cornerRadius: 0, borderWidth: 1, borderColor: '#E0E0E0', fill: '#FFFFFF', fillOpacity: 1, disableAutoLabel: true, labelPosition: 'none' },
+        { id: 'org1-receiving-1', type: 'org1_receiving', name: 'Receiving Area 1', x: 360, y: 390, width: 120, height: 120, cornerRadius: 0, borderWidth: 2, borderColor: '#F9A825', fill: '#FFE082', fillOpacity: 1, textLines: ['Receiving', 'Area 1'], textSize: 16, textColor: '#5D4037', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
+        { id: 'org1-receiving-2', type: 'org1_receiving', name: 'Receiving Area 2', x: 510, y: 390, width: 120, height: 120, cornerRadius: 0, borderWidth: 2, borderColor: '#F9A825', fill: '#FFE082', fillOpacity: 1, textLines: ['Receiving', 'Area 2'], textSize: 16, textColor: '#5D4037', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
+        { id: 'org1-dispatch-1', type: 'org1_dispatch', name: 'Dispatch Area 1', x: 660, y: 390, width: 120, height: 120, cornerRadius: 0, borderWidth: 2, borderColor: '#2E7D32', fill: '#A5D6A7', fillOpacity: 1, textLines: ['Dispatch', 'Area 1'], textSize: 16, textColor: '#1B5E20', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
+        { id: 'org1-dispatch-2', type: 'org1_dispatch', name: 'Dispatch Area 2', x: 810, y: 390, width: 120, height: 120, cornerRadius: 0, borderWidth: 2, borderColor: '#2E7D32', fill: '#A5D6A7', fillOpacity: 1, textLines: ['Dispatch', 'Area 2'], textSize: 16, textColor: '#1B5E20', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
+        { id: 'org1-transit-temp', type: 'org1_transit', name: 'Transit/Temp Area', x: 960, y: 390, width: 120, height: 120, cornerRadius: 0, borderWidth: 2, borderColor: '#8D6E63', fill: '#D7CCC8', fillOpacity: 1, textLines: ['Transit/Temp', 'Area'], textSize: 16, textColor: '#5D4037', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
+        { id: 'org1-walkway', type: 'org1_walkway', name: 'Gate Walkway', x: 60, y: 520, width: 960, height: 60, cornerRadius: 0, borderWidth: 1, borderColor: '#E0E0E0', fill: '#FFFFFF', fillOpacity: 1, disableAutoLabel: true, labelPosition: 'none' },
         ...(() => {
           const segments = [
             { id: 'org1-entrance', label: 'Entrance', width: 180 },
-            { id: 'org1-in-gate-1', label: 'In-Gate 1', width: 160 },
-            { id: 'org1-in-gate-2', label: 'In-Gate 2', width: 160 },
-            { id: 'org1-out-gate-1', label: 'Out Gate 1', width: 160 },
-            { id: 'org1-out-gate-2', label: 'Out Gate 2', width: 160 },
-            { id: 'org1-out-gate-3', label: 'Out Gate 3', width: 224 }
+            { id: 'org1-in-gate-1', label: 'In-Gate 1', width: 150 },
+            { id: 'org1-in-gate-2', label: 'In-Gate 2', width: 150 },
+            { id: 'org1-out-gate-1', label: 'Out Gate 1', width: 150 },
+            { id: 'org1-out-gate-2', label: 'Out Gate 2', width: 150 },
+            { id: 'org1-out-gate-3', label: 'Out Gate 3', width: 180 }
           ];
-          let currentX = 18;
+          let currentX = 60;
           return segments.map(segment => {
             const labelItem = {
               id: segment.id,
@@ -270,7 +270,7 @@ const WarehouseMapView = ({ facilityData }) => {
               displayAsLabel: true,
               text: segment.label,
               x: currentX + segment.width / 2,
-              y: 520,
+              y: 548,
               fontSize: 14,
               fontWeight: '700',
               textColor: '#333333'
@@ -1868,7 +1868,7 @@ const WarehouseMapView = ({ facilityData }) => {
                     const contentHeight = maxY - minY;
                     
                     // Minimal padding for visual clarity (reduced from 100 to 20)
-                    const padding = 20;
+                    const padding = 80;
                     const viewBoxX = minX - padding;
                     const viewBoxY = minY - padding;
                     const viewBoxWidth = contentWidth + (padding * 2);

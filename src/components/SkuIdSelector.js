@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import showMessage from '../utils/showMessage';
 
-const SkuIdSelector = ({ isVisible, onClose, onSave, existingLocationIds = [], showCategories = false }) => {
+const SkuIdSelector = ({ 
+  isVisible, 
+  onClose, 
+  onSave, 
+  existingLocationIds = [], 
+  showCategories = false,
+  allowCustomIds = false
+}) => {
   const [selectedLocationId, setSelectedLocationId] = useState('');
   const [customLocationId, setCustomLocationId] = useState('');
   const [useCustom, setUseCustom] = useState(false);
@@ -36,10 +43,10 @@ const SkuIdSelector = ({ isVisible, onClose, onSave, existingLocationIds = [], s
       setSelectedLocationId(availableLocationIds[0]);
     }
     // Reset useCustom when showCategories is false (storage racks)
-    if (!showCategories) {
+    if (!allowCustomIds) {
       setUseCustom(false);
     }
-  }, [availableLocationIds.length, showCategories]);
+  }, [availableLocationIds.length, allowCustomIds]);
 
   const handleSave = () => {
     const finalLocationId = useCustom ? customLocationId.trim() : selectedLocationId;
@@ -138,7 +145,7 @@ const SkuIdSelector = ({ isVisible, onClose, onSave, existingLocationIds = [], s
             )}
 
             {/* Custom Location ID - Only available for Storage Units (showCategories = true) */}
-            {showCategories && (
+            {allowCustomIds && (
               <div className="sku-option">
                 <label>
                   <input

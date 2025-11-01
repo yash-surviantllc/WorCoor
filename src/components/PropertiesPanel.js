@@ -693,15 +693,34 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
                         }}>
                           <div>
                             <div style={{ fontWeight: 'bold', color: '#006064' }}>
-                              {itemData.isMultiLocation && itemData.locationIds ? (
-                                <div>
-                                  <div>Multiple Locations ({itemData.locationIds.length}):</div>
-                                  {itemData.locationIds.map((id, idx) => (
-                                    <div key={idx} style={{ fontSize: '0.7rem', marginLeft: '8px', color: '#FF5722' }}>
-                                      • {id} {itemData.tags && itemData.tags[idx] ? `(${itemData.tags[idx]})` : ''}
+                              {itemData.isMultiLocation ? (
+                                (() => {
+                                  const mappingList = (itemData.levelLocationMappings && itemData.levelLocationMappings.length > 0)
+                                    ? itemData.levelLocationMappings
+                                    : (itemData.locationIds || []).map((locId, idx) => ({
+                                        levelId: (itemData.levelIds && itemData.levelIds[idx]) || `L${idx + 1}`,
+                                        locationId: locId
+                                      }));
+
+                                  if (!Array.isArray(mappingList) || mappingList.length === 0) {
+                                    return 'Location data not available';
+                                  }
+
+                                  return (
+                                    <div>
+                                      <div>Level / Location Pairs ({mappingList.length}):</div>
+                                      {mappingList.map((mapping, idx) => (
+                                        <div
+                                          key={`${mapping.levelId || `level-${idx}`}-${mapping.locationId || idx}`}
+                                          style={{ fontSize: '0.7rem', marginLeft: '8px', color: '#FF5722' }}
+                                        >
+                                          • {mapping.levelId || `L${idx + 1}`} → {mapping.locationId || 'Not set'}
+                                          {itemData.tags && itemData.tags[idx] ? ` (${itemData.tags[idx]})` : ''}
+                                        </div>
+                                      ))}
                                     </div>
-                                  ))}
-                                </div>
+                                  );
+                                })()
                               ) : (
                                 `Location: ${itemData.locationId || itemData.uniqueId || itemData.sku}`
                               )}

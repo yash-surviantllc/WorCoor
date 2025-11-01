@@ -747,18 +747,48 @@ function App() {
     
     // Handle multiple location IDs for vertical storage racks
     if (data.isMultiple && item.type === 'vertical_sku_holder') {
-      const { locationIds, tags, category } = data;
-      const newContents = { 
-        ...item.compartmentContents, 
-        [compartmentId]: { 
-          locationIds: locationIds, // Multiple location IDs (L1, L2, L3)
-          tags: tags, // Multiple tags
-          primaryLocationId: locationIds[0], // First location ID as primary
-          uniqueId: locationIds[0], // Keep for backward compatibility
-          sku: locationIds.join(','), // Comma-separated for display
+      const {
+        locationIds = [],
+        tags = [],
+        category: multiCategory,
+        levelLocationMappings = [],
+        levelIds = [],
+        primaryLocationId
+      } = data;
+
+      const resolvedMappings = levelLocationMappings.length > 0
+        ? levelLocationMappings
+        : locationIds.map((locId, index) => ({
+            levelId: levelIds[index] || `L${index + 1}`,
+            locationId: locId
+          }));
+
+      const resolvedLevelIds = levelIds.length > 0
+        ? levelIds
+        : resolvedMappings.map((mapping) => mapping.levelId);
+
+      const resolvedLocationIds = resolvedMappings.map((mapping) => mapping.locationId);
+
+      const resolvedTags = Array.isArray(tags) && tags.length > 0
+        ? tags
+        : resolvedLevelIds;
+
+      const resolvedPrimary = primaryLocationId || resolvedLocationIds[0] || '';
+
+      const newContents = {
+        ...item.compartmentContents,
+        [compartmentId]: {
+          isMultiLocation: true,
+          levelLocationMappings: resolvedMappings,
+          levelIds: resolvedLevelIds,
+          locationIds: resolvedLocationIds,
+          tags: resolvedTags,
+          primaryLocationId: resolvedPrimary,
+          uniqueId: resolvedPrimary || resolvedLocationIds[0],
+          sku: resolvedLocationIds.join(','),
           quantity: 1,
           status: 'planned',
-          category: category,
+          category: multiCategory,
           storageSpace: `${Math.floor(item.width / 60)}x${Math.floor(item.height / 60)}`,
           availability: 'available',
           createdAt: new Date().toISOString(),
@@ -778,29 +808,29 @@ function App() {
           }
         }
       };
-      
+
       handleUpdateItem(itemId, { compartmentContents: newContents });
       setMultiLocationSelectorVisible(false);
       setPendingSkuRequest(null);
       return;
     }
-    
+
     // Handle both string (legacy) and object (new with category) formats
     const locationId = typeof data === 'string' ? data : data.locationId;
-    const category = typeof data === 'string' ? '' : data.category;
-    
+    const singleCategory = typeof data === 'string' ? '' : data.category;
+
     // Handle single location units (Storage Unit)
     if (compartmentId === 'single-sku') {
       handleUpdateItem(itemId, { 
         locationId: locationId,
-        category: category, // Add category for color determination
+        category: singleCategory, // Add category for color determination
         locationData: {
           locationId: locationId,
           uniqueId: locationId,
           sku: locationId,
           quantity: 1,
           status: 'planned',
-          category: category,
+          category: singleCategory,
           availability: 'available',
           createdAt: new Date().toISOString(),
           lastModified: new Date().toISOString(),

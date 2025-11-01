@@ -1,332 +1,504 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import '../styles/MultiLocationSelector.css';
 import showMessage from '../utils/showMessage';
 
-const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds = [], itemType = '', initialLevelIds = [] }) => {
-  const [selectedLevelId, setSelectedLevelId] = useState('');
-  const [selectedLocId, setSelectedLocId] = useState('');
-  const [attachedLevelIds, setAttachedLevelIds] = useState([]);
+const MAX_LEVEL_COUNT = 999;
+const MAX_LOCATION_INDEX = 9999;
+const ALL_LEVEL_IDS = Array.from({ length: MAX_LEVEL_COUNT }, (_, index) => `L${index + 1}`);
 
-  // Check if this is for vertical storage rack
+const normalizeLevelId = (value) => (value ? value.toString().trim().toUpperCase() : '');
+const normalizeLocationId = (value) => (value ? value.toString().trim().toUpperCase() : '');
+
+const parseInitialMappings = (initialMappings, fallbackLevelIds = []) => {
+  const mappings = [];
+
+  const upsert = (levelId, locationId) => {
+    const normalizedLevel = normalizeLevelId(levelId);
+    if (!normalizedLevel) return;
+
+    const normalizedLocation = normalizeLocationId(locationId);
+    const existingIndex = mappings.findIndex((entry) => entry.levelId === normalizedLevel);
+    const next = { levelId: normalizedLevel, locationId: normalizedLocation };
+
+    if (existingIndex >= 0) {
+      mappings[existingIndex] = next;
+    } else {
+      mappings.push(next);
+    }
+  };
+
+  if (Array.isArray(initialMappings)) {
+    initialMappings.forEach((entry) => {
+      if (!entry) return;
+      if (typeof entry === 'string') {
+        upsert(entry, '');
+      } else if (typeof entry === 'object') {
+        upsert(entry.levelId ?? entry.level, entry.locationId ?? entry.locId ?? '');
+      }
+    });
+  } else if (initialMappings && typeof initialMappings === 'object') {
+    if (Array.isArray(initialMappings.levelLocationMappings)) {
+      initialMappings.levelLocationMappings.forEach((entry) => {
+        if (!entry) return;
+        upsert(entry.levelId ?? entry.level, entry.locationId ?? entry.locId ?? '');
+      });
+    } else if (Array.isArray(initialMappings.levelIds) && Array.isArray(initialMappings.locationIds)) {
+      initialMappings.levelIds.forEach((levelId, index) => {
+        upsert(levelId, initialMappings.locationIds[index] ?? '');
+      });
+    } else if (Array.isArray(initialMappings.locationIds)) {
+      initialMappings.locationIds.forEach((locationId, index) => {
+        upsert(fallbackLevelIds[index], locationId ?? '');
+      });
+    }
+  }
+
+  if (mappings.length === 0 && Array.isArray(fallbackLevelIds)) {
+    fallbackLevelIds.forEach((levelId) => {
+      const normalizedLevel = normalizeLevelId(levelId);
+      if (normalizedLevel) {
+        upsert(normalizedLevel, '');
+      }
+    });
+  }
+
+  return mappings;
+};
+
+const MultiLocationSelector = ({
+  isVisible,
+  onClose,
+  onSave,
+  existingLocationIds = [],
+  itemType = '',
+  initialMappings = [],
+  initialLevelIds = []
+}) => {
+  const [selectedLevelId, setSelectedLevelId] = useState('');
+  const [locationSelectValue, setLocationSelectValue] = useState('');
+  const [attachedMappings, setAttachedMappings] = useState([]);
+
   const isVerticalStorageRack = itemType === 'vertical_sku_holder';
 
-  // Generate available Level IDs (L1, L2, L3...)
-  const generateAvailableLevelIds = () => {
-    const allIds = [];
-    for (let i = 1; i <= 999; i++) {
-      allIds.push(`L${i}`);
-    }
-    return allIds;
-  };
+  const parsedInitialMappings = useMemo(
+    () => parseInitialMappings(initialMappings, initialLevelIds),
+    [initialMappings, initialLevelIds]
+  );
 
-  // Generate available Location IDs with Level prefix (e.g., L1-Loc01)
-  const generateAvailableLocIds = (levelId) => {
-    if (!levelId) {
-      return [];
+  const externalLocationSet = useMemo(() => {
+    const initialSet = new Set();
+    parsedInitialMappings.forEach((mapping) => {
+      const normalized = normalizeLocationId(mapping.locationId);
+      if (normalized) {
+        initialSet.add(normalized);
+      }
+    });
+
+    return existingLocationIds.reduce((set, id) => {
+      const normalized = normalizeLocationId(id);
+      if (normalized && !initialSet.has(normalized)) {
+        set.add(normalized);
+      }
+      return set;
+    }, new Set());
+  }, [existingLocationIds, parsedInitialMappings]);
+
+  const wasVisibleRef = useRef(false);
+
+  useEffect(() => {
+    if (isVisible && !wasVisibleRef.current) {
+      setAttachedMappings(parsedInitialMappings);
     }
 
-    const allIds = [];
-    for (let i = 1; i <= 999; i++) {
-      const locId = `${levelId}-Loc${i.toString().padStart(2, '0')}`;
-      if (!existingLocationIds.includes(locId)) {
-        allIds.push(locId);
+    if (!isVisible && wasVisibleRef.current) {
+      setAttachedMappings([]);
+      setSelectedLevelId('');
+      setLocationSelectValue('');
+    }
+
+    wasVisibleRef.current = isVisible;
+  }, [isVisible, parsedInitialMappings]);
+
+  const usedLevelIds = useMemo(() => new Set(attachedMappings.map((mapping) => mapping.levelId)), [attachedMappings]);
+
+  const availableLevelIds = useMemo(
+    () => ALL_LEVEL_IDS.filter((levelId) => !usedLevelIds.has(levelId)),
+    [usedLevelIds]
+  );
+
+  const attachedLocationCounts = useMemo(() => {
+    const counts = new Map();
+    attachedMappings.forEach((mapping) => {
+      const normalized = normalizeLocationId(mapping.locationId);
+      if (!normalized) return;
+      counts.set(normalized, (counts.get(normalized) || 0) + 1);
+    });
+    return counts;
+  }, [attachedMappings]);
+
+  const blockedLocationIds = useMemo(() => {
+    const set = new Set(externalLocationSet);
+    attachedMappings.forEach((mapping) => {
+      const normalized = normalizeLocationId(mapping.locationId);
+      if (normalized) {
+        set.add(normalized);
+      }
+    });
+    return set;
+  }, [externalLocationSet, attachedMappings]);
+
+  const availableLocationOptions = useMemo(() => {
+    const options = [];
+    for (let index = 1; index <= MAX_LOCATION_INDEX; index += 1) {
+      const candidate = `LOC-${index.toString().padStart(3, '0')}`;
+      if (!blockedLocationIds.has(normalizeLocationId(candidate))) {
+        options.push(candidate);
+      }
+      if (options.length >= 150) {
+        break;
       }
     }
-    return allIds;
-  };
+    return options;
+  }, [blockedLocationIds]);
 
-  const availableLevelIds = generateAvailableLevelIds().filter(id => !attachedLevelIds.includes(id));
-  const availableLocIds = generateAvailableLocIds(selectedLevelId);
-
-  useEffect(() => {
-    if (isVisible) {
-      const seededIds = Array.isArray(initialLevelIds) ? [...initialLevelIds] : [];
-      setAttachedLevelIds(seededIds);
-      const nextAvailable = generateAvailableLevelIds().find(id => !seededIds.includes(id)) || '';
-      setSelectedLevelId(nextAvailable);
-    }
-  }, [isVisible, initialLevelIds]);
+  const suggestedLocationId = availableLocationOptions[0] || '';
 
   useEffect(() => {
-    if (!selectedLevelId && availableLevelIds.length > 0) {
-      setSelectedLevelId(availableLevelIds[0]);
-      return;
-    }
-
-    if (selectedLevelId && !availableLevelIds.includes(selectedLevelId)) {
+    if (!isVisible) return;
+    if (!selectedLevelId || usedLevelIds.has(selectedLevelId)) {
       setSelectedLevelId(availableLevelIds[0] || '');
-      return;
     }
-
-    if (availableLevelIds.length === 0) {
-      setSelectedLevelId('');
-    }
-  }, [availableLevelIds, selectedLevelId]);
+  }, [isVisible, selectedLevelId, usedLevelIds, availableLevelIds]);
 
   useEffect(() => {
-    if (!selectedLevelId) {
-      setSelectedLocId('');
+    if (!isVisible) {
       return;
     }
 
-    const locOptions = generateAvailableLocIds(selectedLevelId);
-    if (locOptions.length === 0) {
-      setSelectedLocId('');
-      return;
+    if (availableLevelIds.length > 0 && (!selectedLevelId || usedLevelIds.has(selectedLevelId))) {
+      setSelectedLevelId(availableLevelIds[0]);
     }
 
-    if (!locOptions.includes(selectedLocId)) {
-      setSelectedLocId(locOptions[0]);
+    if (suggestedLocationId) {
+      if (!locationSelectValue || externalLocationSet.has(normalizeLocationId(locationSelectValue))) {
+        setLocationSelectValue(suggestedLocationId);
+      }
+    } else if (locationSelectValue) {
+      setLocationSelectValue('');
     }
-  }, [selectedLevelId, existingLocationIds]);
-
-
-  const handleSave = () => {
-    // Validate selections
-    if (attachedLevelIds.length === 0) {
-      showMessage.warning('Attach at least one Level ID before saving');
-      return;
-    }
-
-    // Return both IDs as multiple location format
-    const result = {
-      locationIds: attachedLevelIds,
-      tags: attachedLevelIds.map((levelId, index) => `Level ${index + 1}`),
-      category: 'storage', // Default category for storage racks
-      isMultiple: true
-    };
-    
-    onSave(result);
-  };
-
-  const handleClose = () => {
-    setSelectedLevelId('');
-    setSelectedLocId('');
-    setAttachedLevelIds([]);
-    onClose();
-  };
-
-  const handleAttachLevelId = () => {
-    if (!selectedLevelId) {
-      showMessage.warning('Please select a Level ID to attach');
-      return;
-    }
-
-    if (attachedLevelIds.includes(selectedLevelId)) {
-      showMessage.warning(`${selectedLevelId} is already attached to this block`);
-      return;
-    }
-
-    setAttachedLevelIds(prev => {
-      const updated = [...prev, selectedLevelId];
-      const nextAvailable = generateAvailableLevelIds().find(id => !updated.includes(id)) || '';
-      setSelectedLevelId(nextAvailable);
-      return updated;
-    });
-    showMessage.success(`${selectedLevelId} attached to this block`);
-  };
-
-  const handleRemoveAttachedLevelId = (levelId) => {
-    setAttachedLevelIds(prev => {
-      const updated = prev.filter(id => id !== levelId);
-      const nextAvailable = generateAvailableLevelIds().find(id => !updated.includes(id)) || '';
-      setSelectedLevelId(nextAvailable);
-      return updated;
-    });
-    showMessage.info(`${levelId} removed from this block`);
-  };
-
-  if (!isVisible) return null;
-
-  console.log('MultiLocationSelector rendering with:', { 
-    isVisible, 
-    itemType, 
-    isVerticalStorageRack,
+  }, [
+    isVisible,
+    availableLevelIds,
     selectedLevelId,
-    selectedLocId,
-    availableLevelIds: availableLevelIds.slice(0, 5),
-    availableLocIds: availableLocIds.slice(0, 5)
-  }); // Debug log
+    usedLevelIds,
+    locationSelectValue,
+    externalLocationSet,
+    suggestedLocationId
+  ]);
+
+  const handleLocationSelectChange = useCallback((event) => {
+    setLocationSelectValue(event.target.value);
+  }, []);
+
+  const handleAttachMapping = useCallback(() => {
+    const levelId = normalizeLevelId(selectedLevelId);
+    const locationId = normalizeLocationId(locationSelectValue);
+
+    if (!levelId) {
+      showMessage.warning('Select a level before attaching a Location ID.');
+      return;
+    }
+
+    if (!locationId) {
+      showMessage.warning('Enter a Location ID to attach to the selected level.');
+      return;
+    }
+
+    if (usedLevelIds.has(levelId)) {
+      showMessage.warning(`${levelId} already has an attached Location ID.`);
+      return;
+    }
+
+    if (externalLocationSet.has(locationId) || attachedLocationCounts.get(locationId)) {
+      showMessage.error(`Location ID ${locationId} is already in use. Choose another ID.`);
+      return;
+    }
+
+    setAttachedMappings((prev) => [...prev, { levelId, locationId }]);
+    setLocationSelectValue('');
+  }, [
+    selectedLevelId,
+    locationSelectValue,
+    usedLevelIds,
+    externalLocationSet,
+    attachedLocationCounts
+  ]);
+
+  const handleMappingLocationChange = useCallback((levelId, value) => {
+    const nextValue = normalizeLocationId(value);
+    setAttachedMappings((prev) =>
+      prev.map((mapping) =>
+        mapping.levelId === levelId ? { ...mapping, locationId: nextValue } : mapping
+      )
+    );
+  }, []);
+
+  const handleRemoveMapping = useCallback((levelId) => {
+    setAttachedMappings((prev) => prev.filter((mapping) => mapping.levelId !== levelId));
+  }, []);
+
+  const handleSave = useCallback(() => {
+    if (attachedMappings.length === 0) {
+      showMessage.warning('Attach at least one level/location pair before saving.');
+      return;
+    }
+
+    const normalizedMappings = [];
+    const seenLocationIds = new Set();
+
+    for (const mapping of attachedMappings) {
+      const levelId = normalizeLevelId(mapping.levelId);
+      const locationId = normalizeLocationId(mapping.locationId);
+
+      if (!levelId) {
+        showMessage.error('One of the mappings has an invalid level.');
+        return;
+      }
+
+      if (!locationId) {
+        showMessage.warning(`Provide a Location ID for ${levelId}.`);
+        return;
+      }
+
+      if (externalLocationSet.has(locationId)) {
+        showMessage.error(`Location ID ${locationId} is already used elsewhere in this layout.`);
+        return;
+      }
+
+      if (seenLocationIds.has(locationId)) {
+        showMessage.error(`Location ID ${locationId} is assigned to multiple levels.`);
+        return;
+      }
+
+      seenLocationIds.add(locationId);
+      normalizedMappings.push({ levelId, locationId });
+    }
+
+    normalizedMappings.sort((a, b) => {
+      const aIndex = parseInt(a.levelId.replace(/[^0-9]/g, ''), 10) || 0;
+      const bIndex = parseInt(b.levelId.replace(/[^0-9]/g, ''), 10) || 0;
+      return aIndex - bIndex;
+    });
+
+    const levelIds = normalizedMappings.map((mapping) => mapping.levelId);
+    const locationIds = normalizedMappings.map((mapping) => mapping.locationId);
+    const primaryLocationId = locationIds[0] || '';
+
+    onSave({
+      isMultiple: true,
+      levelLocationMappings: normalizedMappings,
+      levelIds,
+      locationIds,
+      primaryLocationId,
+      tags: levelIds,
+      category: 'storage'
+    });
+  }, [attachedMappings, externalLocationSet, onSave]);
+
+  const handleClose = useCallback(() => {
+    setSelectedLevelId('');
+    setLocationSelectValue('');
+    setAttachedMappings([]);
+    onClose();
+  }, [onClose]);
+
+  if (!isVisible) {
+    return null;
+  }
+
+  const currentLocationWarning = (() => {
+    const normalized = normalizeLocationId(locationSelectValue);
+    if (!normalized) return '';
+    if (externalLocationSet.has(normalized)) {
+      return `Location ID ${normalized} is already used elsewhere.`;
+    }
+    if (attachedLocationCounts.get(normalized)) {
+      return `Location ID ${normalized} is already attached to another level.`;
+    }
+    return '';
+  })();
 
   return (
     <div className="modal-overlay" onClick={handleClose}>
-      <div className="modal-content multi-location-selector" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content multi-location-selector" onClick={(event) => event.stopPropagation()}>
         <div className="modal-header">
           <h3>
-            {isVerticalStorageRack ? 'Multiple Location IDs & Tags' : 'Location ID Selection'}
-            {isVerticalStorageRack && <span style={{ color: '#FF5722', fontSize: '0.9em' }}> (Vertical Storage Rack)</span>}
+            {isVerticalStorageRack ? 'Assign Levels to Location IDs' : 'Location ID Selection'}
+            {isVerticalStorageRack && (
+              <span style={{ color: '#FF5722', fontSize: '0.9em' }}> (Vertical Storage Rack)</span>
+            )}
           </h3>
-          <button className="modal-close" onClick={handleClose}>×</button>
+          <button className="modal-close" onClick={handleClose}>
+            ×
+          </button>
         </div>
-        
+
         <div className="modal-body">
           {isVerticalStorageRack && (
-            <div style={{ 
-              backgroundColor: '#fff3e0', 
-              padding: '12px', 
-              borderRadius: '6px', 
-              marginBottom: '16px',
-              border: '1px solid #ff9800'
-            }}>
+            <div
+              style={{
+                backgroundColor: '#fff3e0',
+                padding: '12px',
+                borderRadius: '6px',
+                marginBottom: '16px',
+                border: '1px solid #ff9800'
+              }}
+            >
               <div style={{ fontWeight: 'bold', color: '#e65100', marginBottom: '4px' }}>
-                📐 Vertical Storage Rack - Multi-Level Storage:
+                📐 Vertical Storage Rack - Level & Location Mapping
               </div>
               <div style={{ fontSize: '0.9em', color: '#bf360c' }}>
-                • Select Level ID (L1, L2, L3...) for vertical positioning
-                • Select Location ID (LOC-001, LOC-002...) for inventory tracking
+                Select a level (L1, L2, L3...) and assign a unique Location ID to it.
               </div>
             </div>
           )}
 
-          {/* Level ID Dropdown */}
-          <div style={{ marginBottom: '20px' }}>
+          <div style={{ marginBottom: '24px' }}>
             <div style={{ fontWeight: 'bold', marginBottom: '12px', color: '#333' }}>
-              🏗️ Level ID (L1, L2, L3...):
+              Attach Level to Location ID
             </div>
-            <div style={{ 
-              padding: '12px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '6px',
-              border: '1px solid #dee2e6'
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: '12px',
+                flexWrap: 'nowrap',
+                alignItems: 'center'
+              }}
+            >
               <select
                 value={selectedLevelId}
-                onChange={(e) => setSelectedLevelId(e.target.value)}
+                onChange={(event) => setSelectedLevelId(event.target.value)}
                 style={{
-                  width: '100%',
+                  flex: '0 0 140px',
                   padding: '8px 12px',
-                  border: '1px solid #ccc',
+                  border: '1px solid #8bc34a',
                   borderRadius: '4px',
                   fontSize: '0.9em',
                   backgroundColor: 'white'
                 }}
+                disabled={availableLevelIds.length === 0}
               >
-                {availableLevelIds.slice(0, 50).map(levelId => (
-                  <option key={levelId} value={levelId}>
-                    {levelId}
-                  </option>
-                ))}
+                {availableLevelIds.length === 0 ? (
+                  <option value="">All levels attached</option>
+                ) : (
+                  availableLevelIds.slice(0, 50).map((levelId) => (
+                    <option key={levelId} value={levelId}>
+                      {levelId}
+                    </option>
+                  ))
+                )}
               </select>
-              <div style={{ fontSize: '0.8em', color: '#666', marginTop: '8px' }}>
-                Select the vertical level for storage (L1=bottom, L2=middle, L3=top, etc.)
-              </div>
+
+              <select
+                value={locationSelectValue}
+                onChange={handleLocationSelectChange}
+                style={{
+                  flex: '0 0 200px',
+                  minWidth: '160px',
+                  padding: '8px 12px',
+                  border: '1px solid #00796b',
+                  borderRadius: '4px',
+                  fontSize: '0.9em',
+                  backgroundColor: 'white'
+                }}
+                disabled={availableLocationOptions.length === 0}
+              >
+                {availableLocationOptions.length === 0 ? (
+                  <option value="">No LOC IDs available</option>
+                ) : (
+                  availableLocationOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))
+                )}
+              </select>
+
+              <button
+                type="button"
+                onClick={handleAttachMapping}
+                className="btn btn-primary"
+                style={{ padding: '8px 16px' }}
+                disabled={!selectedLevelId || !locationSelectValue}
+              >
+                Attach Pair
+              </button>
             </div>
+            {currentLocationWarning && (
+              <div style={{ color: '#c62828', fontSize: '0.8em', marginTop: '8px' }}>{currentLocationWarning}</div>
+            )}
+            {!currentLocationWarning && locationSelectValue && (
+              <div style={{ color: '#388e3c', fontSize: '0.8em', marginTop: '8px' }}>
+                Selected ID ready to attach: {locationSelectValue}
+              </div>
+            )}
           </div>
 
-          {/* Attach level IDs */}
-          <div style={{ marginBottom: '20px' }}>
+          <div>
             <div style={{ fontWeight: 'bold', marginBottom: '12px', color: '#333' }}>
-              ➕ Attach Level IDs to this Block
+              Attached Level / Location Pairs
             </div>
-            <div
-              style={{
-                padding: '12px',
-                backgroundColor: '#f1f8e9',
-                borderRadius: '6px',
-                border: '1px solid #c5e1a5'
-              }}
-            >
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
-                <select
-                  value={selectedLevelId}
-                  onChange={(e) => setSelectedLevelId(e.target.value)}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    border: '1px solid #8bc34a',
-                    borderRadius: '4px',
-                    fontSize: '0.9em',
-                    backgroundColor: 'white'
-                  }}
-                  disabled={availableLevelIds.length === 0}
-                >
-                  {availableLevelIds.length === 0 ? (
-                    <option value="">
-                      All levels attached
-                    </option>
-                  ) : (
-                    availableLevelIds.slice(0, 50).map(levelId => (
-                      <option key={levelId} value={levelId}>
-                        {levelId}
-                      </option>
-                    ))
-                  )}
-                </select>
-                <button
-                  type="button"
-                  onClick={handleAttachLevelId}
-                  className="btn btn-primary"
-                  style={{ padding: '8px 16px' }}
-                  disabled={!selectedLevelId}
-                >
-                  Attach ID
-                </button>
+            {attachedMappings.length === 0 ? (
+              <div style={{ fontSize: '0.85em', color: '#666' }}>
+                No mappings added yet. Select a level, enter a Location ID, and click "Attach Pair".
               </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {attachedMappings.map((mapping, index) => {
+                  const normalizedLocation = normalizeLocationId(mapping.locationId);
+                  const isDuplicate = normalizedLocation && (attachedLocationCounts.get(normalizedLocation) || 0) > 1;
+                  const conflictsExternally = normalizedLocation && externalLocationSet.has(normalizedLocation);
 
-              {attachedLevelIds.length === 0 ? (
-                <div style={{ fontSize: '0.85em', color: '#689f38' }}>
-                  No level IDs attached yet. Select a level and click "Attach ID" to add it.
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {attachedLevelIds.map(levelId => (
+                  return (
                     <div
-                      key={levelId}
+                      key={mapping.levelId}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '6px',
-                        padding: '6px 10px',
-                        backgroundColor: '#dcedc8',
-                        borderRadius: '16px',
-                        border: '1px solid #aed581',
-                        fontSize: '0.85em'
+                        justifyContent: 'space-between',
+                        gap: '12px',
+                        padding: '10px 14px',
+                        borderRadius: '6px',
+                        border: '1px solid #c5e1a5',
+                        backgroundColor: '#f9fff2'
                       }}
                     >
-                      <span style={{ fontWeight: '600', color: '#33691e' }}>{levelId}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#1b5e20' }}>
+                        <span style={{ fontWeight: 600 }}>{index + 1}.</span>
+                        <span style={{ fontWeight: 600 }}>L{mapping.levelId.replace(/[^0-9]/g, '') || mapping.levelId}</span>
+                        <span style={{ color: '#388e3c', fontSize: '0.9em' }}>→</span>
+                        <span style={{ fontWeight: 600, color: '#01579b' }}>{mapping.locationId || 'Not set'}</span>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => handleRemoveAttachedLevelId(levelId)}
-                        style={{
-                          border: 'none',
-                          background: 'transparent',
-                          color: '#2e7d32',
-                          cursor: 'pointer',
-                          fontWeight: 'bold'
-                        }}
-                        title={`Remove ${levelId}`}
+                        onClick={() => handleRemoveMapping(mapping.levelId)}
+                        className="btn btn-secondary"
+                        style={{ padding: '6px 12px' }}
                       >
-                        ×
+                        Remove
                       </button>
+                      {(isDuplicate || conflictsExternally || !normalizedLocation) && (
+                        <div style={{ flexBasis: '100%', fontSize: '0.75em', color: '#c62828' }}>
+                          {!normalizedLocation && 'Provide a Location ID for this level.'}
+                          {normalizedLocation && conflictsExternally && `Location ID ${normalizedLocation} is already used elsewhere.`}
+                          {normalizedLocation && !conflictsExternally && isDuplicate && `Location ID ${normalizedLocation} is assigned to multiple levels.`}
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Location selection temporarily disabled */}
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '12px', color: '#333' }}>
-              📍 Location ID Selection (Temporarily Disabled)
-            </div>
-            <div
-              style={{
-                padding: '12px',
-                backgroundColor: '#fff8e1',
-                borderRadius: '6px',
-                border: '1px dashed #ffb300',
-                color: '#bf6f00',
-                fontSize: '0.85em'
-              }}
-            >
-              Location ID dropdown is disabled for this flow. Attach the level IDs below to reserve multiple heights for this block.
-            </div>
-          </div>
-
-
-          <div style={{ marginTop: '16px', fontSize: '0.8em', color: '#666' }}>
-            <strong>Current block level IDs:</strong> {attachedLevelIds.length > 0 ? attachedLevelIds.join(', ') : 'None'}
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -334,12 +506,12 @@ const MultiLocationSelector = ({ isVisible, onClose, onSave, existingLocationIds
           <button className="btn btn-secondary" onClick={handleClose}>
             Cancel
           </button>
-          <button 
-            className="btn btn-primary" 
+          <button
+            className="btn btn-primary"
             onClick={handleSave}
-            disabled={attachedLevelIds.length === 0}
+            disabled={attachedMappings.length === 0}
           >
-            Save Level IDs
+            Save Level Mappings
           </button>
         </div>
       </div>

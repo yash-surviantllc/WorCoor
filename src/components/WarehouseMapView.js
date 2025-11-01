@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import WarehouseDesigner from './WarehouseDesigner';
 import Dashboard from './Dashboard';
+import SavedLayoutRenderer, { getLayoutItemKey } from './SavedLayoutRenderer';
 
 const WarehouseMapView = ({ facilityData }) => {
   const [selectedZone, setSelectedZone] = useState(null);
@@ -27,8 +28,8 @@ const WarehouseMapView = ({ facilityData }) => {
   const [selectedLocationTag, setSelectedLocationTag] = useState('');
   const [selectedSku, setSelectedSku] = useState('');
   const [selectedAsset, setSelectedAsset] = useState('');
-  const [savedLayouts, setSavedLayouts] = useState([]);
   const [selectedUnit, setSelectedUnit] = useState(null);
+  const [savedLayouts, setSavedLayouts] = useState([]);
 
   // Load saved layouts from localStorage and extract dropdown options
   const refreshSavedLayouts = useCallback(() => {
@@ -710,13 +711,12 @@ const WarehouseMapView = ({ facilityData }) => {
                 itemData.sku?.toLowerCase().includes(searchTerm) ||
                 itemData.uniqueId?.toLowerCase().includes(searchTerm)) {
               results.push({
-                id: itemId,
+                id: `${itemId}-${itemData.uniqueId || itemData.sku || 'compartment'}`,
                 type: 'item',
-                title: `Item: ${itemData.locationId || itemData.uniqueId || itemData.sku}`,
-                subtitle: `In ${searchData.unitId} - ${itemData.sku || 'N/A'}`,
-                item: item,
-                itemData: itemData,
-                searchData: searchData
+                title: `Item: ${itemData.uniqueId || itemData.sku || 'Inventory Item'}`,
+                subtitle: `SKU: ${itemData.sku || 'N/A'}`,
+                item,
+                itemData
               });
               highlighted.push(itemId);
             }
@@ -1062,7 +1062,7 @@ const WarehouseMapView = ({ facilityData }) => {
   // Enhanced dropdown search functionality
   const performDropdownSearch = () => {
     const hasDropdownFilters = selectedLocationTag || selectedSku || selectedAsset;
-    
+
     if (!hasDropdownFilters) {
       setSearchResults([]);
       setHighlightedItems([]);
@@ -1070,52 +1070,61 @@ const WarehouseMapView = ({ facilityData }) => {
       return;
     }
 
+    if (!selectedUnitForDemo) {
+      setSearchResults([]);
+      setHighlightedItems([]);
+      setDropdownSearchActive(false);
+      return;
+    }
+
+    const unit = warehouseUnits.find((u) => u.id === selectedUnitForDemo);
+    if (!unit || !unit.isCustomLayout || !unit.layoutData || !Array.isArray(unit.layoutData.items)) {
+      setSearchResults([]);
+      setHighlightedItems([]);
+      setDropdownSearchActive(false);
+      return;
+    }
+
+    const layoutItems = unit.layoutData.items || [];
+
     const results = [];
     const highlighted = [];
-    setDropdownSearchActive(hasDropdownFilters);
+    setDropdownSearchActive(true);
 
-    savedLayouts.forEach(layout => {
-      if (layout.layoutData && layout.layoutData.items) {
-        layout.layoutData.items.forEach((item, index) => {
-          let matchesDropdowns = true;
-          
-          // Check location tag filter
-          if (selectedLocationTag) {
-            const locationMatches = item.locationId === selectedLocationTag ||
-                                  item.locationCode === selectedLocationTag;
-            matchesDropdowns = matchesDropdowns && locationMatches;
-          }
-          
-          // Check SKU filter
-          if (selectedSku && item.compartmentContents) {
-            const skuMatches = Object.values(item.compartmentContents).some(content =>
-              content.locationId === selectedSku ||
-              content.sku === selectedSku ||
-              content.uniqueId === selectedSku
-            );
-            matchesDropdowns = matchesDropdowns && skuMatches;
-          }
-          
-          // Check asset filter
-          if (selectedAsset) {
-            const assetMatches = item.type?.toUpperCase().replace('_', ' ') === selectedAsset ||
-                               item.name === selectedAsset;
-            matchesDropdowns = matchesDropdowns && assetMatches;
-          }
-          
-          if (matchesDropdowns) {
-            const itemId = `${layout.id}-${item.id || index}`;
-            results.push({
-              id: itemId,
-              type: 'location',
-              title: `${item.name || item.type}: ${item.locationId || item.locationCode || 'No ID'}`,
-              subtitle: `Layout: ${layout.name}`,
-              layoutId: layout.id,
-              item: item
-            });
-            highlighted.push(itemId);
-          }
+    layoutItems.forEach((item, index) => {
+      const itemKey = getLayoutItemKey(item) || `${unit.id}-${item.id || index}`;
+      let matchesDropdowns = true;
+
+      if (selectedLocationTag) {
+        const locationMatches = item.locationId === selectedLocationTag ||
+          item.locationCode === selectedLocationTag;
+        matchesDropdowns = matchesDropdowns && locationMatches;
+      }
+
+      if (selectedSku && item.compartmentContents) {
+        const skuMatches = Object.values(item.compartmentContents).some((content) =>
+          content.locationId === selectedSku ||
+          content.sku === selectedSku ||
+          content.uniqueId === selectedSku
+        );
+        matchesDropdowns = matchesDropdowns && skuMatches;
+      }
+
+      if (selectedAsset) {
+        const normalizedType = item.type ? item.type.toUpperCase().replace('_', ' ') : '';
+        const assetMatches = normalizedType === selectedAsset || item.name === selectedAsset;
+        matchesDropdowns = matchesDropdowns && assetMatches;
+      }
+
+      if (matchesDropdowns) {
+        results.push({
+          id: itemKey,
+          type: 'location',
+          title: `${item.name || item.type || 'Component'}${item.locationId ? ` • ${item.locationId}` : ''}`,
+          subtitle: unit.layoutData?.name ? `Layout: ${unit.layoutData.name}` : unit.name,
+          item
         });
+        highlighted.push(itemKey);
       }
     });
 
@@ -1127,16 +1136,15 @@ const WarehouseMapView = ({ facilityData }) => {
   const handleLocationTagChange = (e) => {
     const value = e.target.value;
     setSelectedLocationTag(value);
-    // Use setTimeout to ensure state is updated before search
     setTimeout(() => performDropdownSearch(), 0);
   };
-  
+
   const handleSkuChange = (e) => {
     const value = e.target.value;
     setSelectedSku(value);
     setTimeout(() => performDropdownSearch(), 0);
   };
-  
+
   const handleAssetChange = (e) => {
     const value = e.target.value;
     setSelectedAsset(value);
@@ -1839,11 +1847,9 @@ const WarehouseMapView = ({ facilityData }) => {
                   console.log('Debug - Is custom layout:', unit?.isCustomLayout);
                   console.log('Debug - Layout data:', unit?.layoutData);
                   
-                  if (unit && unit.isCustomLayout && unit.layoutData && unit.layoutData.items) {
-                    const items = unit.layoutData.items;
-                    const hasItems = items.length > 0;
-
-                    if (!hasItems) {
+                  if (unit && unit.isCustomLayout && unit.layoutData && Array.isArray(unit.layoutData.items)) {
+                    const layoutItems = unit.layoutData.items;
+                    if (layoutItems.length === 0) {
                       return (
                         <div
                           style={{
@@ -1856,546 +1862,22 @@ const WarehouseMapView = ({ facilityData }) => {
                         />
                       );
                     }
-                    
-                    // Use ultra-tight bounds - items are already cropped to start from (0,0)
-                    const minX = Math.min(...items.map(item => item.x), 0);
-                    const minY = Math.min(...items.map(item => item.y), 0);
-                    const maxX = Math.max(...items.map(item => item.x + item.width));
-                    const maxY = Math.max(...items.map(item => item.y + item.height));
-                    
-                    // Calculate ultra-tight content dimensions
-                    const contentWidth = maxX - minX;
-                    const contentHeight = maxY - minY;
-                    
-                    // Minimal padding for visual clarity (reduced from 100 to 20)
-                    const padding = 80;
-                    const viewBoxX = minX - padding;
-                    const viewBoxY = minY - padding;
-                    const viewBoxWidth = contentWidth + (padding * 2);
-                    const viewBoxHeight = contentHeight + (padding * 2);
-                    
+
                     return (
-                      <svg 
-                        width="100%" 
-                        height="100%" 
-                        viewBox={`${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`} 
-                        className="warehouse-svg"
-                        preserveAspectRatio="xMidYMid meet"
-                      >
-                        {/* Background */}
-                        <rect 
-                          x={viewBoxX} 
-                          y={viewBoxY} 
-                          width={viewBoxWidth} 
-                          height={viewBoxHeight} 
-                          fill="#f8f9fa" 
-                          stroke="#dee2e6" 
-                          strokeWidth="2" 
-                          rx="8"
-                        />
-                        
-                        {/* Grid pattern */}
-                        <defs>
-                          <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
-                            <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#e0e0e0" strokeWidth="1" opacity="0.3"/>
-                          </pattern>
-                        </defs>
-                        <rect 
-                          x={viewBoxX} 
-                          y={viewBoxY} 
-                          width={viewBoxWidth} 
-                          height={viewBoxHeight} 
-                          fill="url(#grid)" 
-                        />
-                        
-                        {/* Header with layout info */}
-                        <rect 
-                          x={viewBoxX + 10} 
-                          y={viewBoxY + 10} 
-                          width={viewBoxWidth - 20} 
-                          height="30" 
-                          fill="#ffffff" 
-                          stroke="#dee2e6" 
-                          strokeWidth="1" 
-                          rx="4"
-                        />
-                        {/* Render actual layout items with operational data */}
-                        {items.map((item, index) => {
-                          // Generate operational data for each item (matching fullscreen logic)
-                          const opData = null;
-                    const isInteractive = false;
-
-                          // Get component color based on predefined styling, fallback to type-based palette
-                          const getItemColor = (itemConfig, operationalData) => {
-                            if (itemConfig.fill) {
-                              return itemConfig.fill;
-                            }
-
-                            const type = itemConfig.type || '';
-                            let baseColor = '#9E9E9E';
-                            if (type.includes('storage')) baseColor = '#00BCD4';
-                            if (type.includes('receiving')) baseColor = '#FFA726';
-                            if (type.includes('dispatch')) baseColor = '#66BB6A';
-                            if (type.includes('office')) baseColor = '#5C6BC0';
-                            if (type.includes('transit')) baseColor = '#BDBDBD';
-                            if (type.includes('boundary')) baseColor = '#2C3E50';
-
-                            if (operationalData?.status === 'maintenance') {
-                              return `${baseColor}80`;
-                            }
-                            return baseColor;
-                          };
-
-                          const getStatusColor = (status) => {
-                            const colors = {
-                              'operational': '#28a745',
-                              'maintenance': '#ffc107',
-                              'offline': '#dc3545'
-                            };
-                            return colors[status] || '#6c757d';
-                          };
-
-                          const getUtilizationColor = (utilization) => {
-                            if (utilization >= 90) return '#dc3545';
-                            if (utilization >= 75) return '#ffc107';
-                            if (utilization >= 50) return '#28a745';
-                            return '#17a2b8';
-                          };
-                          
-                          const itemColor = getItemColor(item, opData);
-                          const fillOpacity = typeof item.fillOpacity === 'number' ? item.fillOpacity : 0.8;
-
-                          // Enhanced border styling for different component types
-                          const getBorderStyle = (itemConfig) => {
-                            if (itemConfig.borderColor || itemConfig.borderWidth || itemConfig.borderStyle) {
-                              return {
-                                stroke: itemConfig.borderColor || '#333',
-                                strokeWidth: String(itemConfig.borderWidth ?? 2),
-                                strokeDasharray: itemConfig.borderStyle === 'dotted' ? '6 4' : 'none'
-                              };
-                            }
-
-                            const itemType = itemConfig.type;
-                            if (itemType === 'sku_holder') {
-                              // Horizontal Storage Racks - Solid blue border
-                              return {
-                                stroke: '#1976D2',
-                                strokeWidth: '3',
-                                strokeDasharray: 'none'
-                              };
-                            } else if (itemType === 'vertical_sku_holder') {
-                              // Vertical Storage Racks - Solid orange border
-                              return {
-                                stroke: '#FF9800',
-                                strokeWidth: '3',
-                                strokeDasharray: 'none'
-                              };
-                            } else if (itemType === 'storage_unit') {
-                              // Storage Units - Solid green border
-                              return {
-                                stroke: '#388E3C',
-                                strokeWidth: '3',
-                                strokeDasharray: 'none'
-                              };
-                            } else {
-                              // Default styling for other components
-                              return {
-                                stroke: '#333',
-                                strokeWidth: '2',
-                                strokeDasharray: 'none'
-                              };
-                            }
-                          };
-                          
-                          const borderStyle = getBorderStyle(item);
-
-                          // Render standalone labels without rectangles
-                          if (item.displayAsLabel) {
-                            const fontSize = item.fontSize || 14;
-                            const textColor = item.textColor || '#333333';
-                            return (
-                              <g key={item.id || index}>
-                                <text
-                                  x={item.x}
-                                  y={item.y}
-                                  textAnchor="middle"
-                                  dominantBaseline="middle"
-                                  fontSize={fontSize}
-                                  fontWeight={item.fontWeight || '600'}
-                                  fill={textColor}
-                                >
-                                  {item.text}
-                                </text>
-                              </g>
-                            );
-                          }
-
-                          return (
-                            <g key={item.id || index}>
-                              {/* Item rectangle with enhanced borders */}
-                              <rect
-                                x={item.x}
-                                y={item.y}
-                                width={item.width}
-                                height={item.height}
-                                fill={itemColor}
-                                fillOpacity={fillOpacity}
-                                stroke={borderStyle.stroke}
-                                strokeWidth={borderStyle.strokeWidth}
-                                strokeDasharray={borderStyle.strokeDasharray}
-                                rx={item.cornerRadius ?? 0}
-                                style={{ cursor: isInteractive ? 'pointer' : 'default' }}
-                              />
-
-                              {/* Optional internal grid pattern for specialized racks */}
-                              {item.grid && item.width && item.height && (
-                                (() => {
-                                  const { rows, cols, padding = 0, gap = 0, fill: cellFill = '#FFFFFF', stroke: cellStroke = '#B0BEC5' } = item.grid;
-                                  const effectiveWidth = item.width - padding * 2 - gap * (cols - 1);
-                                  const effectiveHeight = item.height - padding * 2 - gap * (rows - 1);
-                                  const cellWidth = cols > 0 ? effectiveWidth / cols : 0;
-                                  const cellHeight = rows > 0 ? effectiveHeight / rows : 0;
-
-                                  if (cellWidth <= 0 || cellHeight <= 0) {
-                                    return null;
-                                  }
-
-                                  const cells = [];
-                                  for (let row = 0; row < rows; row++) {
-                                    for (let col = 0; col < cols; col++) {
-                                      const cellX = item.x + padding + col * (cellWidth + gap);
-                                      const cellY = item.y + padding + row * (cellHeight + gap);
-                                      cells.push(
-                                        <rect
-                                          key={`${item.id}-cell-${row}-${col}`}
-                                          x={cellX}
-                                          y={cellY}
-                                          width={cellWidth}
-                                          height={cellHeight}
-                                          fill={cellFill}
-                                          stroke={cellStroke}
-                                          strokeWidth="0.75"
-                                          rx={0}
-                                        />
-                                      );
-                                    }
-                                  }
-
-                                  return <g>{cells}</g>;
-                                })()
-                              )}
-
-                              {/* Operational status indicator */}
-                              {opData && opData.status && (
-                                <circle
-                                  cx={item.x + item.width - 8}
-                                  cy={item.y + 8}
-                                  r="4"
-                                  fill={getStatusColor(opData.status)}
-                                  stroke="white"
-                                  strokeWidth="1"
-                                />
-                              )}
-                              
-                              {/* Utilization bar for storage items */}
-                              {opData && opData.type === 'storage' && item.width > 40 && (
-                                <g>
-                                  <rect
-                                    x={item.x + 5}
-                                    y={item.y + item.height - 12}
-                                    width={item.width - 10}
-                                    height="4"
-                                    fill="#e0e0e0"
-                                    rx="2"
-                                  />
-                                  <rect
-                                    x={item.x + 5}
-                                    y={item.y + item.height - 12}
-                                    width={(item.width - 10) * (opData.utilization / 100)}
-                                    height="4"
-                                    fill={getUtilizationColor(opData.utilization)}
-                                    rx="2"
-                                  />
-                                </g>
-                              )}
-                              
-                              {/* Real-time metrics display for storage units */}
-                              {opData && opData.type === 'storage' && item.width > 60 && item.height > 40 && (
-                                <g>
-                                  {/* Unit ID */}
-                                  <text
-                                    x={item.x + 5}
-                                    y={item.y + 15}
-                                    fontSize="9"
-                                    fill="#333"
-                                    fontWeight="bold"
-                                  >
-                                    {opData.unitId}
-                                  </text>
-                                  
-                                  {/* Capacity info */}
-                                  <text
-                                    x={item.x + item.width / 2}
-                                    y={item.y + item.height / 2 + 15}
-                                    textAnchor="middle"
-                                    dominantBaseline="middle"
-                                    fontSize="10"
-                                    fill="#666"
-                                    fontWeight="bold"
-                                  >
-                                    {opData.occupied}/{opData.capacity}
-                                  </text>
-                                  
-                                  {/* Location info */}
-                                  <text
-                                    x={item.x + item.width / 2}
-                                    y={item.y + item.height / 2 + 28}
-                                    textAnchor="middle"
-                                    dominantBaseline="middle"
-                                    fontSize="8"
-                                    fill="#888"
-                                  >
-                                    {opData.location.zone}-{opData.location.aisle}-{opData.location.position}
-                                  </text>
-                                </g>
-                              )}
-
-                              {/* Zone metrics for larger zones */}
-                              {opData && opData.type === 'zone' && item.width > 100 && item.height > 60 && (
-                                <g>
-                                  {/* Zone ID */}
-                                  <text
-                                    x={item.x + 8}
-                                    y={item.y + 18}
-                                    fontSize="11"
-                                    fill="#333"
-                                    fontWeight="bold"
-                                  >
-                                    {opData.zoneId}
-                                  </text>
-                                  
-                                  {/* Throughput */}
-                                  <text
-                                    x={item.x + 8}
-                                    y={item.y + 35}
-                                    fontSize="9"
-                                    fill="#666"
-                                  >
-                                    {opData.throughput} items/hr
-                                  </text>
-                                  
-                                  {/* Workers */}
-                                  <text
-                                    x={item.x + 8}
-                                    y={item.y + 48}
-                                    fontSize="9"
-                                    fill="#666"
-                                  >
-                                    👥 {opData.activeWorkers} workers
-                                  </text>
-                                  
-                                  {/* Efficiency */}
-                                  <text
-                                    x={item.x + item.width - 8}
-                                    y={item.y + 18}
-                                    textAnchor="end"
-                                    fontSize="9"
-                                    fill={parseFloat(opData.efficiency) > 90 ? "#28a745" : "#ffc107"}
-                                    fontWeight="bold"
-                                  >
-                                    {opData.efficiency}
-                                  </text>
-                                </g>
-                              )}
-                              
-                              {/* Fixed info icon for ALL interactive items */}
-                              {isInteractive && (
-                                <g>
-                                  <circle
-                                    cx={item.x + item.width - 12}
-                                    cy={item.y + 12}
-                                    r="10"
-                                    fill="rgba(0, 123, 255, 0.9)"
-                                    stroke="white"
-                                    strokeWidth="2"
-                                    style={{ cursor: 'pointer' }}
-                                  />
-                                  <text
-                                    x={item.x + item.width - 12}
-                                    y={item.y + 12}
-                                    textAnchor="middle"
-                                    dominantBaseline="middle"
-                                    fontSize="12"
-                                    fill="white"
-                                    fontWeight="bold"
-                                  >
-                                    ℹ
-                                  </text>
-                                </g>
-                              )}
-                              
-                              {/* Custom text inside component blocks when provided */}
-                              {item.textLines && item.textLines.length > 0 && (
-                                <g>
-                                  {item.textLines.map((line, lineIndex) => {
-                                    const totalLines = item.textLines.length;
-                                    const fontSize = item.textSize || 14;
-                                    const verticalSpacing = fontSize + 4;
-                                    const textStartY = item.y + (item.height / 2) - ((totalLines - 1) * verticalSpacing) / 2;
-                                    return (
-                                      <text
-                                        key={`${item.id}-line-${lineIndex}`}
-                                        x={item.x + item.width / 2}
-                                        y={textStartY + lineIndex * verticalSpacing}
-                                        textAnchor="middle"
-                                        fontSize={fontSize}
-                                        fontWeight={item.fontWeight || '600'}
-                                        fill={item.textColor || '#204051'}
-                                      >
-                                        {line}
-                                      </text>
-                                    );
-                                  })}
-                                </g>
-                              )}
-
-                              {/* Unified Component Label - Below Every Component */}
-                              {(() => {
-                                // Generate smart label for operational view
-                                const getOperationalLabel = () => {
-                                  if (item.label && item.label.trim()) return item.label.trim();
-                                  if (item.locationTag && item.locationTag.trim()) return item.locationTag.trim();
-                                  if (item.name && item.name.trim() && item.name !== 'Untitled') return item.name.trim();
-                                  
-                                  // Auto-generate based on type
-                                  const typeLabels = {
-                                    'storage_unit': 'RACK',
-                                    'sku_holder': 'HSR',
-                                    'vertical_sku_holder': 'VSR',
-                                    'warehouse_block': 'BLOCK',
-                                    'storage_zone': 'ZONE',
-                                    'processing_area': 'PROC',
-                                    'container_unit': 'UNIT',
-                                    'zone_divider': 'DIV',
-                                    'area_boundary': 'AREA',
-                                    'square_boundary': 'BOUND',
-                                    'solid_boundary': 'WALL',
-                                    'dotted_boundary': 'LINE'
-                                  };
-                                  
-                                  const prefix = typeLabels[item.type] || 'ITEM';
-                                  const sameTypeItems = unit.layoutData.items.filter(i => i.type === item.type);
-                                  const index = sameTypeItems.indexOf(item) + 1;
-                                  
-                                  // Use letters for zones, numbers for others
-                                  const isZone = item.containerLevel === 2;
-                                  if (isZone && index <= 26) {
-                                    return String.fromCharCode(64 + index); // A, B, C, etc.
-                                  }
-                                  
-                                  return `${prefix}-${index.toString().padStart(2, '0')}`;
-                                };
-
-                                const label = item.disableAutoLabel ? null : getOperationalLabel();
-                                if (!label) return null;
-
-                                // Determine component type for styling
-                                const isZone = item.containerLevel === 2;
-                                const isBoundary = item.containerLevel === 1;
-                                
-                                // Calculate label styling
-                                const fontSize = Math.min(Math.max(item.width / 12, 9), 14);
-                                let labelColor = '#16a085';
-                                let bgColor = 'rgba(26, 188, 156, 0.1)';
-                                let borderColor = '#1abc9c';
-                                
-                                if (isZone) {
-                                  labelColor = '#2c3e50';
-                                  bgColor = 'rgba(52, 152, 219, 0.1)';
-                                  borderColor = '#3498db';
-                                } else if (isBoundary) {
-                                  labelColor = '#34495e';
-                                  bgColor = 'rgba(149, 165, 166, 0.15)';
-                                  borderColor = '#95a5a6';
-                                }
-
-                                return (
-                                  <g>
-                                    {/* Label background */}
-                                    <rect
-                                      x={item.x + item.width / 2 - Math.max(label.length * fontSize * 0.3, 20)}
-                                      y={item.y + item.height + 5}
-                                      width={Math.max(label.length * fontSize * 0.6, 40)}
-                                      height={fontSize + 6}
-                                      fill={bgColor}
-                                      stroke={borderColor}
-                                      strokeWidth="1"
-                                      rx="3"
-                                    />
-                                    {/* Label text */}
-                                    <text
-                                      x={item.x + item.width / 2}
-                                      y={item.y + item.height + fontSize + 8}
-                                      textAnchor="middle"
-                                      fontSize={fontSize}
-                                      fontWeight="600"
-                                      fill={labelColor}
-                                    >
-                                      {label}
-                                    </text>
-                                  </g>
-                                );
-                              })()}
-                              
-                              {/* SKU compartments for SKU holders */}
-                              {item.compartmentContents && Object.keys(item.compartmentContents).length > 0 && (
-                                <g>
-                                  {Object.entries(item.compartmentContents).map(([compartmentId, skuData]) => {
-                                    const [row, col] = compartmentId.split('-').map(Number);
-                                    const compartmentSize = 20;
-                                    const compartmentX = item.x + (col * compartmentSize) + 5;
-                                    const compartmentY = item.y + (row * compartmentSize) + 5;
-                                    
-                                    return (
-                                      <g key={compartmentId}>
-                                        <rect
-                                          x={compartmentX}
-                                          y={compartmentY}
-                                          width={compartmentSize - 2}
-                                          height={compartmentSize - 2}
-                                          fill="#E0F7FA"
-                                          stroke="#00BCD4"
-                                          strokeWidth="1"
-                                        />
-                                        <text
-                                          x={compartmentX + compartmentSize / 2}
-                                          y={compartmentY + compartmentSize / 2 + 3}
-                                          textAnchor="middle"
-                                          fontSize="8"
-                                          fill="#006064"
-                                        >
-                                          {(skuData.uniqueId || skuData.sku || '').substring(0, 3)}
-                                        </text>
-                                      </g>
-                                    );
-                                  })}
-                                </g>
-                              )}
-                            </g>
-                          );
-                        })}
-                        
-                        {/* Layout info with optimization indicator */}
-                        <text x={viewBoxX + 20} y={viewBoxY + viewBoxHeight - 40} fontSize="12" fill="#666">
-                          Created: {new Date(unit.layoutData.timestamp).toLocaleDateString()}
-                        </text>
-                        <text x={viewBoxX + 20} y={viewBoxY + viewBoxHeight - 20} fontSize="11" fill="#28a745" fontWeight="bold">
-                          ✓ Ultra-tight optimized layout - Zero white space
-                        </text>
-                      </svg>
+                      <SavedLayoutRenderer
+                        items={layoutItems}
+                        metadata={{
+                          name: unit.layoutData.name || unit.name,
+                          timestamp: unit.layoutData.timestamp
+                        }}
+                        width="100%"
+                        height="100%"
+                        showLabels
+                        highlightedKeys={highlightedItems}
+                      />
                     );
                   }
-                  
+
                   // For default units, show demo map
                   const demoData = demoMapsData[selectedUnitForDemo];
                   if (!demoData) {

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import SavedLayoutRenderer, { getLayoutItemKey } from './SavedLayoutRenderer';
 
 const renderDemoLayout = (demoData) => (
   <svg width="100%" height="100%" viewBox="0 0 700 320" className="fullscreen-warehouse-svg">
@@ -397,8 +398,9 @@ const FullscreenMap = () => {
     if (mapData && mapData.layoutData && mapData.layoutData.items) {
       mapData.layoutData.items.forEach((item, index) => {
         const itemId = `item-${index}`;
+        const itemKey = getLayoutItemKey(item) || itemId;
         const opData = operationalData[itemId];
-        
+
         let matchesSearch = false;
         let matchesDropdowns = true;
         
@@ -436,8 +438,9 @@ const FullscreenMap = () => {
         // Item must match dropdown filters
         if (matchesDropdowns) {
           if (opData && (opData.type === 'storage' || opData.type === 'zone')) {
-            let title, subtitle;
-            
+            let title,
+              subtitle;
+
             if (opData.type === 'storage') {
               title = `Location: ${opData.unitId}`;
               subtitle = `Zone ${opData.location.zone}, Aisle ${opData.location.aisle}, Position ${opData.location.position}`;
@@ -445,18 +448,18 @@ const FullscreenMap = () => {
               title = `Zone: ${opData.zoneId}`;
               subtitle = `Throughput: ${opData.throughput} items/hr`;
             }
-            
+
             results.push({
-              id: itemId,
+              id: itemKey,
               type: 'location',
               title: title,
               subtitle: subtitle,
               item: item,
               opData: opData
             });
-            highlighted.push(itemId);
+            highlighted.push(itemKey);
           }
-          
+
           // Add SKU-specific results if SKU filter is active
           if (selectedSku && opData && opData.skus) {
             Object.values(opData.skus).forEach(itemData => {
@@ -465,7 +468,7 @@ const FullscreenMap = () => {
                   itemData.category === selectedSku ||
                   itemData.brand === selectedSku) {
                 results.push({
-                  id: itemId,
+                  id: itemKey,
                   type: 'item',
                   title: `Item: ${itemData.uniqueId}`,
                   subtitle: `${itemData.description} - ${itemData.sku}`,
@@ -473,8 +476,8 @@ const FullscreenMap = () => {
                   itemData: itemData,
                   opData: opData
                 });
-                if (!highlighted.includes(itemId)) {
-                  highlighted.push(itemId);
+                if (!highlighted.includes(itemKey)) {
+                  highlighted.push(itemKey);
                 }
               }
             });
@@ -1167,8 +1170,12 @@ const FullscreenMap = () => {
 
   if (!mapData) {
     return (
-      <div className="fullscreen-loading">
-        <h1>Loading Map...</h1>
+      <div className="fullscreen-map-container">
+        <div className="error-message">
+          <h2>Map Data Not Found</h2>
+          <p>{error || 'No map data was provided.'}</p>
+          <p>Please return to the dashboard and select a warehouse map to view.</p>
+        </div>
       </div>
     );
   }
@@ -1292,9 +1299,33 @@ const FullscreenMap = () => {
 
       <div className="fullscreen-map-content">
         <div className="map-display-area">
-          {isCustomLayout && layoutData && layoutData.items ? (
+          {isCustomLayout && layoutData && Array.isArray(layoutData.items) ? (
             <div className="fullscreen-custom-layout">
-              {renderCustomLayout(layoutData.items)}
+              {layoutData.items.length === 0 ? (
+                <div className="empty-layout-message">
+                  <h3>No components found in this layout</h3>
+                  <p>The saved layout does not contain any items to display.</p>
+                </div>
+              ) : (
+                <SavedLayoutRenderer
+                  items={layoutData.items}
+                  metadata={{
+                    name: layoutData.name || unit?.name,
+                    timestamp: layoutData.timestamp
+                  }}
+                  width="100%"
+                  height="100%"
+                  showLabels
+                  highlightedKeys={highlightedItems}
+                  padding={8}
+                  allowUpscale
+                  stageBackground="transparent"
+                  stageBorder="none"
+                  stageShadow="none"
+                  stageBorderRadius="0px"
+                  showMetadata={false}
+                />
+              )}
             </div>
           ) : demoData ? (
             <div className="fullscreen-demo-layout">

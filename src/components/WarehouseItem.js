@@ -30,6 +30,103 @@ const getContrastColorForHex = (hexColor) => {
   return luminance > 0.6 ? '#000000' : '#FFFFFF';
 };
 
+const collectVerticalMappings = (item) => {
+  if (!item) {
+    return 0;
+  }
+
+  const mappingKeys = new Set();
+  const recordMapping = (levelId, locationId) => {
+    const normalizedLevel = levelId ? String(levelId).trim().toUpperCase() : '';
+    const normalizedLocation = locationId ? String(locationId).trim().toUpperCase() : '';
+
+    if (!normalizedLevel && !normalizedLocation) {
+      return;
+    }
+
+    const key = `${normalizedLevel}|${normalizedLocation}`;
+    mappingKeys.add(key);
+  };
+
+  const processLevelArrays = (levelIds = [], locationIds = []) => {
+    const maxLength = Math.max(levelIds.length, locationIds.length);
+    for (let index = 0; index < maxLength; index += 1) {
+      recordMapping(levelIds[index], locationIds[index]);
+    }
+  };
+
+  const processMappings = (mappings = []) => {
+    mappings.forEach((mapping) => {
+      if (!mapping) return;
+      recordMapping(mapping.levelId ?? mapping.level, mapping.locationId ?? mapping.locId);
+    });
+  };
+
+  const processContent = (content = {}) => {
+    if (!content) return;
+
+    if (Array.isArray(content.levelLocationMappings) && content.levelLocationMappings.length > 0) {
+      processMappings(content.levelLocationMappings);
+    }
+
+    const hasLevelArrays = Array.isArray(content.levelIds) || Array.isArray(content.locationIds);
+    if (hasLevelArrays) {
+      processLevelArrays(content.levelIds || [], content.locationIds || []);
+    }
+
+    if (content.isMultiLocation) {
+      if (Array.isArray(content.locationIds) && content.locationIds.length > 0 && !hasLevelArrays) {
+        content.locationIds.forEach((locationId, index) => {
+          const derivedLevel = Array.isArray(content.tags) ? content.tags[index] : undefined;
+          recordMapping(derivedLevel, locationId);
+        });
+      } else if (content.primaryLocationId && !hasLevelArrays) {
+        recordMapping(content.primaryLocationId, content.primaryLocationId);
+      }
+    } else if (content.locationId || content.uniqueId) {
+      recordMapping(content.levelId, content.locationId || content.uniqueId);
+    }
+  };
+
+  if (item.compartmentContents && typeof item.compartmentContents === 'object') {
+    Object.values(item.compartmentContents).forEach((content) => {
+      processContent(content);
+    });
+  }
+
+  if (mappingKeys.size === 0) {
+    processMappings(item.levelLocationMappings);
+  }
+
+  if (mappingKeys.size === 0) {
+    const hasLevelArrays = Array.isArray(item.levelIds) || Array.isArray(item.locationIds);
+    if (hasLevelArrays) {
+      processLevelArrays(item.levelIds || [], item.locationIds || []);
+    }
+  }
+
+  if (mappingKeys.size === 0 && typeof item.locationId === 'string') {
+    const trimmed = item.locationId.trim();
+    if (trimmed) {
+      const plusIndex = trimmed.indexOf('+');
+      if (plusIndex !== -1) {
+        const base = trimmed.slice(0, plusIndex);
+        const extra = parseInt(trimmed.slice(plusIndex + 1), 10);
+        recordMapping('L1', base);
+        if (!Number.isNaN(extra) && extra > 0) {
+          for (let index = 1; index <= extra; index += 1) {
+            recordMapping(`L${index + 1}`, `${base}-${index}`);
+          }
+        }
+      } else {
+        recordMapping('L1', trimmed);
+      }
+    }
+  }
+
+  return mappingKeys.size;
+};
+
 const WarehouseItem = ({ 
   item, 
   isSelected, 
@@ -42,7 +139,9 @@ const WarehouseItem = ({
   onRequestSkuId, 
   onRightClick, 
   onInfoClick, 
-  stackMode 
+  stackMode, 
+  isReadOnly,
+  isHighlighted = false
 }) => {
   const [{ isDragging }, drag] = useDrag({
     type: DRAG_TYPES.WAREHOUSE_ITEM,
@@ -54,7 +153,7 @@ const WarehouseItem = ({
       isPositionLocked: item.isPositionLocked,
       isSizeLocked: item.isSizeLocked
     },
-    canDrag: () => !item.isPositionLocked, // Prevent dragging when position is locked
+    canDrag: () => !isReadOnly && !item.isPositionLocked, // Prevent dragging when position is locked or in read-only mode
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
@@ -62,7 +161,14 @@ const WarehouseItem = ({
 
   const handleClick = (e) => {
     e.stopPropagation();
-    
+
+    if (isReadOnly) {
+      if (onSelect) {
+        onSelect(item.id);
+      }
+      return;
+    }
+
     // Handle Storage Unit / Spare Unit Location assignment
     const isSingleSkuUnit = (item.type === 'storage_unit' || item.type === 'spare_unit') && item.hasSku && item.singleSku;
     if (isSingleSkuUnit && onRequestSkuId && !item.locationId) {
@@ -76,6 +182,9 @@ const WarehouseItem = ({
 
   const handleDoubleClick = (e) => {
     e.stopPropagation();
+    if (isReadOnly) {
+      return;
+    }
     const newName = prompt('Enter new name:', item.name);
     if (newName && newName !== item.name) {
       onUpdate(item.id, { name: newName });
@@ -202,10 +311,10 @@ const WarehouseItem = ({
                (isContainer ? `3px solid ${getComponentColor(item.type)}` : 
                (isContained ? `2px dashed ${getComponentColor(item.type) || statusColor}` : `3px solid ${getComponentColor(item.type) || statusColor}`))))),
         borderRadius: '0px',
-        boxShadow: 'none',
+        boxShadow: isHighlighted ? '0 0 12px 3px rgba(79, 70, 229, 0.6)' : 'none',
         opacity: isDragging ? 0.7 : 1,
         position: 'absolute',
-        zIndex: isMainBoundary ? 0 : (isZone ? 1 : (isContainer ? 1 : (isContained ? 10 : 5)))
+        zIndex: isHighlighted ? 20 : (isMainBoundary ? 0 : (isZone ? 1 : (isContainer ? 1 : (isContained ? 10 : 5))))
       }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
@@ -216,10 +325,14 @@ const WarehouseItem = ({
       
       {/* Storage Racks - Show only Location ID in black text */}
       {(item.type === 'sku_holder' || item.type === 'vertical_sku_holder') && !item.showCompartments && (() => {
-        // Only show location ID if user has actually selected one from dropdown
-        const locationInfo = item.locationId || null;
-        
-        return locationInfo ? (
+        let displayText = item.locationId || null;
+
+        if (item.type === 'vertical_sku_holder') {
+          const totalLevels = collectVerticalMappings(item);
+          displayText = totalLevels > 0 ? `${totalLevels} Level${totalLevels > 1 ? 's' : ''}` : null;
+        }
+
+        return displayText ? (
           <div style={{
             position: 'absolute',
             top: '50%',
@@ -237,7 +350,7 @@ const WarehouseItem = ({
               fontSize: '11px',
               fontWeight: 'bold'
             }}>
-              {locationInfo}
+              {displayText}
             </div>
           </div>
         ) : null;
@@ -830,7 +943,7 @@ const WarehouseItem = ({
       )}
 
       {/* Resize handles for resizable components - hidden when size is locked */}
-      {item.resizable && isSelected && !item.isSizeLocked && (
+      {item.resizable && isSelected && !item.isSizeLocked && !isReadOnly && (
         <>
           {/* Corner resize handle (bottom-right) */}
           <div
@@ -906,7 +1019,8 @@ WarehouseItem.propTypes = {
   onRequestSkuId: PropTypes.func,
   onRightClick: PropTypes.func,
   onInfoClick: PropTypes.func,
-  stackMode: PropTypes.bool
+  stackMode: PropTypes.bool,
+  isReadOnly: PropTypes.bool
 };
 
 // Default props
@@ -918,7 +1032,8 @@ WarehouseItem.defaultProps = {
   onRequestSkuId: null,
   onRightClick: null,
   onInfoClick: null,
-  stackMode: false
+  stackMode: false,
+  isReadOnly: false
 };
 
 export default WarehouseItem;

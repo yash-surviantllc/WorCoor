@@ -50,40 +50,12 @@ const TopNavbar = ({
 }) => {
   const [activeDropdown, setActiveDropdown] = useState(null);
 
-  // Organizational hierarchy with nested units (mirrors live warehouse map grouping)
-  const orgHierarchy = [
-    {
-      id: 'warehouse-1',
-      name: 'Warehouse 1',
-      location: 'Building A',
-      units: [
-        { id: 'wh1-unit1', name: 'Unit 1', description: 'Primary storage and operations area' },
-        { id: 'wh1-unit2', name: 'Unit 2', description: 'Upper level storage and offices' },
-        { id: 'wh1-unit3', name: 'Unit 3', description: 'Truck loading and receiving zones' },
-        { id: 'wh1-unit4', name: 'Unit 4', description: 'Temperature-controlled storage' }
-      ]
-    },
-    {
-      id: 'warehouse-2',
-      name: 'Warehouse 2',
-      location: 'Building B',
-      units: [
-        { id: 'wh2-unit1', name: 'Unit 1', description: 'Central processing and storage' },
-        { id: 'wh2-unit2', name: 'Unit 2', description: 'Product assembly and packaging' },
-        { id: 'wh2-unit3', name: 'Unit 3', description: 'Inspection and testing area' },
-        { id: 'wh2-unit4', name: 'Unit 4', description: 'Returns handling and sorting' }
-      ]
-    },
-    {
-      id: 'warehouse-3',
-      name: 'Warehouse 3',
-      location: 'Building C',
-      units: [
-        { id: 'wh3-unit1', name: 'Unit 1', description: 'Main distribution operations' },
-        { id: 'wh3-unit2', name: 'Unit 2', description: 'Conveyor and sorting systems' },
-        { id: 'wh3-unit3', name: 'Unit 3', description: 'Order staging and preparation' }
-      ]
-    }
+  // Flat org unit list shown in dropdown (per latest requirements)
+  const orgUnitOptions = [
+    { id: 'unit-1', name: 'Unit 1' },
+    { id: 'production-unit-1', name: 'Production Unit 1' },
+    { id: 'asset-storing-facility', name: 'Asset Storing Facility' },
+    { id: 'main-office', name: 'Main Office' }
   ];
 
   const toggleDropdown = (dropdown) => {
@@ -94,12 +66,12 @@ const TopNavbar = ({
     setActiveDropdown(null);
   };
 
-  const handleOrgUnitAndMapSelect = (orgUnit, unit) => {
+  const handleOrgUnitSelectInternal = (orgUnit) => {
     if (onOrgUnitSelect) {
       onOrgUnitSelect({ orgUnit, status: { id: 'operational', name: 'Operational' } });
     }
     if (onOrgMapSelect) {
-      onOrgMapSelect(unit);
+      onOrgMapSelect(null);
     }
     closeDropdowns();
   };
@@ -143,29 +115,25 @@ const TopNavbar = ({
             </button>
             {activeDropdown === 'orgUnit' && (
               <div className="modern-dropdown">
-                {orgHierarchy.map(org => (
-                  <div key={org.id} className="dropdown-group">
-                    <div className="dropdown-group-header">
-                      <div className="group-title">{org.name}</div>
-                      <div className="group-subtitle">{org.location}</div>
-                    </div>
-                    <div className="dropdown-group-options">
-                      {org.units.map(unit => {
-                        const isSelected = selectedOrgUnit?.id === org.id && selectedOrgMap?.id === unit.id;
-                        return (
-                          <button
-                            key={unit.id}
-                            className={`dropdown-option ${isSelected ? 'selected' : ''}`}
-                            onClick={() => handleOrgUnitAndMapSelect(org, unit)}
-                          >
-                            <span className="option-text">{unit.name}</span>
-                            <span className="option-meta">{unit.description}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                <div className="dropdown-group single-column">
+                  <div className="dropdown-group-header">
+                    <div className="group-title">Name</div>
                   </div>
-                ))}
+                  <div className="dropdown-group-options">
+                    {orgUnitOptions.map(option => {
+                      const isSelected = selectedOrgUnit?.id === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          className={`dropdown-option ${isSelected ? 'selected' : ''}`}
+                          onClick={() => handleOrgUnitSelectInternal(option)}
+                        >
+                          <span className="option-text">{option.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
           </div>

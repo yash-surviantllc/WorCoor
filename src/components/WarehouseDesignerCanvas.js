@@ -2,6 +2,103 @@ import React, { forwardRef, useCallback, useState } from 'react';
 import { useDrop } from 'react-dnd';
 import { getComponentColor } from '../utils/componentColors';
 
+const collectVerticalMappings = (item) => {
+  if (!item) {
+    return 0;
+  }
+
+  const mappingKeys = new Set();
+  const recordMapping = (levelId, locationId) => {
+    const normalizedLevel = levelId ? String(levelId).trim().toUpperCase() : '';
+    const normalizedLocation = locationId ? String(locationId).trim().toUpperCase() : '';
+
+    if (!normalizedLevel && !normalizedLocation) {
+      return;
+    }
+
+    const key = `${normalizedLevel}|${normalizedLocation}`;
+    mappingKeys.add(key);
+  };
+
+  const processLevelArrays = (levelIds = [], locationIds = []) => {
+    const maxLength = Math.max(levelIds.length, locationIds.length);
+    for (let index = 0; index < maxLength; index += 1) {
+      recordMapping(levelIds[index], locationIds[index]);
+    }
+  };
+
+  const processMappings = (mappings = []) => {
+    mappings.forEach((mapping) => {
+      if (!mapping) return;
+      recordMapping(mapping.levelId ?? mapping.level, mapping.locationId ?? mapping.locId);
+    });
+  };
+
+  const processContent = (content = {}) => {
+    if (!content) return;
+
+    if (Array.isArray(content.levelLocationMappings) && content.levelLocationMappings.length > 0) {
+      processMappings(content.levelLocationMappings);
+    }
+
+    const hasLevelArrays = Array.isArray(content.levelIds) || Array.isArray(content.locationIds);
+    if (hasLevelArrays) {
+      processLevelArrays(content.levelIds || [], content.locationIds || []);
+    }
+
+    if (content.isMultiLocation) {
+      if (Array.isArray(content.locationIds) && content.locationIds.length > 0 && !hasLevelArrays) {
+        content.locationIds.forEach((locationId, index) => {
+          const derivedLevel = Array.isArray(content.tags) ? content.tags[index] : undefined;
+          recordMapping(derivedLevel, locationId);
+        });
+      } else if (content.primaryLocationId && !hasLevelArrays) {
+        recordMapping(content.primaryLocationId, content.primaryLocationId);
+      }
+    } else if (content.locationId || content.uniqueId) {
+      recordMapping(content.levelId, content.locationId || content.uniqueId);
+    }
+  };
+
+  if (item.compartmentContents && typeof item.compartmentContents === 'object') {
+    Object.values(item.compartmentContents).forEach((content) => {
+      processContent(content);
+    });
+  }
+
+  if (mappingKeys.size === 0) {
+    processMappings(item.levelLocationMappings);
+  }
+
+  if (mappingKeys.size === 0) {
+    const hasLevelArrays = Array.isArray(item.levelIds) || Array.isArray(item.locationIds);
+    if (hasLevelArrays) {
+      processLevelArrays(item.levelIds || [], item.locationIds || []);
+    }
+  }
+
+  if (mappingKeys.size === 0 && typeof item.locationId === 'string') {
+    const trimmed = item.locationId.trim();
+    if (trimmed) {
+      const plusIndex = trimmed.indexOf('+');
+      if (plusIndex !== -1) {
+        const base = trimmed.slice(0, plusIndex);
+        const extra = parseInt(trimmed.slice(plusIndex + 1), 10);
+        recordMapping('L1', base);
+        if (!Number.isNaN(extra) && extra > 0) {
+          for (let index = 1; index <= extra; index += 1) {
+            recordMapping(`L${index + 1}`, `${base}-${index}`);
+          }
+        }
+      } else {
+        recordMapping('L1', trimmed);
+      }
+    }
+  }
+
+  return mappingKeys.size;
+};
+
 const WarehouseItem = ({ 
   item, 
   items,
@@ -275,7 +372,10 @@ const WarehouseItem = ({
       const isStorageComponent = item.type === 'storage_unit' || item.type === 'sku_holder' || item.type === 'vertical_sku_holder';
 
       if (isStorageComponent) {
-        // Only show locationId for storage components, nothing else
+        if (item.type === 'vertical_sku_holder') {
+          const levelCount = collectVerticalMappings(item);
+          return levelCount > 0 ? `${levelCount} Level${levelCount > 1 ? 's' : ''}` : null;
+        }
         return item.locationId || null;
       }
 
@@ -473,6 +573,32 @@ const WarehouseItem = ({
         title={`${item.name} (${item.type})`}
       >
         {renderZoneTypeLabel()}
+
+        {isVerticalStorageRack && (() => {
+          const totalLevels = collectVerticalMappings(item);
+          if (totalLevels <= 0) {
+            return null;
+          }
+
+          return (
+            <div
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                color: '#000',
+                fontWeight: 'bold',
+                fontSize: '11px',
+                pointerEvents: 'none',
+                userSelect: 'none',
+                textAlign: 'center'
+              }}
+            >
+              {`${totalLevels} Level${totalLevels > 1 ? 's' : ''}`}
+            </div>
+          );
+        })()}
         
         {/* Zone state indicators */}
         {isZone && zoneState === 'receiving' && (

@@ -29,6 +29,7 @@ const WarehouseMapView = ({ facilityData }) => {
   const [selectedAsset, setSelectedAsset] = useState('');
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [savedLayouts, setSavedLayouts] = useState([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Load saved layouts from localStorage
   const refreshSavedLayouts = useCallback(() => {
@@ -859,27 +860,13 @@ const WarehouseMapView = ({ facilityData }) => {
     setSearchResults([]);
   };
 
-  // Handle opening map in fullscreen (new tab)
-  const handleOpenFullscreen = (unitId) => {
-    const unit = warehouseUnits.find(u => u.id === unitId);
-    if (!unit) return;
+  // Handle toggling fullscreen mode
+  const handleOpenFullscreen = () => {
+    setIsFullscreen(true);
+  };
 
-    // Create a data URL with the map content
-    const mapData = {
-      unit: unit,
-      isCustomLayout: unit.isCustomLayout,
-      layoutData: unit.layoutData,
-      demoData: unit.isCustomLayout ? null : demoMapsData[unitId]
-    };
-
-    // Encode the data for URL transmission
-    const encodedData = encodeURIComponent(JSON.stringify(mapData));
-    
-    // Create the fullscreen URL
-    const fullscreenUrl = `${window.location.origin}${window.location.pathname}#fullscreen-map=${encodedData}`;
-    
-    // Open in new tab
-    window.open(fullscreenUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+  const handleExitFullscreen = () => {
+    setIsFullscreen(false);
   };
 
   const handleClearAllNotifications = () => {
@@ -1772,8 +1759,33 @@ const WarehouseMapView = ({ facilityData }) => {
 
       {/* Live Map Modal */}
       {showDemoMapModal && selectedUnitForDemo && (
-        <div className="demo-map-modal-overlay" onClick={() => setShowDemoMapModal(false)}>
-          <div className="demo-map-modal-content" onClick={(e) => e.stopPropagation()}>
+        <div 
+          className={`demo-map-modal-overlay ${isFullscreen ? 'fullscreen-mode' : ''}`} 
+          onClick={() => !isFullscreen && setShowDemoMapModal(false)}
+          style={isFullscreen ? {
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 9999,
+            backgroundColor: '#fff'
+          } : {}}
+        >
+          <div 
+            className="demo-map-modal-content" 
+            onClick={(e) => e.stopPropagation()}
+            style={isFullscreen ? {
+              width: '100%',
+              height: '100%',
+              maxWidth: '100%',
+              maxHeight: '100%',
+              margin: 0,
+              borderRadius: 0
+            } : {}}
+          >
             <div className="demo-map-header">
               <div className="demo-map-title">
                 <h2>{(() => {
@@ -1848,14 +1860,26 @@ const WarehouseMapView = ({ facilityData }) => {
               </div>
               
               <div className="demo-map-controls">
-                <button 
-                  className="demo-map-fullscreen-btn" 
-                  onClick={() => handleOpenFullscreen(selectedUnitForDemo)}
-                  title="Open in fullscreen (new tab)"
-                >
-                  ⛶
-                </button>
-                <button className="demo-map-close-btn" onClick={() => setShowDemoMapModal(false)}>×</button>
+                {isFullscreen ? (
+                  <button 
+                    className="demo-map-fullscreen-btn" 
+                    onClick={handleExitFullscreen}
+                    title="Exit fullscreen"
+                  >
+                    ⛶
+                  </button>
+                ) : (
+                  <button 
+                    className="demo-map-fullscreen-btn" 
+                    onClick={handleOpenFullscreen}
+                    title="Enter fullscreen"
+                  >
+                    ⛶
+                  </button>
+                )}
+                {!isFullscreen && (
+                  <button className="demo-map-close-btn" onClick={() => setShowDemoMapModal(false)}>×</button>
+                )}
               </div>
             </div>
             
@@ -1888,8 +1912,8 @@ const WarehouseMapView = ({ facilityData }) => {
               )}
             </div>
             
-            <div className={`demo-map-body ${isDemoUnit ? '' : 'demo-map-body-single'}`}>
-              <div className="demo-map-canvas">
+            <div className={`demo-map-body ${isDemoUnit ? '' : 'demo-map-body-single'}`} style={{ display: 'flex', flexDirection: 'row', gap: '20px', alignItems: 'stretch' }}>
+              <div className="demo-map-canvas" style={{ flex: 1 }}>
                 {(() => {
                   const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
                   
@@ -2243,16 +2267,14 @@ const WarehouseMapView = ({ facilityData }) => {
                 })()}
               </div>
               
-              {isDemoUnit && (
-                <div className="demo-map-sidebar">
-                  {(() => {
-                    const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
-                    const demoData = demoMapsData[selectedUnitForDemo];
-                    
-                    if (!unit || unit.isCustomLayout || !demoData) {
-                      return null;
-                    }
-                    
+              {/* Zone Information Panel - Always visible on the right */}
+              <div className="demo-map-sidebar" style={{ width: '300px', flexShrink: 0, overflowY: 'auto', height: '100%' }}>
+                {(() => {
+                  const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
+                  const demoData = demoMapsData[selectedUnitForDemo];
+                  
+                  // Show zone info for demo units
+                  if (unit && !unit.isCustomLayout && demoData) {
                     return (
                       <>
                         <div className="demo-map-info">
@@ -2300,9 +2322,48 @@ const WarehouseMapView = ({ facilityData }) => {
                         </div>
                       </>
                     );
-                  })()}
-                </div>
-              )}
+                  }
+                  
+                  // Show component summary for custom layouts
+                  if (unit && unit.isCustomLayout && unit.layoutData && Array.isArray(unit.layoutData.items)) {
+                    const componentCounts = {};
+                    unit.layoutData.items.forEach(item => {
+                      const typeMap = {
+                        'storage_unit': 'Storage Unit',
+                        'spare_unit': 'Spare Unit',
+                        'sku_holder': 'Horizontal Storage',
+                        'vertical_sku_holder': 'Vertical Storage',
+                        'square_boundary': 'Square Boundary',
+                        'solid_boundary': 'Solid Boundary',
+                        'dotted_boundary': 'Dotted Boundary'
+                      };
+                      const typeName = typeMap[item.type] || item.type;
+                      componentCounts[typeName] = (componentCounts[typeName] || 0) + 1;
+                    });
+                    
+                    return (
+                      <div className="demo-map-info">
+                        <h3>Layout Components</h3>
+                        <div className="zone-list">
+                          {Object.entries(componentCounts).map(([type, count]) => (
+                            <div key={type} className="zone-info-item">
+                              <div className="zone-color" style={{ backgroundColor: '#3498db' }}></div>
+                              <div className="zone-details">
+                                <div className="zone-name">{type}</div>
+                                <div className="zone-capacity">
+                                  {count} {count === 1 ? 'item' : 'items'}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  return null;
+                })()}
+              </div>
             </div>
             
             {isDemoUnit && (

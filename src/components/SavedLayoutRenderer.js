@@ -34,6 +34,7 @@ const SavedLayoutRenderer = ({
   background = '#f8f9fa',
   showLabels = true,
   highlightedKeys = [],
+  filteredKeys = [],
   padding = DEFAULT_PADDING,
   allowUpscale = false,
   stageBackground = '#ffffff',
@@ -166,6 +167,8 @@ const SavedLayoutRenderer = ({
   }, [containerSize, contentWidth, contentHeight, allowUpscale]);
 
   const highlightedKeySet = useMemo(() => new Set(highlightedKeys.map(String)), [highlightedKeys]);
+  const filteredKeySet = useMemo(() => new Set(filteredKeys.map(String)), [filteredKeys]);
+  const hasActiveFilters = filteredKeys.length > 0;
 
   return (
     <div
@@ -252,25 +255,35 @@ const SavedLayoutRenderer = ({
           >
             {adjustedItems.map((item) => {
               const itemKey = item.__layoutKey || getLayoutItemKey(item);
+              const isFaded = hasActiveFilters && !filteredKeySet.has(itemKey);
+              
               return (
-                <WarehouseItem
+                <div
                   key={itemKey}
-                  item={item}
-                  isSelected={false}
-                  onSelect={noop}
-                  onUpdate={noop}
-                  onDelete={noop}
-                  zoomLevel={zoomLevel}
-                  snapToGrid={false}
-                  gridSize={60}
-                  onRequestSkuId={null}
-                  onRightClick={null}
-                  onInfoClick={null}
-                  stackMode={false}
-                  isReadOnly
-                  showLabels={showLabels}
-                  isHighlighted={highlightedKeySet.has(itemKey)}
-                />
+                  style={{
+                    opacity: isFaded ? 0.2 : 1,
+                    transition: 'opacity 0.3s ease',
+                    pointerEvents: isFaded ? 'none' : 'auto'
+                  }}
+                >
+                  <WarehouseItem
+                    item={item}
+                    isSelected={false}
+                    onSelect={noop}
+                    onUpdate={noop}
+                    onDelete={noop}
+                    zoomLevel={zoomLevel}
+                    snapToGrid={false}
+                    gridSize={60}
+                    onRequestSkuId={null}
+                    onRightClick={null}
+                    onInfoClick={null}
+                    stackMode={false}
+                    isReadOnly
+                    showLabels={showLabels}
+                    isHighlighted={highlightedKeySet.has(itemKey)}
+                  />
+                </div>
               );
             })}
           </div>

@@ -1131,7 +1131,66 @@ const WarehouseMapView = ({ facilityData }) => {
     };
   }, [showGlobalSearchDropdown]);
 
-  // Dropdown filter handlers - No filtering logic, just state management
+  // Calculate which items should be faded based on filters
+  const getFilteredItemKeys = useCallback(() => {
+    if (!selectedUnitForDemo || (!selectedLocationTag && !selectedSku && !selectedAsset)) {
+      return []; // No filters active, show all items normally
+    }
+
+    const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
+    if (!unit?.isCustomLayout || !unit?.layoutData?.items) {
+      return [];
+    }
+
+    const matchingKeys = [];
+    const typeMap = {
+      'Storage Unit': 'storage_unit',
+      'Spare Unit': 'spare_unit',
+      'Horizontal Storage': 'sku_holder',
+      'Vertical Storage': 'vertical_sku_holder',
+      'Square Boundary': 'square_boundary',
+      'Solid Boundary': 'solid_boundary',
+      'Dotted Boundary': 'dotted_boundary'
+    };
+
+    unit.layoutData.items.forEach((item, index) => {
+      const itemKey = getLayoutItemKey(item) || `${unit.id}-${item.id || index}`;
+      let matches = true;
+
+      // Check location filter
+      if (selectedLocationTag) {
+        const locationMatches = item.locationId === selectedLocationTag ||
+          item.locationCode === selectedLocationTag ||
+          item.locationTag === selectedLocationTag;
+        matches = matches && locationMatches;
+      }
+
+      // Check SKU filter
+      if (selectedSku && item.compartmentContents) {
+        const skuMatches = Object.values(item.compartmentContents).some((content) =>
+          content.locationId === selectedSku ||
+          content.sku === selectedSku ||
+          content.uniqueId === selectedSku
+        );
+        matches = matches && skuMatches;
+      }
+
+      // Check asset/type filter
+      if (selectedAsset) {
+        const itemType = typeMap[selectedAsset] || selectedAsset.toLowerCase().replace(/ /g, '_');
+        const assetMatches = item.type === itemType;
+        matches = matches && assetMatches;
+      }
+
+      if (matches) {
+        matchingKeys.push(itemKey);
+      }
+    });
+
+    return matchingKeys;
+  }, [selectedUnitForDemo, selectedLocationTag, selectedSku, selectedAsset]);
+
+  // Dropdown filter handlers
   const handleLocationTagChange = (e) => {
     const value = e.target.value;
     setSelectedLocationTag(value);
@@ -1866,6 +1925,7 @@ const WarehouseMapView = ({ facilityData }) => {
                         height="100%"
                         showLabels
                         showMetadata={false}
+                        filteredKeys={getFilteredItemKeys()}
                       />
                     );
                   }

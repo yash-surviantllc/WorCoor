@@ -262,9 +262,9 @@ const WarehouseItem = ({
         ) : null;
       })()}
 
-      {/* Spare Unit - Simple custom text display */}
+      {/* Spare Unit - Display name inside the square */}
       {item.type === 'spare_unit' && (() => {
-        const displayText = (item.label && item.label.trim()) || (item.name && item.name.trim()) || 'Spare Unit';
+        const displayText = (item.name && item.name.trim()) || 'Spare Unit';
         return (
           <div style={{
             position: 'absolute',
@@ -685,11 +685,14 @@ const WarehouseItem = ({
         </div>
       )}
       
-      {item.type !== 'spare_unit' && (() => {
-        const trimmedLabel = item.label && item.label.trim ? item.label.trim() : (typeof item.label === 'string' ? item.label.trim() : '');
-        const fallbackName = item.name && item.name.trim ? item.name.trim() : (typeof item.name === 'string' ? item.name.trim() : '');
+      {(() => {
+        // Safely get trimmed label and name
+        const trimmedLabel = (item.label && typeof item.label === 'string') ? item.label.trim() : '';
+        const fallbackName = (item.name && typeof item.name === 'string') ? item.name.trim() : '';
+        
+        // Show label if exists, otherwise show name for all components (including spare units)
         const externalLabel = trimmedLabel || fallbackName;
-
+        
         if (!externalLabel) return null;
 
         return (
@@ -698,7 +701,7 @@ const WarehouseItem = ({
             color: '#333',
             textAlign: 'center',
             position: 'absolute',
-            bottom: '-18px',
+            bottom: '-35px',
             left: '50%',
             transform: 'translateX(-50%)',
             whiteSpace: 'nowrap',

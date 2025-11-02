@@ -20,7 +20,6 @@ const WarehouseMapView = ({ facilityData }) => {
   const [globalSearchType, setGlobalSearchType] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [highlightedItems, setHighlightedItems] = useState([]);
   const [dropdownSearchActive, setDropdownSearchActive] = useState(false);
   const [availableLocationTags, setAvailableLocationTags] = useState([]);
   const [availableSkus, setAvailableSkus] = useState([]);
@@ -31,16 +30,14 @@ const WarehouseMapView = ({ facilityData }) => {
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [savedLayouts, setSavedLayouts] = useState([]);
 
-  // Load saved layouts from localStorage and extract dropdown options
+  // Load saved layouts from localStorage
   const refreshSavedLayouts = useCallback(() => {
     const storedLayouts = localStorage.getItem('warehouseLayouts');
     if (storedLayouts) {
       const parsedLayouts = JSON.parse(storedLayouts);
       setSavedLayouts(parsedLayouts);
-      extractDropdownOptionsFromLayouts(parsedLayouts);
     } else {
       setSavedLayouts([]);
-      extractDropdownOptionsFromLayouts([]);
     }
   }, []);
 
@@ -60,8 +57,25 @@ const WarehouseMapView = ({ facilityData }) => {
     };
   }, [refreshSavedLayouts]);
 
-  // Extract dropdown options from saved layouts
-  const extractDropdownOptionsFromLayouts = (layouts) => {
+  // Extract dropdown options from the currently selected unit's layout only
+  const extractDropdownOptionsFromSelectedUnit = useCallback((unitId) => {
+    if (!unitId) {
+      setAvailableLocationTags([]);
+      setAvailableSkus([]);
+      setAvailableAssets([]);
+      return;
+    }
+
+    // Find the selected unit from saved layouts
+    const selectedLayout = savedLayouts.find(layout => layout.id === unitId);
+    
+    if (!selectedLayout?.layoutData?.items) {
+      setAvailableLocationTags([]);
+      setAvailableSkus([]);
+      setAvailableAssets([]);
+      return;
+    }
+
     const locationTags = new Set();
     const skus = new Set();
     const assets = new Set();
@@ -80,6 +94,22 @@ const WarehouseMapView = ({ facilityData }) => {
       if (normalized) {
         skus.add(normalized);
       }
+    };
+
+    const addAsset = (type) => {
+      if (!type) return;
+      // Map component types to readable names
+      const typeMap = {
+        'storage_unit': 'Storage Unit',
+        'spare_unit': 'Spare Unit',
+        'sku_holder': 'Horizontal Storage',
+        'vertical_sku_holder': 'Vertical Storage',
+        'square_boundary': 'Square Boundary',
+        'solid_boundary': 'Solid Boundary',
+        'dotted_boundary': 'Dotted Boundary'
+      };
+      const readableName = typeMap[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      assets.add(readableName);
     };
 
     const collectLocationsFromContent = (content = {}) => {
@@ -128,27 +158,25 @@ const WarehouseMapView = ({ facilityData }) => {
       }
     };
 
-    layouts.forEach((layout) => {
-      if (!layout?.layoutData?.items) {
-        return;
+    // Process only the selected layout's items
+    selectedLayout.layoutData.items.forEach((item) => {
+      collectLocationsFromItem(item);
+
+      // Only add component type to assets
+      if (item.type) {
+        addAsset(item.type);
       }
-
-      layout.layoutData.items.forEach((item) => {
-        collectLocationsFromItem(item);
-
-        if (item.type) {
-          assets.add(item.type.toUpperCase().replace('_', ' '));
-        }
-        if (item.name) {
-          assets.add(item.name);
-        }
-      });
     });
 
     setAvailableLocationTags(Array.from(locationTags).sort());
-    setAvailableSkus([]);
+    setAvailableSkus(Array.from(skus).sort());
     setAvailableAssets(Array.from(assets).sort());
-  };
+  }, [savedLayouts]);
+
+  // Extract dropdown options when selected unit changes
+  useEffect(() => {
+    extractDropdownOptionsFromSelectedUnit(selectedUnitForDemo);
+  }, [selectedUnitForDemo, savedLayouts, extractDropdownOptionsFromSelectedUnit]);
 
   // Close filter dropdown when clicking outside
   useEffect(() => {
@@ -705,12 +733,10 @@ const WarehouseMapView = ({ facilityData }) => {
   const performSearch = (query, type) => {
     if (!query.trim()) {
       setSearchResults([]);
-      setHighlightedItems([]);
       return;
     }
 
     const results = [];
-    const highlighted = [];
     const searchTerm = query.toLowerCase();
 
     // Get current unit data
@@ -754,7 +780,6 @@ const WarehouseMapView = ({ facilityData }) => {
               item: item,
               searchData: searchData
             });
-            highlighted.push(itemId);
           }
         } else if (type === 'item' && searchData && searchData.items) {
           // Search by item/SKU in compartments
@@ -770,8 +795,7 @@ const WarehouseMapView = ({ facilityData }) => {
                 item,
                 itemData
               });
-              highlighted.push(itemId);
-            }
+              }
           });
         }
       });
@@ -791,7 +815,6 @@ const WarehouseMapView = ({ facilityData }) => {
               subtitle: zone.name || 'Demo Zone',
               zone: zone
             });
-            highlighted.push(`zone-${index}`);
           }
         } else if (type === 'item') {
           // Search for items in zones (simulated)
@@ -810,8 +833,7 @@ const WarehouseMapView = ({ facilityData }) => {
                   zone: zone,
                   itemId: itemId
                 });
-                highlighted.push(`zone-${index}`);
-              }
+                  }
             });
           }
         }
@@ -819,7 +841,6 @@ const WarehouseMapView = ({ facilityData }) => {
     }
 
     setSearchResults(results);
-    setHighlightedItems(highlighted);
   };
 
   const handleSearchChange = (e) => {
@@ -836,7 +857,6 @@ const WarehouseMapView = ({ facilityData }) => {
   const clearSearch = () => {
     setSearchQuery('');
     setSearchResults([]);
-    setHighlightedItems([]);
   };
 
   // Handle opening map in fullscreen (new tab)
@@ -1111,105 +1131,26 @@ const WarehouseMapView = ({ facilityData }) => {
     };
   }, [showGlobalSearchDropdown]);
 
-  // Enhanced dropdown search functionality
-  const performDropdownSearch = () => {
-    const hasDropdownFilters = selectedLocationTag || selectedSku || selectedAsset;
-
-    if (!hasDropdownFilters) {
-      setSearchResults([]);
-      setHighlightedItems([]);
-      setDropdownSearchActive(false);
-      return;
-    }
-
-    if (!selectedUnitForDemo) {
-      setSearchResults([]);
-      setHighlightedItems([]);
-      setDropdownSearchActive(false);
-      return;
-    }
-
-    const unit = warehouseUnits.find((u) => u.id === selectedUnitForDemo);
-    if (!unit || !unit.isCustomLayout || !unit.layoutData || !Array.isArray(unit.layoutData.items)) {
-      setSearchResults([]);
-      setHighlightedItems([]);
-      setDropdownSearchActive(false);
-      return;
-    }
-
-    const layoutItems = unit.layoutData.items || [];
-
-    const results = [];
-    const highlighted = [];
-    setDropdownSearchActive(true);
-
-    layoutItems.forEach((item, index) => {
-      const itemKey = getLayoutItemKey(item) || `${unit.id}-${item.id || index}`;
-      let matchesDropdowns = true;
-
-      if (selectedLocationTag) {
-        const locationMatches = item.locationId === selectedLocationTag ||
-          item.locationCode === selectedLocationTag;
-        matchesDropdowns = matchesDropdowns && locationMatches;
-      }
-
-      if (selectedSku && item.compartmentContents) {
-        const skuMatches = Object.values(item.compartmentContents).some((content) =>
-          content.locationId === selectedSku ||
-          content.sku === selectedSku ||
-          content.uniqueId === selectedSku
-        );
-        matchesDropdowns = matchesDropdowns && skuMatches;
-      }
-
-      if (selectedAsset) {
-        const normalizedType = item.type ? item.type.toUpperCase().replace('_', ' ') : '';
-        const assetMatches = normalizedType === selectedAsset || item.name === selectedAsset;
-        matchesDropdowns = matchesDropdowns && assetMatches;
-      }
-
-      if (matchesDropdowns) {
-        results.push({
-          id: itemKey,
-          type: 'location',
-          title: `${item.name || item.type || 'Component'}${item.locationId ? ` • ${item.locationId}` : ''}`,
-          subtitle: unit.layoutData?.name ? `Layout: ${unit.layoutData.name}` : unit.name,
-          item
-        });
-        highlighted.push(itemKey);
-      }
-    });
-
-    setSearchResults(results);
-    setHighlightedItems(highlighted);
-  };
-
-  // Dropdown filter handlers
+  // Dropdown filter handlers - No filtering logic, just state management
   const handleLocationTagChange = (e) => {
     const value = e.target.value;
     setSelectedLocationTag(value);
-    setTimeout(() => performDropdownSearch(), 0);
   };
 
   const handleSkuChange = (e) => {
     const value = e.target.value;
     setSelectedSku(value);
-    setTimeout(() => performDropdownSearch(), 0);
   };
 
   const handleAssetChange = (e) => {
     const value = e.target.value;
     setSelectedAsset(value);
-    setTimeout(() => performDropdownSearch(), 0);
   };
 
   const clearDropdownSearch = () => {
     setSelectedLocationTag('');
     setSelectedSku('');
     setSelectedAsset('');
-    setSearchResults([]);
-    setHighlightedItems([]);
-    setDropdownSearchActive(false);
   };
 
   return (
@@ -1795,7 +1736,6 @@ const WarehouseMapView = ({ facilityData }) => {
               <div className="demo-map-search-inline">
                 <div className="search-dropdown-filters">
                   <div className="dropdown-filter">
-                    <label>📍 Location Tag:</label>
                     <select 
                       value={selectedLocationTag} 
                       onChange={handleLocationTagChange}
@@ -1809,7 +1749,6 @@ const WarehouseMapView = ({ facilityData }) => {
                   </div>
                   
                   <div className="dropdown-filter">
-                    <label>📦 SKU:</label>
                     <select 
                       value={selectedSku} 
                       onChange={handleSkuChange}
@@ -1823,7 +1762,6 @@ const WarehouseMapView = ({ facilityData }) => {
                   </div>
                   
                   <div className="dropdown-filter">
-                    <label>🏭 Asset:</label>
                     <select 
                       value={selectedAsset} 
                       onChange={handleAssetChange}
@@ -1839,9 +1777,11 @@ const WarehouseMapView = ({ facilityData }) => {
                   {/* Clear button only shows when filters are active */}
                   {(selectedLocationTag || selectedSku || selectedAsset) && (
                     <div className="dropdown-filter">
-                      <label>&nbsp;</label>
-                      <button className="search-clear-btn-dropdown" onClick={clearDropdownSearch}>
-                        Clear All
+                      <button 
+                        className="search-clear-btn-dropdown" 
+                        onClick={clearDropdownSearch}
+                        title="Clear All"
+                      >
                       </button>
                     </div>
                   )}
@@ -1926,7 +1866,6 @@ const WarehouseMapView = ({ facilityData }) => {
                         height="100%"
                         showLabels
                         showMetadata={false}
-                        highlightedKeys={highlightedItems}
                       />
                     );
                   }

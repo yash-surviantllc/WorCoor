@@ -8412,14 +8412,14 @@ input:checked + .toggle-slider:before {
 }
 
 .demo-map-search-inline .dropdown-filter {
-  min-width: 95px;
-  max-width: 100px;
+  min-width: 150px;
 }
 
 .demo-map-search-inline .search-dropdown {
   padding: 6px 8px;
   font-size: 11px;
   height: 32px;
+  min-width: 150px;
 }
 
 .demo-map-search-inline .dropdown-filter label {
@@ -8428,9 +8428,14 @@ input:checked + .toggle-slider:before {
 }
 
 .demo-map-search-inline .search-clear-btn-dropdown {
-  padding: 6px 10px;
-  font-size: 10px;
+  padding: 6px 8px;
+  font-size: 14px;
   height: 32px;
+  width: 32px;
+  min-width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Header Layout Adjustments - Removed duplicate, using earlier definition */

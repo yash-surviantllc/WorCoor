@@ -65,36 +65,88 @@ const WarehouseMapView = ({ facilityData }) => {
     const locationTags = new Set();
     const skus = new Set();
     const assets = new Set();
-    
-    layouts.forEach(layout => {
-      if (layout.layoutData && layout.layoutData.items) {
-        layout.layoutData.items.forEach(item => {
-          // Extract location tags
-          if (item.locationId) {
-            locationTags.add(item.locationId);
-          }
-          if (item.locationCode) {
-            locationTags.add(item.locationCode);
-          }
-          
-          // Extract SKUs from compartment contents
-          if (item.compartmentContents) {
-            Object.values(item.compartmentContents).forEach(content => {
-              if (content.locationId) skus.add(content.locationId);
-              if (content.sku) skus.add(content.sku);
-              if (content.uniqueId) skus.add(content.uniqueId);
-            });
-          }
-          
-          // Extract assets (item types and names)
-          if (item.type) assets.add(item.type.toUpperCase().replace('_', ' '));
-          if (item.name) assets.add(item.name);
+
+    const addLocation = (value) => {
+      if (!value) return;
+      const normalized = typeof value === 'string' ? value.trim() : String(value).trim();
+      if (normalized) {
+        locationTags.add(normalized);
+      }
+    };
+
+    const addSku = (value) => {
+      if (!value) return;
+      const normalized = typeof value === 'string' ? value.trim() : String(value).trim();
+      if (normalized) {
+        skus.add(normalized);
+      }
+    };
+
+    const collectLocationsFromContent = (content = {}) => {
+      if (!content) return;
+
+      addLocation(content.locationId);
+      addLocation(content.primaryLocationId);
+
+      if (Array.isArray(content.locationIds)) {
+        content.locationIds.forEach(addLocation);
+      }
+
+      if (Array.isArray(content.levelLocationMappings)) {
+        content.levelLocationMappings.forEach((mapping) => {
+          addLocation(mapping?.locationId || mapping?.locId);
         });
       }
+
+      if (Array.isArray(content.levelIds) && Array.isArray(content.locationIds)) {
+        content.locationIds.forEach(addLocation);
+      }
+    };
+
+    const collectLocationsFromItem = (item = {}) => {
+      addLocation(item.locationId);
+      addLocation(item.locationCode);
+      addLocation(item.locationTag);
+
+      if (Array.isArray(item.locationIds)) {
+        item.locationIds.forEach(addLocation);
+      }
+
+      if (Array.isArray(item.levelLocationMappings)) {
+        item.levelLocationMappings.forEach((mapping) => {
+          addLocation(mapping?.locationId || mapping?.locId);
+        });
+      }
+
+      addLocation(item.primaryLocationId);
+
+      if (item.compartmentContents) {
+        Object.values(item.compartmentContents).forEach((content) => {
+          collectLocationsFromContent(content);
+          addSku(content?.sku);
+        });
+      }
+    };
+
+    layouts.forEach((layout) => {
+      if (!layout?.layoutData?.items) {
+        return;
+      }
+
+      layout.layoutData.items.forEach((item) => {
+        collectLocationsFromItem(item);
+
+        if (item.type) {
+          assets.add(item.type.toUpperCase().replace('_', ' '));
+        }
+        if (item.name) {
+          assets.add(item.name);
+        }
+      });
     });
-    
+
     setAvailableLocationTags(Array.from(locationTags).sort());
-    setAvailableSkus(Array.from(skus).sort());
+    setAvailableSkus([]);
     setAvailableAssets(Array.from(assets).sort());
   };
 
@@ -1873,6 +1925,7 @@ const WarehouseMapView = ({ facilityData }) => {
                         width="100%"
                         height="100%"
                         showLabels
+                        showMetadata={false}
                         highlightedKeys={highlightedItems}
                       />
                     );

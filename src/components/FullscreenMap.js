@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import SavedLayoutRenderer, { getLayoutItemKey } from './SavedLayoutRenderer';
+import { inferVerticalRackLevelCount } from '../utils/verticalRackUtils';
 
 const renderDemoLayout = (demoData) => (
   <svg width="100%" height="100%" viewBox="0 0 700 320" className="fullscreen-warehouse-svg">
@@ -150,123 +151,72 @@ const FullscreenMap = () => {
     }
   }, []);
 
-  // Generate realistic operational data with detailed metrics
   const generateOperationalData = (items) => {
     const data = {};
+
     items.forEach((item, index) => {
       const itemId = `item-${index}`;
-      
-      // Generate different data based on item type
-      if (item.type === 'sku_holder' || item.type === 'vertical_sku_holder' || item.type === 'storage_unit') {
-        const capacity = item.compartmentContents ? Object.keys(item.compartmentContents).length * 4 : Math.floor(Math.random() * 50) + 20;
-        const occupied = Math.floor(capacity * (0.6 + Math.random() * 0.35)); // 60-95% utilization
-        
+
+      if (item.compartmentContents) {
+        const contents = Object.values(item.compartmentContents || {});
+        const skus = {};
+        contents.forEach((content, idx) => {
+          const skuKey = content.uniqueId || content.locationId || `sku-${idx}`;
+          skus[skuKey] = {
+            sku: content.sku || content.locationId || content.uniqueId,
+            quantity: content.quantity || 0,
+            category: content.category || item.category || null,
+            brand: content.brand || null,
+            uniqueId: content.uniqueId || content.locationId
+          };
+        });
+
         data[itemId] = {
           type: 'storage',
-          unitId: `STG-${String(index + 1).padStart(3, '0')}`,
+          utilization: item.utilization || null,
+          capacity: item.capacity || null,
           location: {
-            zone: ['A', 'B', 'C', 'D', 'E'][Math.floor(Math.random() * 5)],
-            aisle: Math.floor(Math.random() * 10) + 1,
-            position: Math.floor(Math.random() * 20) + 1,
-            level: Math.floor(Math.random() * 4) + 1
+            zone: item.zoneId || item.locationTag || item.locationId || 'ZONE-UNKNOWN',
+            aisle: item.aisle || null,
+            position: item.position || null
           },
-          capacity: capacity,
-          occupied: occupied,
-          available: capacity - occupied,
-          availability: Math.random() > 0.15 ? 'operational' : (Math.random() > 0.5 ? 'maintenance' : 'reserved'),
-          temperature: item.type === 'cold_storage' ? `${(-18 + Math.random() * 5).toFixed(1)}°C` : 'ambient',
-          lastUpdated: new Date(Date.now() - Math.random() * 3600000).toISOString(),
-          skus: item.compartmentContents || generateDetailedSKUs(Math.floor(occupied / 4)),
-          alerts: generateAlerts(),
-          utilization: Math.round((occupied / capacity) * 100),
-          status: Math.random() > 0.1 ? 'operational' : 'maintenance',
-          metrics: {
-            dailyThroughput: Math.floor(Math.random() * 200) + 50,
-            avgPickTime: (Math.random() * 3 + 1).toFixed(1) + ' min',
-            accuracy: (95 + Math.random() * 4).toFixed(1) + '%',
-            lastInventoryCheck: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
-            priority: ['High', 'Medium', 'Low'][Math.floor(Math.random() * 3)],
-            accessFrequency: Math.floor(Math.random() * 50) + 10
-          }
+          skus,
+          alerts: [],
+          activity: [],
+          equipment: []
         };
-      } else if (item.type === 'storage_zone' || item.type === 'receiving_zone' || item.type === 'dispatch_zone') {
-        const capacity = Math.floor(Math.random() * 200) + 100;
-        const occupied = Math.floor(capacity * (0.7 + Math.random() * 0.25)); // 70-95% utilization
-        
-        data[itemId] = {
-          type: 'zone',
-          zoneId: `${item.type.toUpperCase().substring(0, 3)}-${String(index + 1).padStart(2, '0')}`,
-          location: {
-            building: 'Main Warehouse',
-            floor: Math.floor(Math.random() * 3) + 1,
-            sector: ['North', 'South', 'East', 'West'][Math.floor(Math.random() * 4)]
-          },
-          capacity: capacity,
-          occupied: occupied,
-          available: capacity - occupied,
-          availability: Math.random() > 0.1 ? 'operational' : 'maintenance',
-          throughput: Math.floor(Math.random() * 800) + 200, // items per hour
-          lastActivity: new Date(Date.now() - Math.random() * 1800000).toISOString(),
-          activeWorkers: Math.floor(Math.random() * 8) + 2,
-          equipment: generateEquipmentList(),
-          alerts: generateZoneAlerts(),
-          utilization: Math.round((occupied / capacity) * 100),
-          status: Math.random() > 0.05 ? 'operational' : 'maintenance',
-          metrics: {
-            dailyVolume: Math.floor(Math.random() * 5000) + 1000,
-            avgProcessTime: (Math.random() * 10 + 5).toFixed(1) + ' min',
-            efficiency: (85 + Math.random() * 12).toFixed(1) + '%',
-            errorRate: (Math.random() * 2).toFixed(2) + '%',
-            peakHours: ['08:00-10:00', '14:00-16:00', '18:00-20:00'][Math.floor(Math.random() * 3)],
-            costPerUnit: '$' + (Math.random() * 5 + 2).toFixed(2)
-          }
-        };
-      } else {
-        data[itemId] = {
-          type: 'structural',
-          status: 'active',
-          lastInspection: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
-          condition: Math.random() > 0.1 ? 'good' : 'needs_attention'
-        };
+        return;
       }
+
+      data[itemId] = {
+        type: 'zone',
+        zoneId: item.locationId || item.locationTag || item.label || item.name || `ZONE-${index + 1}`,
+        occupancy: item.occupancy || null,
+        throughput: item.throughput || null,
+        location: {
+          floor: item.floor || null,
+          sector: item.sector || item.type || null,
+          dock: item.dock || null
+        },
+        alerts: [],
+        activity: [],
+        equipment: []
+      };
     });
+
     return data;
   };
 
-  // Generate detailed SKU data with realistic metrics
-  const generateDetailedSKUs = (count = 5) => {
-    const skus = {};
-    const categories = ['Electronics', 'Clothing', 'Books', 'Tools', 'Food', 'Medical', 'Automotive', 'Sports'];
-    const brands = ['Brand-A', 'Brand-B', 'Brand-C', 'Premium', 'Standard', 'Economy'];
-    
-    for (let i = 0; i < count; i++) {
-      const category = categories[Math.floor(Math.random() * categories.length)];
-      const brand = brands[Math.floor(Math.random() * brands.length)];
-      const skuId = `${category.substring(0, 3).toUpperCase()}-${brand.substring(0, 3).toUpperCase()}-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`;
-      
-      skus[i] = {
-        uniqueId: skuId,
-        sku: `ITEM-${Math.floor(Math.random() * 99999)}`,
-        description: `${brand} ${category} Item`,
-        quantity: Math.floor(Math.random() * 100) + 1,
-        reservedQty: Math.floor(Math.random() * 20),
-        status: Math.random() > 0.1 ? 'active' : (Math.random() > 0.5 ? 'reserved' : 'on_hold'),
-        category: category,
-        brand: brand,
-        weight: (Math.random() * 50 + 0.5).toFixed(2) + ' kg',
-        dimensions: `${Math.floor(Math.random() * 50 + 10)}x${Math.floor(Math.random() * 50 + 10)}x${Math.floor(Math.random() * 30 + 5)} cm`,
-        value: '$' + (Math.random() * 500 + 10).toFixed(2),
-        lastMoved: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
-        expiryDate: category === 'Food' || category === 'Medical' ? new Date(Date.now() + Math.random() * 86400000 * 365).toISOString() : null,
-        batchNumber: `BT-${Math.floor(Math.random() * 99999)}`,
-        supplier: `Supplier-${Math.floor(Math.random() * 20) + 1}`,
-        location: {
-          shelf: Math.floor(Math.random() * 10) + 1,
-          compartment: String.fromCharCode(65 + Math.floor(Math.random() * 8)) // A-H
-        }
-      };
+  const handleItemClick = (item, index) => {
+    if (!mapData || !mapData.layoutData || !Array.isArray(mapData.layoutData.items)) {
+      return;
     }
-    return skus;
+
+    const itemId = `item-${index}`;
+    const opData = operationalData[itemId];
+
+    setSelectedItem({ ...item, id: itemId, operationalData: opData });
+    setShowInfoPanel(true);
   };
 
   // Generate realistic alerts
@@ -291,91 +241,107 @@ const FullscreenMap = () => {
     return alerts;
   };
 
-  // Generate equipment list for zones
-  const generateEquipmentList = () => {
-    const allEquipment = ['Forklift', 'Scanner', 'Conveyor', 'Pallet Jack', 'Crane', 'Sorting System', 'Weighing Scale', 'Label Printer'];
-    const count = Math.floor(Math.random() * 4) + 2;
-    const equipment = [];
-    
-    for (let i = 0; i < count; i++) {
-      const item = allEquipment[Math.floor(Math.random() * allEquipment.length)];
-      if (!equipment.includes(item)) {
-        equipment.push(item);
-      }
-    }
-    return equipment;
-  };
-
-  // Generate zone-specific alerts
-  const generateZoneAlerts = () => {
-    const alerts = [];
-    const zoneAlerts = [
-      'High traffic congestion',
-      'Equipment maintenance due',
-      'Capacity approaching limit',
-      'Worker shortage detected',
-      'Process bottleneck identified',
-      'Safety inspection required',
-      'Efficiency below target'
-    ];
-    
-    if (Math.random() > 0.8) { // 20% chance of zone alerts
-      alerts.push(zoneAlerts[Math.floor(Math.random() * zoneAlerts.length)]);
-    }
-    return alerts;
-  };
-
-  // Handle item click for detailed view
-  const handleItemClick = (item, index) => {
-    const itemId = `item-${index}`;
-    setSelectedItem({ ...item, id: itemId, operationalData: operationalData[itemId] });
-    setShowInfoPanel(true);
-  };
-
   // Extract dropdown options from data
   const extractDropdownOptions = (items, opData) => {
     const locationTags = new Set();
     const skus = new Set();
     const assets = new Set();
-    
+
+    const addLocation = (value) => {
+      if (!value) return;
+      const normalized = typeof value === 'string' ? value.trim() : String(value).trim();
+      if (normalized) {
+        locationTags.add(normalized);
+      }
+    };
+
+    const addSku = (value) => {
+      if (!value) return;
+      const normalized = typeof value === 'string' ? value.trim() : String(value).trim();
+      if (normalized) {
+        skus.add(normalized);
+      }
+    };
+
+    const collectLocationsFromContent = (content = {}) => {
+      if (!content) return;
+
+      addLocation(content.locationId);
+      addLocation(content.primaryLocationId);
+
+      if (Array.isArray(content.locationIds)) {
+        content.locationIds.forEach(addLocation);
+      }
+
+      if (Array.isArray(content.levelLocationMappings)) {
+        content.levelLocationMappings.forEach((mapping) => {
+          addLocation(mapping?.locationId || mapping?.locId);
+        });
+      }
+
+      if (Array.isArray(content.levelIds) && Array.isArray(content.locationIds)) {
+        content.locationIds.forEach(addLocation);
+      }
+
+      addSku(content.sku);
+    };
+
+    const collectLocationsFromItem = (item = {}, itemOpData = null) => {
+      addLocation(item.locationId);
+      addLocation(item.locationCode);
+      addLocation(item.locationTag);
+      addLocation(item.primaryLocationId);
+
+      if (Array.isArray(item.locationIds)) {
+        item.locationIds.forEach(addLocation);
+      }
+
+      if (Array.isArray(item.levelLocationMappings)) {
+        item.levelLocationMappings.forEach((mapping) => {
+          addLocation(mapping?.locationId || mapping?.locId);
+        });
+      }
+
+      if (item.compartmentContents) {
+        Object.values(item.compartmentContents).forEach((content) => {
+          collectLocationsFromContent(content);
+        });
+      }
+
+      if (itemOpData && itemOpData.location) {
+        Object.values(itemOpData.location).forEach(addLocation);
+      }
+
+      if (itemOpData && itemOpData.skus) {
+        Object.values(itemOpData.skus).forEach((skuData) => {
+          addSku(skuData?.sku);
+          addSku(skuData?.uniqueId);
+        });
+      }
+    };
+
     items.forEach((item, index) => {
       const itemId = `item-${index}`;
       const itemOpData = opData[itemId];
-      
+
+      collectLocationsFromItem(item, itemOpData);
+
+      if (item.type) {
+        assets.add(item.type.toUpperCase().replace(/_/g, ' '));
+      }
+      if (item.name) {
+        assets.add(item.name);
+      }
       if (itemOpData) {
-        // Extract location tags
-        if (itemOpData.type === 'storage') {
-          locationTags.add(`${itemOpData.location.zone}-${itemOpData.location.aisle}-${itemOpData.location.position}`);
-          locationTags.add(itemOpData.location.zone);
-          locationTags.add(`Aisle-${itemOpData.location.aisle}`);
-        } else if (itemOpData.type === 'zone') {
-          locationTags.add(itemOpData.zoneId);
-          locationTags.add(itemOpData.location.sector);
-          locationTags.add(`Floor-${itemOpData.location.floor}`);
-        }
-        
-        // Extract SKUs
-        if (itemOpData.skus) {
-          Object.values(itemOpData.skus).forEach(sku => {
-            if (sku.uniqueId) skus.add(sku.uniqueId);
-            if (sku.sku) skus.add(sku.sku);
-            if (sku.category) skus.add(sku.category);
-            if (sku.brand) skus.add(sku.brand);
-          });
-        }
-        
-        // Extract assets (equipment, unit IDs, etc.)
-        if (itemOpData.unitId) assets.add(itemOpData.unitId);
         if (itemOpData.zoneId) assets.add(itemOpData.zoneId);
-        if (itemOpData.equipment) {
-          itemOpData.equipment.forEach(eq => assets.add(eq));
+        if (Array.isArray(itemOpData.equipment)) {
+          itemOpData.equipment.forEach((eq) => assets.add(eq));
         }
-        if (itemOpData.type) assets.add(itemOpData.type.toUpperCase());
       }
     });
-    
+
     setAvailableLocationTags(Array.from(locationTags).sort());
-    setAvailableSkus(Array.from(skus).sort());
+    setAvailableSkus([]);
     setAvailableAssets(Array.from(assets).sort());
   };
   
@@ -631,6 +597,29 @@ const FullscreenMap = () => {
                 style={{ cursor: isInteractive ? 'pointer' : 'default' }}
                 onClick={isInteractive ? () => handleItemClick(item, index) : undefined}
               />
+
+              {/* Vertical storage rack level count */}
+              {item.type === 'vertical_sku_holder' && (() => {
+                const totalLevels = inferVerticalRackLevelCount(item);
+                if (!totalLevels) {
+                  return null;
+                }
+
+                return (
+                  <text
+                    x={item.x + item.width / 2}
+                    y={item.y + item.height / 2}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize={Math.max(Math.min(item.width / 4.5, 14), 9)}
+                    fontWeight="bold"
+                    fill="#111111"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    {`${totalLevels} Level${totalLevels > 1 ? 's' : ''}`}
+                  </text>
+                );
+              })()}
 
               {/* Optional internal grid */}
               {item.grid && item.width && item.height && (() => {
@@ -1316,6 +1305,7 @@ const FullscreenMap = () => {
                   width="100%"
                   height="100%"
                   showLabels
+                  showMetadata={false}
                   highlightedKeys={highlightedItems}
                   padding={8}
                   allowUpscale
@@ -1323,7 +1313,6 @@ const FullscreenMap = () => {
                   stageBorder="none"
                   stageShadow="none"
                   stageBorderRadius="0px"
-                  showMetadata={false}
                 />
               )}
             </div>
@@ -1438,9 +1427,17 @@ const getUtilizationColor = (utilization) => {
 };
 
 const getItemLabel = (item) => {
+  if (item.type === 'vertical_sku_holder') {
+    const levelCount = inferVerticalRackLevelCount(item);
+    if (levelCount) {
+      return `${levelCount} Level${levelCount > 1 ? 's' : ''}`;
+    }
+  }
+
   if (item.name) return item.name;
   if (item.type === 'square_boundary') return 'Warehouse';
   if (item.type === 'storage_zone') return 'Storage';
+  if (item.type === 'processing_area') return 'Processing';
   if (item.type === 'receiving_zone') return 'Receiving';
   if (item.type === 'dispatch_zone') return 'Dispatch';
   return item.type?.replace('_', ' ').toUpperCase() || 'Item';

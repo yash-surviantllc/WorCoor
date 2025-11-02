@@ -5,6 +5,7 @@ import { DRAG_TYPES, STACKABLE_COMPONENTS, STATUS_COLORS, OCCUPANCY_STATUS, ORIE
 import { getComponentColor } from '../utils/componentColors';
 import { renderShapeComponent } from '../utils/shapeRenderer';
 import { getContextualLabel, generateStorageUnitLabelInfo } from '../utils/componentLabeling';
+import { inferVerticalRackLevelCount } from '../utils/verticalRackUtils';
 
 const getContrastColorForHex = (hexColor) => {
   if (!hexColor || typeof hexColor !== 'string') {
@@ -28,103 +29,6 @@ const getContrastColorForHex = (hexColor) => {
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 
   return luminance > 0.6 ? '#000000' : '#FFFFFF';
-};
-
-const collectVerticalMappings = (item) => {
-  if (!item) {
-    return 0;
-  }
-
-  const mappingKeys = new Set();
-  const recordMapping = (levelId, locationId) => {
-    const normalizedLevel = levelId ? String(levelId).trim().toUpperCase() : '';
-    const normalizedLocation = locationId ? String(locationId).trim().toUpperCase() : '';
-
-    if (!normalizedLevel && !normalizedLocation) {
-      return;
-    }
-
-    const key = `${normalizedLevel}|${normalizedLocation}`;
-    mappingKeys.add(key);
-  };
-
-  const processLevelArrays = (levelIds = [], locationIds = []) => {
-    const maxLength = Math.max(levelIds.length, locationIds.length);
-    for (let index = 0; index < maxLength; index += 1) {
-      recordMapping(levelIds[index], locationIds[index]);
-    }
-  };
-
-  const processMappings = (mappings = []) => {
-    mappings.forEach((mapping) => {
-      if (!mapping) return;
-      recordMapping(mapping.levelId ?? mapping.level, mapping.locationId ?? mapping.locId);
-    });
-  };
-
-  const processContent = (content = {}) => {
-    if (!content) return;
-
-    if (Array.isArray(content.levelLocationMappings) && content.levelLocationMappings.length > 0) {
-      processMappings(content.levelLocationMappings);
-    }
-
-    const hasLevelArrays = Array.isArray(content.levelIds) || Array.isArray(content.locationIds);
-    if (hasLevelArrays) {
-      processLevelArrays(content.levelIds || [], content.locationIds || []);
-    }
-
-    if (content.isMultiLocation) {
-      if (Array.isArray(content.locationIds) && content.locationIds.length > 0 && !hasLevelArrays) {
-        content.locationIds.forEach((locationId, index) => {
-          const derivedLevel = Array.isArray(content.tags) ? content.tags[index] : undefined;
-          recordMapping(derivedLevel, locationId);
-        });
-      } else if (content.primaryLocationId && !hasLevelArrays) {
-        recordMapping(content.primaryLocationId, content.primaryLocationId);
-      }
-    } else if (content.locationId || content.uniqueId) {
-      recordMapping(content.levelId, content.locationId || content.uniqueId);
-    }
-  };
-
-  if (item.compartmentContents && typeof item.compartmentContents === 'object') {
-    Object.values(item.compartmentContents).forEach((content) => {
-      processContent(content);
-    });
-  }
-
-  if (mappingKeys.size === 0) {
-    processMappings(item.levelLocationMappings);
-  }
-
-  if (mappingKeys.size === 0) {
-    const hasLevelArrays = Array.isArray(item.levelIds) || Array.isArray(item.locationIds);
-    if (hasLevelArrays) {
-      processLevelArrays(item.levelIds || [], item.locationIds || []);
-    }
-  }
-
-  if (mappingKeys.size === 0 && typeof item.locationId === 'string') {
-    const trimmed = item.locationId.trim();
-    if (trimmed) {
-      const plusIndex = trimmed.indexOf('+');
-      if (plusIndex !== -1) {
-        const base = trimmed.slice(0, plusIndex);
-        const extra = parseInt(trimmed.slice(plusIndex + 1), 10);
-        recordMapping('L1', base);
-        if (!Number.isNaN(extra) && extra > 0) {
-          for (let index = 1; index <= extra; index += 1) {
-            recordMapping(`L${index + 1}`, `${base}-${index}`);
-          }
-        }
-      } else {
-        recordMapping('L1', trimmed);
-      }
-    }
-  }
-
-  return mappingKeys.size;
 };
 
 const WarehouseItem = ({ 
@@ -325,11 +229,13 @@ const WarehouseItem = ({
       
       {/* Storage Racks - Show only Location ID in black text */}
       {(item.type === 'sku_holder' || item.type === 'vertical_sku_holder') && !item.showCompartments && (() => {
-        let displayText = item.locationId || null;
+        const totalLevels = inferVerticalRackLevelCount(item);
+        let displayText = null;
 
-        if (item.type === 'vertical_sku_holder') {
-          const totalLevels = collectVerticalMappings(item);
-          displayText = totalLevels > 0 ? `${totalLevels} Level${totalLevels > 1 ? 's' : ''}` : null;
+        if (totalLevels > 0) {
+          displayText = `${totalLevels} Level${totalLevels > 1 ? 's' : ''}`;
+        } else if (item.type === 'sku_holder') {
+          displayText = item.locationId || null;
         }
 
         return displayText ? (
@@ -471,9 +377,9 @@ const WarehouseItem = ({
                   title={hasItem ? (() => {
                     if (hasItem.isMultiLocation && hasItem.locationIds && hasItem.tags) {
                       const locationInfo = hasItem.locationIds.map((id, idx) => `${id}${hasItem.tags[idx] ? ` (${hasItem.tags[idx]})` : ''}`).join(', ');
-                      return `Multiple Locations: ${locationInfo}\nSKU: ${hasItem.sku || 'N/A'}\nStatus: ${hasItem.status || 'planned'}\nCategory: ${hasItem.category || 'none'}\n(Right-click to delete)`;
+                      return `Multiple Locations: ${locationInfo}\nSKU: ${hasItem.sku || 'N/A'}\nStatus: ${hasItem.status || 'planned'}\nCategory: ${hasItem.category || 'none'}`;
                     }
-                    return `Location ID: ${hasItem.locationId || hasItem.uniqueId}\nSKU: ${hasItem.sku || 'N/A'}\nStatus: ${hasItem.status || 'planned'}\nCategory: ${hasItem.category || 'none'}\n(Right-click to delete)`;
+                    return `Location ID: ${hasItem.locationId || hasItem.uniqueId}\nSKU: ${hasItem.sku || 'N/A'}\nStatus: ${hasItem.status || 'planned'}\nCategory: ${hasItem.category || 'none'}`;
                   })() : `Empty compartment ${row + 1}-${col + 1} (Click to add item)`}
                   onClick={(e) => {
                     e.stopPropagation();

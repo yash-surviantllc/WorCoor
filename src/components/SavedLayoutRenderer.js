@@ -4,7 +4,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import WarehouseItem from './WarehouseItem';
 
 const noop = () => {};
-const DEFAULT_PADDING = 40;
+const DEFAULT_PADDING = 0;
 
 export const getLayoutItemKey = (item) => {
   if (!item) {
@@ -223,7 +223,7 @@ const SavedLayoutRenderer = ({
             border: stageBorder,
             borderRadius: stageBorderRadius,
             boxShadow: stageShadow,
-            overflow: 'hidden'
+            overflow: 'visible'
           }}
         >
           <div

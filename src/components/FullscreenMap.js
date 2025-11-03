@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import SavedLayoutRenderer, { getLayoutItemKey } from './SavedLayoutRenderer';
 import { inferVerticalRackLevelCount } from '../utils/verticalRackUtils';
 import summarizeStorageComponents from '../utils/layoutComponentSummary';
@@ -111,10 +111,9 @@ const FullscreenMap = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [operationalData, setOperationalData] = useState({});
   const [showInfoPanel, setShowInfoPanel] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState('location');
   const [searchResults, setSearchResults] = useState([]);
   const [highlightedItems, setHighlightedItems] = useState([]);
+  const [filteredKeys, setFilteredKeys] = useState([]);
   
   // Enhanced dropdown search states
   const [selectedLocationTag, setSelectedLocationTag] = useState('');
@@ -126,10 +125,23 @@ const FullscreenMap = () => {
   const [dropdownSearchActive, setDropdownSearchActive] = useState(false);
 
   const storageSummaries = useMemo(() => {
-    if (!mapData || !mapData.isCustomLayout || !mapData.layoutData || !Array.isArray(mapData.layoutData.items)) {
+    if (!mapData) {
       return [];
     }
-    return summarizeStorageComponents(mapData.layoutData.items);
+
+    if (Array.isArray(mapData.storageSummaries) && mapData.storageSummaries.length > 0) {
+      return mapData.storageSummaries;
+    }
+
+    if (mapData.layoutData && Array.isArray(mapData.layoutData.items)) {
+      return summarizeStorageComponents(mapData.layoutData.items);
+    }
+
+    if (Array.isArray(mapData.layoutItems) && mapData.layoutItems.length > 0) {
+      return summarizeStorageComponents(mapData.layoutItems);
+    }
+
+    return [];
   }, [mapData]);
 
   const sidebarData = useMemo(() => {
@@ -263,10 +275,18 @@ const FullscreenMap = () => {
           <h3>Layout Components</h3>
           <div className="zone-list storage-summary-list">
             {storageSummaries.map((summary) => (
-              <div key={summary.type} className="zone-info-item storage-summary-card">
+              <div key={summary.id || summary.type} className="zone-info-item storage-summary-card">
                 <div className="zone-color" style={{ backgroundColor: summary.color }}></div>
                 <div className="zone-details">
-                  <div className="zone-name">{summary.label}</div>
+                  <div className="storage-header">
+                    <div className="storage-title">{summary.title || summary.label}</div>
+                    {summary.label && (
+                      <span className="storage-type-badge">{summary.label}</span>
+                    )}
+                  </div>
+                  {summary.subtitle && (
+                    <div className="storage-subtitle">{summary.subtitle}</div>
+                  )}
                   <div className="storage-capacity-row">
                     <span className="capacity-label">Max Capacity:</span>
                     <span className="capacity-value">{summary.maxCapacity}</span>
@@ -279,7 +299,7 @@ const FullscreenMap = () => {
                     <span className="capacity-label">Available:</span>
                     <span className="capacity-value available">{summary.availableCapacity}</span>
                   </div>
-                  {summary.locationIds.length > 0 && (
+                  {summary.locationIds && summary.locationIds.length > 0 && (
                     <div className="storage-meta-block">
                       <div className="meta-title">Location IDs</div>
                       <div className="meta-values">
@@ -292,7 +312,7 @@ const FullscreenMap = () => {
                       </div>
                     </div>
                   )}
-                  {summary.skus.length > 0 && (
+                  {summary.skus && summary.skus.length > 0 && (
                     <div className="storage-meta-block">
                       <div className="meta-title">SKUs</div>
                       <div className="meta-values">
@@ -314,7 +334,7 @@ const FullscreenMap = () => {
     }
 
     return null;
-  }, [sidebarData]);
+  }, [sidebarData, storageSummaries]);
 
   useEffect(() => {
     // Get map data from URL hash
@@ -327,12 +347,14 @@ const FullscreenMap = () => {
         setMapData(parsedData);
         
         // Generate operational data for each item
-        if (parsedData.layoutData && parsedData.layoutData.items) {
-          const opData = generateOperationalData(parsedData.layoutData.items);
+        const layoutItems = parsedData.layoutData?.items || parsedData.layoutItems || [];
+
+        if (layoutItems.length > 0) {
+          const opData = generateOperationalData(layoutItems);
           setOperationalData(opData);
-          
+
           // Extract dropdown options from operational data
-          extractDropdownOptions(parsedData.layoutData.items, opData);
+          extractDropdownOptions(layoutItems, opData);
         }
       } catch (err) {
         setError('Failed to load map data');
@@ -547,13 +569,14 @@ const FullscreenMap = () => {
   };
   
   // Enhanced search functionality with dropdown filters only
-  const performSearch = () => {
+  const performSearch = useCallback(() => {
     // Check if dropdown search is active
     const hasDropdownFilters = selectedLocationTag || selectedSku || selectedAsset;
     
     if (!hasDropdownFilters) {
       setSearchResults([]);
       setHighlightedItems([]);
+      setFilteredKeys([]);
       setDropdownSearchActive(false);
       return;
     }
@@ -653,36 +676,40 @@ const FullscreenMap = () => {
       });
     }
 
+    const uniqueHighlighted = Array.from(new Set(highlighted));
+
     setSearchResults(results);
-    setHighlightedItems(highlighted);
-  };
+    setHighlightedItems(uniqueHighlighted);
+    setFilteredKeys(uniqueHighlighted);
+  }, [selectedLocationTag, selectedSku, selectedAsset, mapData, operationalData]);
+
+  useEffect(() => {
+    performSearch();
+  }, [performSearch]);
 
   // Dropdown filter handlers
   const handleLocationTagChange = (e) => {
     const value = e.target.value;
     setSelectedLocationTag(value);
-    performSearch();
   };
   
   const handleSkuChange = (e) => {
     const value = e.target.value;
     setSelectedSku(value);
-    performSearch();
   };
   
   const handleAssetChange = (e) => {
     const value = e.target.value;
     setSelectedAsset(value);
-    performSearch();
   };
 
   const clearSearch = () => {
-    setSearchQuery('');
     setSelectedLocationTag('');
     setSelectedSku('');
     setSelectedAsset('');
     setSearchResults([]);
     setHighlightedItems([]);
+    setFilteredKeys([]);
     setDropdownSearchActive(false);
   };
 
@@ -700,29 +727,72 @@ const FullscreenMap = () => {
       );
     }
 
-    // Calculate ultra-tight bounds
-    const minX = Math.min(...items.map(item => item.x), 0);
-    const minY = Math.min(...items.map(item => item.y), 0);
-    const maxX = Math.max(...items.map(item => item.x + item.width));
-    const maxY = Math.max(...items.map(item => item.y + item.height));
-    
-    const contentWidth = maxX - minX;
-    const contentHeight = maxY - minY;
-    
-    // Minimal padding for fullscreen view
-    const padding = 40;
-    const viewBoxX = minX - padding;
-    const viewBoxY = minY - padding;
-    const viewBoxWidth = contentWidth + (padding * 2);
-    const viewBoxHeight = contentHeight + (padding * 2);
+    // Calculate ultra-tight bounds; prefer square boundary when available
+    const boundaryItem = items.find((item) => item.type === 'square_boundary');
+
+    let minX;
+    let minY;
+    let maxX;
+    let maxY;
+
+    if (boundaryItem && boundaryItem.width != null && boundaryItem.height != null) {
+      minX = boundaryItem.x;
+      minY = boundaryItem.y;
+      maxX = boundaryItem.x + boundaryItem.width;
+      maxY = boundaryItem.y + boundaryItem.height;
+    } else {
+      const xs = items.map((item) => item.x);
+      const ys = items.map((item) => item.y);
+      const xMaxes = items.map((item) => item.x + (item.width || 0));
+      const yMaxes = items.map((item) => item.y + (item.height || 0));
+
+      minX = xs.length ? Math.min(...xs) : 0;
+      minY = ys.length ? Math.min(...ys) : 0;
+      maxX = xMaxes.length ? Math.max(...xMaxes) : 0;
+      maxY = yMaxes.length ? Math.max(...yMaxes) : 0;
+    }
+
+    const contentWidth = Math.max(maxX - minX, 1);
+    const contentHeight = Math.max(maxY - minY, 1);
+
+    // Provide comfortable breathing room around the layout
+    const strokeAllowance = boundaryItem ? Math.max(boundaryItem.borderWidth || 4, 4) : 0;
+    const basePadding = 200 + strokeAllowance;
+    const zoomOutFactor = 2.4; // Zoom out while keeping the full boundary visible
+
+    const baseWidth = contentWidth + (basePadding * 2);
+    const baseHeight = contentHeight + (basePadding * 2);
+
+    const viewBoxWidth = baseWidth * zoomOutFactor;
+    const viewBoxHeight = baseHeight * zoomOutFactor;
+
+    const centerX = minX + contentWidth / 2;
+    const centerY = minY + contentHeight / 2;
+
+    const viewBoxX = centerX - viewBoxWidth / 2;
+    const viewBoxY = centerY - viewBoxHeight / 2;
+
+    const handleMouseDown = () => {};
+    const handleMouseMove = () => {};
+    const handleMouseUp = () => {};
+    const handleWheel = () => {};
 
     return (
       <svg 
+        ref={(node) => {
+          if (node) {
+            node.style.transform = 'none';
+          }
+        }}
         width="100%" 
         height="100%" 
         viewBox={`${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`}
         className="fullscreen-warehouse-svg"
         preserveAspectRatio="xMidYMid meet"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onWheel={handleWheel}
       >
         {/* Background */}
         <rect 
@@ -1510,12 +1580,14 @@ const FullscreenMap = () => {
                       }}
                       width="100%"
                       height="100%"
-                      showLabels
+                      background="transparent"
+                      showLabels={false}
                       showMetadata={false}
                       highlightedKeys={highlightedItems}
-                      padding={16}
+                      filteredKeys={filteredKeys}
+                      padding={140}
                       allowUpscale
-                      fitMode="contain"
+                      fitMode="cover"
                       stageBackground="transparent"
                       stageBorder="none"
                       stageShadow="none"

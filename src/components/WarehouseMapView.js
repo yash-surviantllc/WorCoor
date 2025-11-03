@@ -897,7 +897,9 @@ const WarehouseMapView = ({ facilityData }) => {
       unit: unitMeta,
       isCustomLayout: Boolean(unit.isCustomLayout),
       layoutData: unit.isCustomLayout ? unitLayoutData : null,
-      demoData: unit.isCustomLayout ? null : demoMapsData[unit.id] || null
+      demoData: unit.isCustomLayout ? null : demoMapsData[unit.id] || null,
+      storageSummaries,
+      layoutItems: unit.isCustomLayout ? unitLayoutData?.items || [] : null
     };
 
     try {
@@ -1163,18 +1165,20 @@ const WarehouseMapView = ({ facilityData }) => {
     };
   }, [showGlobalSearchDropdown]);
 
-  // Calculate which items should be faded based on filters
-  const getFilteredItemKeys = useCallback(() => {
+  const highlightData = useMemo(() => {
+    const empty = { itemKeys: [], compartmentMap: {} };
+
     if (!selectedUnitForDemo || (!selectedLocationTag && !selectedSku && !selectedAsset)) {
-      return []; // No filters active, show all items normally
+      return empty;
     }
 
-    const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
+    const unit = warehouseUnits.find((u) => u.id === selectedUnitForDemo);
     if (!unit?.isCustomLayout || !unit?.layoutData?.items) {
-      return [];
+      return empty;
     }
 
-    const matchingKeys = [];
+    const highlightedItemKeys = [];
+    const compartmentMap = {};
     const typeMap = {
       'Storage Unit': 'storage_unit',
       'Spare Unit': 'spare_unit',
@@ -1187,40 +1191,97 @@ const WarehouseMapView = ({ facilityData }) => {
 
     unit.layoutData.items.forEach((item, index) => {
       const itemKey = getLayoutItemKey(item) || `${unit.id}-${item.id || index}`;
-      let matches = true;
+      let matchesFilters = true;
 
-      // Check location filter
+      const locationCompartmentMatches = [];
+      const skuCompartmentMatches = [];
+
       if (selectedLocationTag) {
-        const locationMatches = item.locationId === selectedLocationTag ||
-          item.locationCode === selectedLocationTag ||
-          item.locationTag === selectedLocationTag;
-        matches = matches && locationMatches;
+        const itemLevelMatch = [item.locationId, item.locationCode, item.locationTag, item.primaryLocationId]
+          .some((value) => typeof value === 'string' && value.trim() === selectedLocationTag);
+
+        if (item.compartmentContents) {
+          Object.entries(item.compartmentContents).forEach(([compartmentId, content]) => {
+            if (!content) {
+              return;
+            }
+
+            const matches = (
+              content.locationId === selectedLocationTag ||
+              content.uniqueId === selectedLocationTag ||
+              content.primaryLocationId === selectedLocationTag ||
+              (Array.isArray(content.locationIds) && content.locationIds.includes(selectedLocationTag))
+            );
+
+            if (matches) {
+              locationCompartmentMatches.push(compartmentId);
+            }
+          });
+        }
+
+        const hasLocationMatch = itemLevelMatch || locationCompartmentMatches.length > 0;
+        matchesFilters = matchesFilters && hasLocationMatch;
       }
 
-      // Check SKU filter
-      if (selectedSku && item.compartmentContents) {
-        const skuMatches = Object.values(item.compartmentContents).some((content) =>
-          content.locationId === selectedSku ||
-          content.sku === selectedSku ||
-          content.uniqueId === selectedSku
-        );
-        matches = matches && skuMatches;
+      if (selectedSku) {
+        let itemLevelSkuMatch = false;
+        itemLevelSkuMatch = [item.sku, item.skuId, item.locationId]
+          .some((value) => typeof value === 'string' && value.trim() === selectedSku);
+
+        if (item.compartmentContents) {
+          Object.entries(item.compartmentContents).forEach(([compartmentId, content]) => {
+            if (!content) {
+              return;
+            }
+
+            const matches = (
+              content.sku === selectedSku ||
+              content.uniqueId === selectedSku ||
+              content.primarySku === selectedSku ||
+              content.locationId === selectedSku
+            );
+
+            if (matches) {
+              skuCompartmentMatches.push(compartmentId);
+            }
+          });
+        }
+
+        const hasSkuMatch = itemLevelSkuMatch || skuCompartmentMatches.length > 0;
+        matchesFilters = matchesFilters && hasSkuMatch;
       }
 
-      // Check asset/type filter
       if (selectedAsset) {
         const itemType = typeMap[selectedAsset] || selectedAsset.toLowerCase().replace(/ /g, '_');
         const assetMatches = item.type === itemType;
-        matches = matches && assetMatches;
+        matchesFilters = matchesFilters && assetMatches;
       }
 
-      if (matches) {
-        matchingKeys.push(itemKey);
+      if (!matchesFilters) {
+        return;
+      }
+
+      highlightedItemKeys.push(itemKey);
+
+      let compartmentHighlights = [];
+      if (locationCompartmentMatches.length && skuCompartmentMatches.length) {
+        compartmentHighlights = locationCompartmentMatches.filter((id) => skuCompartmentMatches.includes(id));
+      } else if (locationCompartmentMatches.length) {
+        compartmentHighlights = locationCompartmentMatches;
+      } else if (skuCompartmentMatches.length) {
+        compartmentHighlights = skuCompartmentMatches;
+      }
+
+      if (compartmentHighlights.length) {
+        compartmentMap[itemKey] = Array.from(new Set(compartmentHighlights));
       }
     });
 
-    return matchingKeys;
-  }, [selectedUnitForDemo, selectedLocationTag, selectedSku, selectedAsset]);
+    return { itemKeys: highlightedItemKeys, compartmentMap };
+  }, [selectedUnitForDemo, selectedLocationTag, selectedSku, selectedAsset, warehouseUnits]);
+
+  const filteredItemKeys = highlightData.itemKeys;
+  const highlightedCompartmentsMap = highlightData.compartmentMap;
 
   // Dropdown filter handlers
   const handleLocationTagChange = (e) => {
@@ -1993,9 +2054,11 @@ const WarehouseMapView = ({ facilityData }) => {
                         width="100%"
                         height="100%"
                         background="transparent"
-                        showLabels
+                        showLabels={false}
                         showMetadata={false}
-                        filteredKeys={getFilteredItemKeys()}
+                        highlightedKeys={filteredItemKeys}
+                        filteredKeys={filteredItemKeys}
+                        highlightedCompartmentsMap={highlightedCompartmentsMap}
                         padding={32}
                         allowUpscale
                         fitMode="cover"

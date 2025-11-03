@@ -35,6 +35,7 @@ const SavedLayoutRenderer = ({
   showLabels = true,
   highlightedKeys = [],
   filteredKeys = [],
+  highlightedCompartmentsMap = {},
   padding = DEFAULT_PADDING,
   allowUpscale = false,
   fitMode = 'contain',
@@ -273,8 +274,9 @@ const SavedLayoutRenderer = ({
                 <div
                   key={itemKey}
                   style={{
-                    opacity: isFaded ? 0.2 : 1,
-                    transition: 'opacity 0.3s ease',
+                    opacity: isFaded ? 0.08 : 1,
+                    filter: isFaded ? 'blur(0.6px) saturate(0) brightness(1.5)' : 'none',
+                    transition: 'opacity 0.25s ease, filter 0.25s ease',
                     pointerEvents: isFaded ? 'none' : 'auto'
                   }}
                 >
@@ -294,6 +296,7 @@ const SavedLayoutRenderer = ({
                     isReadOnly
                     showLabels={showLabels}
                     isHighlighted={highlightedKeySet.has(itemKey)}
+                    highlightedCompartments={highlightedCompartmentsMap[itemKey] || null}
                   />
                 </div>
               );

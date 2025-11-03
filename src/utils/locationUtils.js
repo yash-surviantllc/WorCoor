@@ -186,21 +186,113 @@ export const generateMockInventoryData = (locationCode, componentType) => {
     return null;
   }
 
-  const mockSKUs = [
-    'SKU-001', 'SKU-002', 'SKU-003', 'SKU-004', 'SKU-005',
-    'PROD-A1', 'PROD-B2', 'PROD-C3', 'MAT-X1', 'MAT-Y2'
+  const skuCatalog = [
+    {
+      skuInstanceId: 'SKU-001',
+      parentResource: 'Pallets',
+      skuName: 'Oak Wood Panel',
+      skuBrand: 'Premium Woods Co.',
+      skuCode: 'OWP-001'
+    },
+    {
+      skuInstanceId: 'SKU-002',
+      parentResource: 'Packaging Material',
+      skuName: 'Steel Brackets',
+      skuBrand: 'MetalWorks Inc.',
+      skuCode: 'SB-002'
+    },
+    {
+      skuInstanceId: 'SKU-003',
+      parentResource: 'Cold Storage',
+      skuName: 'Frozen Peas',
+      skuBrand: 'Fresh Harvest',
+      skuCode: 'FH-003'
+    },
+    {
+      skuInstanceId: 'SKU-004',
+      parentResource: 'Chemicals',
+      skuName: 'Industrial Solvent',
+      skuBrand: 'ChemCo Labs',
+      skuCode: 'ICS-004'
+    },
+    {
+      skuInstanceId: 'SKU-005',
+      parentResource: 'Consumables',
+      skuName: 'Nitrile Gloves',
+      skuBrand: 'SafeHands',
+      skuCode: 'NG-005'
+    },
+    {
+      skuInstanceId: 'SKU-006',
+      parentResource: 'Finished Goods',
+      skuName: 'Smart Hub Device',
+      skuBrand: 'ConnectIQ',
+      skuCode: 'CIQ-006'
+    },
+    {
+      skuInstanceId: 'SKU-007',
+      parentResource: 'Bulk Material',
+      skuName: 'Recycled Cardboard',
+      skuBrand: 'EcoPack',
+      skuCode: 'ECP-007'
+    },
+    {
+      skuInstanceId: 'SKU-008',
+      parentResource: 'Spare Parts',
+      skuName: 'Servo Motor',
+      skuBrand: 'MotionWorks',
+      skuCode: 'MW-008'
+    },
+    {
+      skuInstanceId: 'PROD-A1',
+      parentResource: 'Production Line A',
+      skuName: 'Aluminium Casing',
+      skuBrand: 'Precision Metals',
+      skuCode: 'PM-A1'
+    },
+    {
+      skuInstanceId: 'MAT-X1',
+      parentResource: 'Raw Materials',
+      skuName: 'Polymer Resin',
+      skuBrand: 'PolyChem',
+      skuCode: 'PC-X1'
+    }
   ];
-  
-  const randomSKUs = mockSKUs.sort(() => 0.5 - Math.random()).slice(0, Math.floor(Math.random() * 4) + 1);
+
+  const shuffledCatalog = [...skuCatalog].sort(() => 0.5 - Math.random());
+  const skuCount = Math.max(1, Math.min(4, Math.floor(Math.random() * 4) + 1));
+  const selectedSkus = shuffledCatalog.slice(0, skuCount);
+
+  const randomDateWithinMonths = (monthsBack = 6) => {
+    const now = new Date();
+    const past = new Date();
+    past.setMonth(now.getMonth() - monthsBack);
+    const timestamp = past.getTime() + Math.random() * (now.getTime() - past.getTime());
+    return new Date(timestamp).toISOString();
+  };
   
   return {
     locationCode,
-    inventory: randomSKUs.map(sku => ({
-      sku,
-      quantity: Math.floor(Math.random() * 100) + 1,
-      reserved: Math.floor(Math.random() * 20),
-      lastUpdated: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString()
-    })),
+    inventory: selectedSkus.map((entry) => {
+      const availableQuantity = Math.floor(Math.random() * 180) + 20;
+      const reservedQuantity = Math.floor(Math.random() * Math.min(availableQuantity, 30));
+      const procuredDate = randomDateWithinMonths(12);
+
+      return {
+        sku: entry.skuInstanceId,
+        skuInstanceId: entry.skuInstanceId,
+        parentResource: entry.parentResource,
+        skuName: entry.skuName,
+        skuBrand: entry.skuBrand,
+        skuCode: entry.skuCode,
+        location: locationCode,
+        procuredDate,
+        quantity: availableQuantity,
+        availableQuantity,
+        reserved: reservedQuantity,
+        lastUpdated: randomDateWithinMonths(1)
+      };
+    }),
     capacity: Math.floor(Math.random() * 200) + 50,
     utilization: Math.random(),
     lastActivity: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000).toISOString(),

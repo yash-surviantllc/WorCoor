@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import WarehouseDesigner from './WarehouseDesigner';
 import Dashboard from './Dashboard';
 import SavedLayoutRenderer, { getLayoutItemKey } from './SavedLayoutRenderer';
+import summarizeStorageComponents from '../utils/layoutComponentSummary';
 
 const WarehouseMapView = ({ facilityData }) => {
   const [selectedZone, setSelectedZone] = useState(null);
@@ -98,14 +99,13 @@ const WarehouseMapView = ({ facilityData }) => {
     };
 
     const addAsset = (type) => {
-      if (!type) return;
+      if (!type || type === 'square_boundary') return;
       // Map component types to readable names
       const typeMap = {
         'storage_unit': 'Storage Unit',
         'spare_unit': 'Spare Unit',
         'sku_holder': 'Horizontal Storage',
         'vertical_sku_holder': 'Vertical Storage',
-        'square_boundary': 'Square Boundary',
         'solid_boundary': 'Solid Boundary',
         'dotted_boundary': 'Dotted Boundary'
       };
@@ -135,6 +135,10 @@ const WarehouseMapView = ({ facilityData }) => {
     };
 
     const collectLocationsFromItem = (item = {}) => {
+      if (item?.type === 'square_boundary') {
+        return;
+      }
+
       addLocation(item.locationId);
       addLocation(item.locationCode);
       addLocation(item.locationTag);
@@ -379,6 +383,23 @@ const WarehouseMapView = ({ facilityData }) => {
   }
   
   const warehouseUnits = [...defaultUnits, ...customLayoutUnits];
+
+  const { layoutItemsForSummary, storageSummaries } = useMemo(() => {
+    const result = {
+      layoutItemsForSummary: [],
+      storageSummaries: []
+    };
+
+    const unit = warehouseUnits.find((u) => u.id === selectedUnitForDemo);
+    if (!unit || !unit.isCustomLayout || !unit.layoutData || !Array.isArray(unit.layoutData.items)) {
+      return result;
+    }
+
+    result.layoutItemsForSummary = unit.layoutData.items;
+    result.storageSummaries = summarizeStorageComponents(unit.layoutData.items);
+
+    return result;
+  }, [warehouseUnits, selectedUnitForDemo]);
 
   const selectedOrgUnitForDashboard = useMemo(() => {
     if (!selectedUnitForDemo) return mockOrgLayoutUnit;
@@ -860,9 +881,33 @@ const WarehouseMapView = ({ facilityData }) => {
     setSearchResults([]);
   };
 
-  // Handle toggling fullscreen mode
+  // Handle opening fullscreen preview in a new tab
   const handleOpenFullscreen = () => {
-    setIsFullscreen(true);
+    if (!selectedUnitForDemo) {
+      return;
+    }
+
+    const unit = warehouseUnits.find((u) => u.id === selectedUnitForDemo);
+    if (!unit) {
+      return;
+    }
+
+    const { layoutData: unitLayoutData, ...unitMeta } = unit;
+    const payload = {
+      unit: unitMeta,
+      isCustomLayout: Boolean(unit.isCustomLayout),
+      layoutData: unit.isCustomLayout ? unitLayoutData : null,
+      demoData: unit.isCustomLayout ? null : demoMapsData[unit.id] || null
+    };
+
+    try {
+      const encoded = encodeURIComponent(JSON.stringify(payload));
+      const baseUrl = `${window.location.origin}${window.location.pathname}`;
+      window.open(`${baseUrl}#fullscreen-map=${encoded}`, '_blank', 'noopener,noreferrer');
+      setShowDemoMapModal(false);
+    } catch (err) {
+      console.error('Failed to open fullscreen map:', err);
+    }
   };
 
   const handleExitFullscreen = () => {
@@ -1947,9 +1992,17 @@ const WarehouseMapView = ({ facilityData }) => {
                         }}
                         width="100%"
                         height="100%"
+                        background="transparent"
                         showLabels
                         showMetadata={false}
                         filteredKeys={getFilteredItemKeys()}
+                        padding={32}
+                        allowUpscale
+                        fitMode="cover"
+                        stageBackground="transparent"
+                        stageBorder="none"
+                        stageShadow="none"
+                        stageBorderRadius="0px"
                       />
                     );
                   }
@@ -2324,35 +2377,60 @@ const WarehouseMapView = ({ facilityData }) => {
                     );
                   }
                   
-                  // Show component summary for custom layouts
-                  if (unit && unit.isCustomLayout && unit.layoutData && Array.isArray(unit.layoutData.items)) {
-                    const componentCounts = {};
-                    unit.layoutData.items.forEach(item => {
-                      const typeMap = {
-                        'storage_unit': 'Storage Unit',
-                        'spare_unit': 'Spare Unit',
-                        'sku_holder': 'Horizontal Storage',
-                        'vertical_sku_holder': 'Vertical Storage',
-                        'square_boundary': 'Square Boundary',
-                        'solid_boundary': 'Solid Boundary',
-                        'dotted_boundary': 'Dotted Boundary'
-                      };
-                      const typeName = typeMap[item.type] || item.type;
-                      componentCounts[typeName] = (componentCounts[typeName] || 0) + 1;
-                    });
-                    
+                  if (unit && unit.isCustomLayout && storageSummaries.length > 0) {
                     return (
                       <div className="demo-map-info">
                         <h3>Layout Components</h3>
-                        <div className="zone-list">
-                          {Object.entries(componentCounts).map(([type, count]) => (
-                            <div key={type} className="zone-info-item">
-                              <div className="zone-color" style={{ backgroundColor: '#3498db' }}></div>
+                        <div className="zone-list storage-summary-list">
+                          {storageSummaries.map((summary) => (
+                            <div key={summary.id} className="zone-info-item storage-summary-card">
+                              <div className="zone-color" style={{ backgroundColor: summary.color }}></div>
                               <div className="zone-details">
-                                <div className="zone-name">{type}</div>
-                                <div className="zone-capacity">
-                                  {count} {count === 1 ? 'item' : 'items'}
+                                <div className="storage-header">
+                                  <div className="storage-title">{summary.title}</div>
+                                  <span className="storage-type-badge">{summary.label}</span>
                                 </div>
+                                {summary.subtitle && (
+                                  <div className="storage-subtitle">{summary.subtitle}</div>
+                                )}
+                                <div className="storage-capacity-row">
+                                  <span className="capacity-label">Max Capacity:</span>
+                                  <span className="capacity-value">{summary.maxCapacity}</span>
+                                </div>
+                                <div className="storage-capacity-row">
+                                  <span className="capacity-label">Used:</span>
+                                  <span className="capacity-value used">{summary.usedCapacity}</span>
+                                </div>
+                                <div className="storage-capacity-row">
+                                  <span className="capacity-label">Available:</span>
+                                  <span className="capacity-value available">{summary.availableCapacity}</span>
+                                </div>
+                                {summary.locationIds.length > 0 && (
+                                  <div className="storage-meta-block">
+                                    <div className="meta-title">Location IDs</div>
+                                    <div className="meta-values">
+                                      {summary.locationIds.slice(0, 3).map((id) => (
+                                        <span key={id} className="meta-chip">{id}</span>
+                                      ))}
+                                      {summary.locationIds.length > 3 && (
+                                        <span className="meta-chip more-chip">+{summary.locationIds.length - 3}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                {summary.skus.length > 0 && (
+                                  <div className="storage-meta-block">
+                                    <div className="meta-title">SKUs</div>
+                                    <div className="meta-values">
+                                      {summary.skus.slice(0, 3).map((sku) => (
+                                        <span key={sku} className="meta-chip sku-chip">{sku}</span>
+                                      ))}
+                                      {summary.skus.length > 3 && (
+                                        <span className="meta-chip more-chip">+{summary.skus.length - 3}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -2360,8 +2438,13 @@ const WarehouseMapView = ({ facilityData }) => {
                       </div>
                     );
                   }
-                  
-                  return null;
+
+                  return (
+                    <div className="demo-map-info empty-storage-summary">
+                      <h3>Layout Components</h3>
+                      <p>No storage metadata available for this layout.</p>
+                    </div>
+                  );
                 })()}
               </div>
             </div>

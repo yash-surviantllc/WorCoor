@@ -7766,15 +7766,19 @@ input:checked + .toggle-slider:before {
 .demo-map-canvas {
   flex: 1;
   padding: 0;
-  background: #f8f9fa;
+  background: transparent;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
   overflow: hidden;
   min-height: 500px;
   height: 100%;
   min-width: 0;
   position: relative;
+}
+
+.demo-map-canvas .saved-layout-renderer {
+  height: 100%;
 }
 
 .warehouse-svg {

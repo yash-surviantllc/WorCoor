@@ -37,6 +37,7 @@ const SavedLayoutRenderer = ({
   filteredKeys = [],
   padding = DEFAULT_PADDING,
   allowUpscale = false,
+  fitMode = 'contain',
   stageBackground = '#ffffff',
   stageBorder = '1px solid #e0e0e0',
   stageShadow = '0 1px 3px rgba(15, 23, 42, 0.08)',
@@ -150,21 +151,32 @@ const SavedLayoutRenderer = ({
     const widthScale = containerSize.width / contentWidth;
     const heightScale = containerSize.height / contentHeight;
 
-    let scaleValue = Math.min(widthScale, heightScale);
+    const normalizedFitMode = fitMode === 'cover' ? 'cover' : 'contain';
+
+    let scaleValue = normalizedFitMode === 'cover'
+      ? Math.max(widthScale, heightScale)
+      : Math.min(widthScale, heightScale);
 
     if (!allowUpscale && scaleValue > 1) {
       scaleValue = 1;
     }
 
-    const scaleAdjustment = allowUpscale ? 1 : 0.98;
-    scaleValue = Math.max(scaleValue * scaleAdjustment, 0.1);
+    if (normalizedFitMode === 'cover' && scaleValue >= 1) {
+      const coverAdjustment = allowUpscale ? 0.995 : 0.98;
+      scaleValue *= coverAdjustment;
+    } else {
+      const scaleAdjustment = allowUpscale ? 1 : 0.98;
+      scaleValue *= scaleAdjustment;
+    }
+
+    scaleValue = Math.max(scaleValue, 0.1);
 
     if (!Number.isFinite(scaleValue) || scaleValue <= 0) {
       return 1;
     }
 
     return scaleValue;
-  }, [containerSize, contentWidth, contentHeight, allowUpscale]);
+  }, [containerSize, contentWidth, contentHeight, allowUpscale, fitMode]);
 
   const highlightedKeySet = useMemo(() => new Set(highlightedKeys.map(String)), [highlightedKeys]);
   const filteredKeySet = useMemo(() => new Set(filteredKeys.map(String)), [filteredKeys]);

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getAllLocations } from '../utils/locationService';
 import globalIdCache from '../utils/globalIdCache';
 
 const WarehousePropertiesPanel = ({ 

@@ -7,6 +7,7 @@ import { renderShapeComponent } from '../utils/shapeRenderer';
 import { getContextualLabel, generateStorageUnitLabelInfo } from '../utils/componentLabeling';
 import { inferVerticalRackLevelCount } from '../utils/verticalRackUtils';
 import HoverInfoTooltip from './HoverInfoTooltip';
+import ResizeHandle from './ResizeHandle';
 
 const getContrastColorForHex = (hexColor) => {
   if (!hexColor || typeof hexColor !== 'string') {
@@ -406,6 +407,11 @@ const WarehouseItem = ({
   }, [item, renderDetailRow]);
 
   const handleItemMouseEnter = useCallback((event) => {
+    // Only show tooltips in read-only mode (viewer), not in edit mode (layout builder)
+    if (!isReadOnly) {
+      return;
+    }
+
     if (item.type === 'square_boundary') {
       return;
     }
@@ -423,9 +429,14 @@ const WarehouseItem = ({
       ? 'occupied'
       : 'empty';
     showTooltip(event, content, variant, 'item');
-  }, [buildItemTooltipContent, item.occupancyStatus, item.type, showTooltip]);
+  }, [buildItemTooltipContent, item.occupancyStatus, item.type, showTooltip, isReadOnly]);
 
   const handleItemMouseMove = useCallback((event) => {
+    // Only show tooltips in read-only mode (viewer), not in edit mode (layout builder)
+    if (!isReadOnly) {
+      return;
+    }
+
     if (item.type === 'square_boundary' || item.showCompartments || !hoverTooltip || hoverTooltip.context !== 'item') {
       return;
     }
@@ -434,17 +445,24 @@ const WarehouseItem = ({
       return;
     }
     showTooltip(event, content, hoverTooltip.variant, 'item');
-  }, [buildItemTooltipContent, hoverTooltip, item.type, showTooltip]);
+  }, [buildItemTooltipContent, hoverTooltip, item.type, showTooltip, isReadOnly]);
 
   const handleItemMouseLeave = useCallback(() => {
-    hideTooltip();
-  }, [hideTooltip]);
+    // Only hide tooltips if we're in read-only mode
+    if (isReadOnly) {
+      hideTooltip();
+    }
+  }, [hideTooltip, isReadOnly]);
 
   const handleCompartmentHover = useCallback((event, compartmentData, rowIndex, colIndex) => {
+    // Only show tooltips in read-only mode (viewer), not in edit mode (layout builder)
+    if (!isReadOnly) {
+      return;
+    }
     const content = buildCompartmentTooltipContent(rowIndex, colIndex, compartmentData);
     const variant = compartmentData ? 'occupied' : 'empty';
     showTooltip(event, content, variant, 'compartment');
-  }, [buildCompartmentTooltipContent, showTooltip]);
+  }, [buildCompartmentTooltipContent, showTooltip, isReadOnly]);
 
   const renderCompartmentGrid = useCallback(() => {
     if (!hasCompartments) {
@@ -908,6 +926,20 @@ const WarehouseItem = ({
       {/* SKU compartment grid rendering for SKU Holder components */}
       {renderCompartmentGrid()}
       {hoverTooltip && <HoverInfoTooltip tooltip={hoverTooltip} />}
+      
+      {/* Resize handles for horizontal and vertical racks */}
+      <ResizeHandle
+        item={item}
+        onResize={(updates) => {
+          if (onUpdate) {
+            onUpdate(item.id, updates);
+          }
+        }}
+        gridSize={gridSize}
+        snapToGrid={snapToGrid}
+        color={item.type === 'sku_holder' ? '#2196F3' : '#FF9800'}
+        isReadOnly={isReadOnly}
+      />
     </div>
   );
 };

@@ -8084,7 +8084,8 @@ input:checked + .toggle-slider:before {
 }
 
 .custom-layout-preview {
-  width: 220px;
+  width: 300px;
+  min-width: 300px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -8125,7 +8126,9 @@ input:checked + .toggle-slider:before {
 }
 
 .demo-map-sidebar {
-  width: 300px;
+  width: 380px;
+  min-width: 380px;
+  max-width: 380px;
   background: white;
   border-left: 1px solid #e0e0e0;
   display: flex;
@@ -8271,6 +8274,149 @@ input:checked + .toggle-slider:before {
   background: #f8f9fa;
   border-radius: 6px;
   border: 1px solid #e0e0e0;
+}
+
+/* Storage Summary Cards */
+.storage-summary-card {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.storage-summary-card .zone-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.storage-summary-card .zone-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.storage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.storage-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.2;
+}
+
+.storage-type-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 6px;
+  background: #e0f2fe;
+  color: #0369a1;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.storage-subtitle {
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.2;
+}
+
+.storage-capacity-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.capacity-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.capacity-value {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.capacity-value.used {
+  color: #dc2626;
+}
+
+.capacity-value.available {
+  color: #16a34a;
+}
+
+.storage-meta-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.meta-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+}
+
+.meta-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.meta-chip {
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 2px 6px;
+  background: #f1f5f9;
+  color: #334155;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.meta-chip.sku-chip {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.meta-chip.more-chip {
+  background: #e0e7ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+}
+
+.empty-storage-summary {
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+.empty-storage-summary h3 {
+  margin-bottom: 0.5rem;
+}
+
+.empty-storage-summary p {
+  color: #64748b;
+  font-size: 0.875rem;
 }
 
 .zone-color {

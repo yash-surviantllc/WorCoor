@@ -2059,9 +2059,9 @@ const WarehouseMapView = ({ facilityData }) => {
                         highlightedKeys={filteredItemKeys}
                         filteredKeys={filteredItemKeys}
                         highlightedCompartmentsMap={highlightedCompartmentsMap}
-                        padding={32}
-                        allowUpscale
-                        fitMode="cover"
+                        padding={60}
+                        allowUpscale={false}
+                        fitMode="contain"
                         stageBackground="transparent"
                         stageBorder="none"
                         stageShadow="none"

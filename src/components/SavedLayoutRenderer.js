@@ -158,19 +158,16 @@ const SavedLayoutRenderer = ({
       ? Math.max(widthScale, heightScale)
       : Math.min(widthScale, heightScale);
 
+    // Limit upscaling
     if (!allowUpscale && scaleValue > 1) {
       scaleValue = 1;
     }
 
-    if (normalizedFitMode === 'cover' && scaleValue >= 1) {
-      const coverAdjustment = allowUpscale ? 0.995 : 0.98;
-      scaleValue *= coverAdjustment;
-    } else {
-      const scaleAdjustment = allowUpscale ? 1 : 0.98;
-      scaleValue *= scaleAdjustment;
-    }
+    // Apply gentle adjustment for padding
+    scaleValue *= 0.90;
 
-    scaleValue = Math.max(scaleValue, 0.1);
+    // Ensure reasonable bounds
+    scaleValue = Math.max(0.1, Math.min(scaleValue, 2));
 
     if (!Number.isFinite(scaleValue) || scaleValue <= 0) {
       return 1;

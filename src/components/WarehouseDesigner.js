@@ -124,8 +124,41 @@ const WarehouseDesigner = ({ onBack }) => {
     showMessage.success(`Boundary auto-generated!\nSize: ${boundaryWidth}×${boundaryHeight}px\nComponents enclosed: ${components.length}`);
   }, [items, boundaryCreated]);
 
+  // Check if a location ID is already in use by any item
+  const isLocationInUse = useCallback((locationId, excludeItemId = null) => {
+    if (!locationId) return false;
+    
+    // Normalize the location ID for comparison
+    const normalizedLocId = String(locationId).trim().toUpperCase();
+    
+    return items.some(item => {
+      // Skip the item we're excluding (for updates)
+      if (excludeItemId && item.id === excludeItemId) return false;
+      
+      // Check all possible locations where the location ID might be stored
+      const itemLocId = item.locationId || 
+                       (item.locationData?.location_id) ||
+                       (item.properties?.locationId) ||
+                       (item.data?.locationId);
+      
+      // Compare normalized location IDs
+      return itemLocId && String(itemLocId).trim().toUpperCase() === normalizedLocId;
+    });
+  }, [items]);
+
   // Add item to canvas
   const handleAddItem = useCallback((item, x, y) => {
+    // Check if the item has any form of location ID and validate its uniqueness
+    const locationId = item.locationId || 
+                      (item.locationData?.location_id) ||
+                      (item.properties?.locationId) ||
+                      (item.data?.locationId);
+    
+    if (locationId && isLocationInUse(locationId)) {
+      showMessage.error(`Cannot add item: Location ID ${locationId} is already in use by another component`);
+      return;
+    }
+
     // Find container if dropping into one
     let containerId = null;
     let finalX = x;
@@ -187,11 +220,53 @@ const WarehouseDesigner = ({ onBack }) => {
     setSelectedItemId(itemId);
   }, []);
 
-  // Update item properties
-  const handleUpdateItem = useCallback((itemId, updates) => {
-    setItems(prev => prev.map(item => 
-      item.id === itemId ? { ...item, ...updates } : item
-    ));
+  // Update item properties with comprehensive location ID uniqueness check
+  const handleUpdateItem = useCallback((itemId, updatedProps) => {
+    setItems(prevItems => {
+      // Get the current item being updated
+      const currentItem = prevItems.find(item => item.id === itemId);
+      if (!currentItem) return prevItems;
+      
+      // Check if locationId is being updated in any form
+      const newLocationId = updatedProps.locationId || 
+                           (updatedProps.locationData?.location_id) ||
+                           (updatedProps.properties?.locationId) ||
+                           (updatedProps.data?.locationId);
+      
+      // Only check if we have a location ID to validate
+      if (newLocationId) {
+        // Get the current location ID to check if it's being changed
+        const currentLocationId = currentItem.locationId || 
+                                 (currentItem.locationData?.location_id) ||
+                                 (currentItem.properties?.locationId) ||
+                                 (currentItem.data?.locationId);
+        
+        // Only validate if the location ID is actually changing
+        if (String(newLocationId).trim().toUpperCase() !== String(currentLocationId || '').trim().toUpperCase()) {
+          // Check if the new location ID is already in use by any other component
+          const locationInUse = prevItems.some(item => {
+            if (item.id === itemId) return false; // Skip the current item
+            
+            const itemLocId = item.locationId || 
+                            (item.locationData?.location_id) ||
+                            (item.properties?.locationId) ||
+                            (item.data?.locationId);
+            
+            return itemLocId && String(itemLocId).trim().toUpperCase() === String(newLocationId).trim().toUpperCase();
+          });
+          
+          if (locationInUse) {
+            showMessage.error(`Location ID ${newLocationId} is already in use by another component`);
+            return prevItems; // Prevent the update
+          }
+        }
+      }
+
+      // Update the item with new properties
+      return prevItems.map(item => 
+        item.id === itemId ? { ...item, ...updatedProps } : item
+      );
+    });
   }, []);
 
   // Delete item
@@ -284,6 +359,7 @@ const WarehouseDesigner = ({ onBack }) => {
   const handleToggleLabels = useCallback(() => {
     setShowLabels(prev => !prev);
   }, []);
+
 
   const handleBulkLabelEdit = useCallback(() => {
     const zones = items.filter(item => item.containerLevel === 2);
@@ -386,12 +462,16 @@ const WarehouseDesigner = ({ onBack }) => {
           </div>
 
           {/* Right Properties Panel */}
-          <WarehousePropertiesPanel
-            selectedItem={selectedItem}
-            onUpdateItem={handleUpdateItem}
-            onClose={() => setShowProperties(false)}
-            isVisible={showProperties}
-          />
+          {showProperties && selectedItem && (
+            <WarehousePropertiesPanel
+              key={`properties-${selectedItem.id}-${items.length}`} // Force re-render when items change
+              selectedItem={selectedItem}
+              onUpdateItem={handleUpdateItem}
+              onClose={() => setShowProperties(false)}
+              isVisible={showProperties}
+              allItems={items}
+            />
+          )}
         </div>
 
         {/* Color Legend */}

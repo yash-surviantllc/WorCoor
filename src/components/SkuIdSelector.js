@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import showMessage from '../utils/showMessage';
+import globalIdCache from '../utils/globalIdCache';
 
 const SkuIdSelector = ({ 
   isVisible, 
@@ -25,11 +26,13 @@ const SkuIdSelector = ({
   ];
 
   // Generate available Location IDs (LOC-001 to LOC-999)
+  // Check against both existingLocationIds (local) and global cache
   const generateAvailableLocationIds = () => {
     const allIds = [];
     for (let i = 1; i <= 999; i++) {
       const locationId = `LOC-${i.toString().padStart(3, '0')}`;
-      if (!existingLocationIds.includes(locationId)) {
+      // Check both local existing IDs and global cache
+      if (!existingLocationIds.includes(locationId) && !globalIdCache.isIdInUse(locationId)) {
         allIds.push(locationId);
       }
     }
@@ -56,10 +59,14 @@ const SkuIdSelector = ({
       return;
     }
 
-    if (existingLocationIds.includes(finalLocationId)) {
-      showMessage.error('This Location ID is already in use. Please select a different one.');
+    // Check both local existing IDs and global cache
+    if (existingLocationIds.includes(finalLocationId) || globalIdCache.isIdInUse(finalLocationId)) {
+      showMessage.error(`Location ID "${finalLocationId}" is already in use elsewhere in the map. Please select a different one.`);
       return;
     }
+
+    // Add the new ID to the global cache
+    globalIdCache.addId(finalLocationId);
 
     if (showCategories) {
       onSave({ locationId: finalLocationId, category: selectedCategory });
@@ -112,10 +119,10 @@ const SkuIdSelector = ({
                   </select>
                   <div className="sku-info">
                     {availableLocationIds.length > 50 && (
-                      <small>Showing first 50 of {availableLocationIds.length} available Location IDs</small>
+                      <small>Showing first 50 of {availableLocationIds.length} available Location IDs (checked against entire map)</small>
                     )}
                     {availableLocationIds.length === 0 && (
-                      <small style={{ color: '#f44336' }}>No available sequential Location IDs. Use custom ID.</small>
+                      <small style={{ color: '#f44336' }}>No available sequential Location IDs in the entire map. Use custom ID.</small>
                     )}
                   </div>
                 </div>

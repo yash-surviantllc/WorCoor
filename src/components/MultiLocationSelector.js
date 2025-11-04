@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import '../styles/MultiLocationSelector.css';
 import showMessage from '../utils/showMessage';
+import globalIdCache from '../utils/globalIdCache';
 
 const MAX_LEVEL_COUNT = 999;
 const MAX_LOCATION_INDEX = 9999;
@@ -151,7 +152,9 @@ const MultiLocationSelector = ({
     const options = [];
     for (let index = 1; index <= MAX_LOCATION_INDEX; index += 1) {
       const candidate = `LOC-${index.toString().padStart(3, '0')}`;
-      if (!blockedLocationIds.has(normalizeLocationId(candidate))) {
+      const normalized = normalizeLocationId(candidate);
+      // Check both blockedLocationIds and global cache
+      if (!blockedLocationIds.has(normalized) && !globalIdCache.isIdInUse(candidate)) {
         options.push(candidate);
       }
       if (options.length >= 150) {
@@ -219,8 +222,9 @@ const MultiLocationSelector = ({
       return;
     }
 
-    if (externalLocationSet.has(locationId) || attachedLocationCounts.get(locationId)) {
-      showMessage.error(`Location ID ${locationId} is already in use. Choose another ID.`);
+    // Check against both external set and global cache
+    if (externalLocationSet.has(locationId) || attachedLocationCounts.get(locationId) || globalIdCache.isIdInUse(locationId)) {
+      showMessage.error(`Location ID ${locationId} is already in use elsewhere in the map. Choose another ID.`);
       return;
     }
 
@@ -270,8 +274,9 @@ const MultiLocationSelector = ({
         return;
       }
 
-      if (externalLocationSet.has(locationId)) {
-        showMessage.error(`Location ID ${locationId} is already used elsewhere in this layout.`);
+      // Check against both external set and global cache
+      if (externalLocationSet.has(locationId) || globalIdCache.isIdInUse(locationId)) {
+        showMessage.error(`Location ID ${locationId} is already used elsewhere in the map.`);
         return;
       }
 
@@ -293,6 +298,13 @@ const MultiLocationSelector = ({
     const levelIds = normalizedMappings.map((mapping) => mapping.levelId);
     const locationIds = normalizedMappings.map((mapping) => mapping.locationId);
     const primaryLocationId = locationIds[0] || '';
+
+    // Add all location IDs to the global cache
+    locationIds.forEach(id => {
+      if (id) {
+        globalIdCache.addId(id);
+      }
+    });
 
     onSave({
       isMultiple: true,

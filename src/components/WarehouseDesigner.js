@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { v4 as uuidv4 } from 'uuid';
@@ -9,9 +9,10 @@ import WarehouseDesignerCanvas from './WarehouseDesignerCanvas';
 import ColorLegend from './ColorLegend';
 import { getComponentColor } from '../utils/componentColors';
 import showMessage from '../utils/showMessage';
+import globalIdCache from '../utils/globalIdCache';
 
-const WarehouseDesigner = ({ onBack }) => {
-  const [items, setItems] = useState([]);
+const WarehouseDesigner = ({ onBack, initialLayout = null }) => {
+  const [items, setItems] = useState(initialLayout?.items || []);
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [mode, setMode] = useState('boundary'); // boundary, zone, unit
   const [showProperties, setShowProperties] = useState(false);
@@ -20,6 +21,24 @@ const WarehouseDesigner = ({ onBack }) => {
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [boundaryCreated, setBoundaryCreated] = useState(false);
   const canvasRef = useRef(null);
+
+  // Initialize global ID cache when component mounts
+  useEffect(() => {
+    globalIdCache.initialize(items);
+    console.log(`Global ID cache initialized with ${globalIdCache.size()} IDs`);
+    
+    // Cleanup: clear cache when component unmounts
+    return () => {
+      globalIdCache.clear();
+    };
+  }, []); // Only run on mount
+
+  // Update cache when items change
+  useEffect(() => {
+    if (globalIdCache.isInitialized()) {
+      globalIdCache.initialize(items);
+    }
+  }, [items]);
 
   const selectedItem = items.find(item => item.id === selectedItemId);
   const selectedZone = items.find(item => item.id === selectedItemId && item.containerLevel === 2);
@@ -124,8 +143,41 @@ const WarehouseDesigner = ({ onBack }) => {
     showMessage.success(`Boundary auto-generated!\nSize: ${boundaryWidth}×${boundaryHeight}px\nComponents enclosed: ${components.length}`);
   }, [items, boundaryCreated]);
 
+  // Check if a location ID is already in use using global cache
+  const isLocationInUse = useCallback((locationId, excludeItemId = null) => {
+    if (!locationId) return false;
+    
+    // If we're checking for an update (excludeItemId provided), check if it's the same ID
+    if (excludeItemId) {
+      const item = items.find(i => i.id === excludeItemId);
+      if (item) {
+        const oldId = item.locationId || 
+                     (item.locationData?.location_id) ||
+                     (item.properties?.locationId) ||
+                     (item.data?.locationId);
+        
+        // If the new ID is the same as old ID, it's not in use by others
+        if (oldId && String(oldId).trim().toUpperCase() === String(locationId).trim().toUpperCase()) {
+          return false;
+        }
+      }
+    }
+    
+    return globalIdCache.isIdInUse(locationId);
+  }, [items]);
+
   // Add item to canvas
   const handleAddItem = useCallback((item, x, y) => {
+    // Check if the item has any form of location ID and validate its uniqueness
+    const locationId = item.locationId || 
+                      (item.locationData?.location_id) ||
+                      (item.properties?.locationId) ||
+                      (item.data?.locationId);
+    
+    if (locationId && isLocationInUse(locationId)) {
+      showMessage.error(`Cannot add item: Location ID ${locationId} is already in use by another component`);
+      return;
+    }
     // Find container if dropping into one
     let containerId = null;
     let finalX = x;
@@ -189,18 +241,89 @@ const WarehouseDesigner = ({ onBack }) => {
 
   // Update item properties
   const handleUpdateItem = useCallback((itemId, updates) => {
-    setItems(prev => prev.map(item => 
-      item.id === itemId ? { ...item, ...updates } : item
-    ));
+    setItems(prevItems => {
+      // Get the current item being updated
+      const currentItem = prevItems.find(item => item.id === itemId);
+      if (!currentItem) return prevItems;
+      
+      // Check if locationId is being updated in any form
+      const newLocationId = updates.locationId || 
+                           (updates.locationData?.location_id) ||
+                           (updates.properties?.locationId) ||
+                           (updates.data?.locationId);
+      
+      // Only check if we have a location ID to validate
+      if (newLocationId) {
+        // Get the current location ID to check if it's being changed
+        const currentLocationId = currentItem.locationId || 
+                                 (currentItem.locationData?.location_id) ||
+                                 (currentItem.properties?.locationId) ||
+                                 (currentItem.data?.locationId);
+        
+        // Only validate if the location ID is actually changing
+        if (String(newLocationId).trim().toUpperCase() !== String(currentLocationId || '').trim().toUpperCase()) {
+          // Check if the new location ID is already in use by any other component
+          if (globalIdCache.isIdInUse(newLocationId)) {
+            showMessage.error(`Location ID ${newLocationId} is already in use by another component`);
+            return prevItems; // Don't update if location ID is in use
+          }
+        }
+      }
+
+      // Update the item with new properties
+      return prevItems.map(item => 
+        item.id === itemId ? { ...item, ...updates } : item
+      );
+    });
   }, []);
 
   // Delete item
   const handleDeleteItem = useCallback((itemId) => {
+    // Remove the item's location IDs from the global cache
+    const itemToDelete = items.find(item => item.id === itemId);
+    if (itemToDelete) {
+      // Extract and remove all location IDs from the item
+      const idsToRemove = [
+        itemToDelete.locationId,
+        itemToDelete.locationCode,
+        itemToDelete.locationTag,
+        itemToDelete.primaryLocationId,
+        itemToDelete.locationData?.location_id,
+        itemToDelete.properties?.locationId,
+        itemToDelete.data?.locationId
+      ];
+      
+      idsToRemove.forEach(id => {
+        if (id) globalIdCache.removeId(id);
+      });
+      
+      // Remove IDs from arrays
+      if (Array.isArray(itemToDelete.locationIds)) {
+        itemToDelete.locationIds.forEach(id => globalIdCache.removeId(id));
+      }
+      
+      // Remove IDs from level-location mappings
+      if (Array.isArray(itemToDelete.levelLocationMappings)) {
+        itemToDelete.levelLocationMappings.forEach(mapping => {
+          const id = mapping?.locationId || mapping?.locId;
+          if (id) globalIdCache.removeId(id);
+        });
+      }
+      
+      // Remove IDs from compartment contents
+      if (itemToDelete.compartmentContents) {
+        Object.values(itemToDelete.compartmentContents).forEach(content => {
+          if (content?.locationId) globalIdCache.removeId(content.locationId);
+          if (content?.uniqueId) globalIdCache.removeId(content.uniqueId);
+        });
+      }
+    }
+    
     setItems(prev => prev.filter(item => item.id !== itemId));
     if (selectedItemId === itemId) {
       setSelectedItemId(null);
     }
-  }, [selectedItemId]);
+  }, [selectedItemId, items]);
 
   // Mode change handler
   const handleModeChange = useCallback((newMode) => {
@@ -278,6 +401,10 @@ const WarehouseDesigner = ({ onBack }) => {
     link.click();
     
     URL.revokeObjectURL(url);
+    
+    // Clear the global ID cache after saving
+    globalIdCache.clear();
+    showMessage.success('Layout saved successfully! ID cache cleared.');
   }, [items]);
 
   // Label management functions

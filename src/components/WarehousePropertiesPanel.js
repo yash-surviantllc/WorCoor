@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import globalIdCache from '../utils/globalIdCache';
 
 const WarehousePropertiesPanel = ({ 
   selectedItem, 

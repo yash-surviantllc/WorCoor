@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import SkuIdSelector from './SkuIdSelector';
 import { getContextualLabel, generateStorageUnitLabelInfo } from '../utils/componentLabeling';
 import showMessage from '../utils/showMessage';
+import globalIdCache from '../utils/globalIdCache';
 
 const normalizeHexColor = (value, fallback = '#8D6E63') => {
   if (!value || typeof value !== 'string') {
@@ -584,10 +585,39 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
           return `${unitPrefix}-${zone}${aisle}-${position}`;
         };
         
-        // Helper function to update SKU metadata
+        // Helper function to update SKU metadata with global ID cache validation
         const updateSkuMetadata = (compartmentId, updates) => {
           const currentContents = selectedItem.compartmentContents || {};
           const currentSku = currentContents[compartmentId] || {};
+          
+          // If updating locationId, validate uniqueness using global cache
+          if (updates.locationId) {
+            const oldLocationId = currentSku.locationId || currentSku.uniqueId;
+            const newLocationId = updates.locationId;
+            
+            // Check if the new ID is different from the old one
+            if (oldLocationId && String(oldLocationId).trim().toUpperCase() !== String(newLocationId).trim().toUpperCase()) {
+              // Check if new ID is already in use
+              if (globalIdCache.isIdInUse(newLocationId)) {
+                showMessage.error(`Location ID "${newLocationId}" is already in use elsewhere in the map`);
+                return;
+              }
+              
+              // Update the cache: remove old ID, add new ID
+              if (oldLocationId) {
+                globalIdCache.removeId(oldLocationId);
+              }
+              globalIdCache.addId(newLocationId);
+            } else if (!oldLocationId) {
+              // New location ID being added
+              if (globalIdCache.isIdInUse(newLocationId)) {
+                showMessage.error(`Location ID "${newLocationId}" is already in use elsewhere in the map`);
+                return;
+              }
+              globalIdCache.addId(newLocationId);
+            }
+          }
+          
           const updatedSku = { ...currentSku, ...updates };
           const newContents = { ...currentContents, [compartmentId]: updatedSku };
           onUpdateItem(selectedItem.id, { compartmentContents: newContents });
@@ -766,10 +796,16 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
                             </button>
                             <button
                               onClick={() => {
+                                // Remove the location ID from global cache before deleting
+                                const locationId = itemData.locationId || itemData.uniqueId;
+                                if (locationId) {
+                                  globalIdCache.removeId(locationId);
+                                }
+                                
                                 const newContents = { ...selectedItem.compartmentContents };
                                 delete newContents[compartmentId];
                                 onUpdateItem(selectedItem.id, { compartmentContents: newContents });
-                                showMessage.success(`Item at location "${itemData.locationId || itemData.uniqueId || itemData.sku}" deleted`);
+                                showMessage.success(`Item at location "${locationId || itemData.sku}" deleted`);
                               }}
                               style={{
                                 padding: '0.2rem 0.4rem',

@@ -35,8 +35,10 @@ const SavedLayoutRenderer = ({
   showLabels = true,
   highlightedKeys = [],
   filteredKeys = [],
+  highlightedCompartmentsMap = {},
   padding = DEFAULT_PADDING,
   allowUpscale = false,
+  fitMode = 'contain',
   stageBackground = '#ffffff',
   stageBorder = '1px solid #e0e0e0',
   stageShadow = '0 1px 3px rgba(15, 23, 42, 0.08)',
@@ -150,21 +152,32 @@ const SavedLayoutRenderer = ({
     const widthScale = containerSize.width / contentWidth;
     const heightScale = containerSize.height / contentHeight;
 
-    let scaleValue = Math.min(widthScale, heightScale);
+    const normalizedFitMode = fitMode === 'cover' ? 'cover' : 'contain';
+
+    let scaleValue = normalizedFitMode === 'cover'
+      ? Math.max(widthScale, heightScale)
+      : Math.min(widthScale, heightScale);
 
     if (!allowUpscale && scaleValue > 1) {
       scaleValue = 1;
     }
 
-    const scaleAdjustment = allowUpscale ? 1 : 0.98;
-    scaleValue = Math.max(scaleValue * scaleAdjustment, 0.1);
+    if (normalizedFitMode === 'cover' && scaleValue >= 1) {
+      const coverAdjustment = allowUpscale ? 0.995 : 0.98;
+      scaleValue *= coverAdjustment;
+    } else {
+      const scaleAdjustment = allowUpscale ? 1 : 0.98;
+      scaleValue *= scaleAdjustment;
+    }
+
+    scaleValue = Math.max(scaleValue, 0.1);
 
     if (!Number.isFinite(scaleValue) || scaleValue <= 0) {
       return 1;
     }
 
     return scaleValue;
-  }, [containerSize, contentWidth, contentHeight, allowUpscale]);
+  }, [containerSize, contentWidth, contentHeight, allowUpscale, fitMode]);
 
   const highlightedKeySet = useMemo(() => new Set(highlightedKeys.map(String)), [highlightedKeys]);
   const filteredKeySet = useMemo(() => new Set(filteredKeys.map(String)), [filteredKeys]);
@@ -261,8 +274,9 @@ const SavedLayoutRenderer = ({
                 <div
                   key={itemKey}
                   style={{
-                    opacity: isFaded ? 0.2 : 1,
-                    transition: 'opacity 0.3s ease',
+                    opacity: isFaded ? 0.08 : 1,
+                    filter: isFaded ? 'blur(0.6px) saturate(0) brightness(1.5)' : 'none',
+                    transition: 'opacity 0.25s ease, filter 0.25s ease',
                     pointerEvents: isFaded ? 'none' : 'auto'
                   }}
                 >
@@ -282,6 +296,7 @@ const SavedLayoutRenderer = ({
                     isReadOnly
                     showLabels={showLabels}
                     isHighlighted={highlightedKeySet.has(itemKey)}
+                    highlightedCompartments={highlightedCompartmentsMap[itemKey] || null}
                   />
                 </div>
               );

@@ -412,6 +412,7 @@ const WarehouseDesigner = ({ onBack, initialLayout = null }) => {
     setShowLabels(prev => !prev);
   }, []);
 
+
   const handleBulkLabelEdit = useCallback(() => {
     const zones = items.filter(item => item.containerLevel === 2);
     if (zones.length === 0) {
@@ -513,12 +514,16 @@ const WarehouseDesigner = ({ onBack, initialLayout = null }) => {
           </div>
 
           {/* Right Properties Panel */}
-          <WarehousePropertiesPanel
-            selectedItem={selectedItem}
-            onUpdateItem={handleUpdateItem}
-            onClose={() => setShowProperties(false)}
-            isVisible={showProperties}
-          />
+          {showProperties && selectedItem && (
+            <WarehousePropertiesPanel
+              key={`properties-${selectedItem.id}-${items.length}`} // Force re-render when items change
+              selectedItem={selectedItem}
+              onUpdateItem={handleUpdateItem}
+              onClose={() => setShowProperties(false)}
+              isVisible={showProperties}
+              allItems={items}
+            />
+          )}
         </div>
 
         {/* Color Legend */}

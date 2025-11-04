@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import SavedLayoutRenderer, { getLayoutItemKey } from './SavedLayoutRenderer';
 import { inferVerticalRackLevelCount } from '../utils/verticalRackUtils';
+import summarizeStorageComponents from '../utils/layoutComponentSummary';
 
 const renderDemoLayout = (demoData) => (
   <svg width="100%" height="100%" viewBox="0 0 700 320" className="fullscreen-warehouse-svg">
@@ -110,10 +111,9 @@ const FullscreenMap = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [operationalData, setOperationalData] = useState({});
   const [showInfoPanel, setShowInfoPanel] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState('location');
   const [searchResults, setSearchResults] = useState([]);
   const [highlightedItems, setHighlightedItems] = useState([]);
+  const [filteredKeys, setFilteredKeys] = useState([]);
   
   // Enhanced dropdown search states
   const [selectedLocationTag, setSelectedLocationTag] = useState('');
@@ -123,6 +123,218 @@ const FullscreenMap = () => {
   const [availableSkus, setAvailableSkus] = useState([]);
   const [availableAssets, setAvailableAssets] = useState([]);
   const [dropdownSearchActive, setDropdownSearchActive] = useState(false);
+
+  const storageSummaries = useMemo(() => {
+    if (!mapData) {
+      return [];
+    }
+
+    if (Array.isArray(mapData.storageSummaries) && mapData.storageSummaries.length > 0) {
+      return mapData.storageSummaries;
+    }
+
+    if (mapData.layoutData && Array.isArray(mapData.layoutData.items)) {
+      return summarizeStorageComponents(mapData.layoutData.items);
+    }
+
+    if (Array.isArray(mapData.layoutItems) && mapData.layoutItems.length > 0) {
+      return summarizeStorageComponents(mapData.layoutItems);
+    }
+
+    return [];
+  }, [mapData]);
+
+  const sidebarData = useMemo(() => {
+    if (!mapData) {
+      return { type: 'none' };
+    }
+
+    const { isCustomLayout, layoutData, demoData } = mapData;
+
+    if (!isCustomLayout && demoData) {
+      return {
+        type: 'demo',
+        zones: Array.isArray(demoData.zones) ? demoData.zones : [],
+        equipment: Array.isArray(demoData.equipment) ? demoData.equipment : []
+      };
+    }
+
+    if (isCustomLayout && layoutData && Array.isArray(layoutData.items)) {
+      const typeMap = {
+        storage_unit: 'Storage Unit',
+        spare_unit: 'Spare Unit',
+        sku_holder: 'Horizontal Storage',
+        vertical_sku_holder: 'Vertical Storage',
+        square_boundary: 'Square Boundary',
+        solid_boundary: 'Solid Boundary',
+        dotted_boundary: 'Dotted Boundary'
+      };
+
+      const counts = layoutData.items.reduce((acc, item) => {
+        if (item.type === 'square_boundary') {
+          return acc;
+        }
+        const typeName = typeMap[item.type] || (item.type ? item.type.replace(/_/g, ' ') : 'Component');
+        acc[typeName] = (acc[typeName] || 0) + 1;
+        return acc;
+      }, {});
+
+      const componentCounts = Object.entries(counts).sort(([, countA], [, countB]) => countB - countA);
+
+      return {
+        type: 'custom',
+        componentCounts
+      };
+    }
+
+    return { type: 'none' };
+  }, [mapData]);
+
+  const shouldShowDemoLegend = useMemo(() => {
+    if (!mapData) {
+      return false;
+    }
+
+    return !mapData.isCustomLayout && Array.isArray(mapData.demoData?.zones) && mapData.demoData.zones.length > 0;
+  }, [mapData]);
+
+  const sidebarContent = useMemo(() => {
+    if (sidebarData.type === 'demo') {
+      const zones = sidebarData.zones || [];
+      const equipment = sidebarData.equipment || [];
+
+      if (zones.length === 0 && equipment.length === 0) {
+        return null;
+      }
+
+      return (
+        <>
+          {zones.length > 0 && (
+            <div className="demo-map-info">
+              <h3>Zone Information</h3>
+              <div className="zone-list">
+                {zones.map((zone) => (
+                  <div key={zone.id} className="zone-info-item">
+                    <div className="zone-color" style={{ backgroundColor: zone.color }}></div>
+                    <div className="zone-details">
+                      <div className="zone-name">{zone.name}</div>
+                      <div className="zone-capacity">
+                        {zone.items}/{zone.capacity} items
+                        <div className="capacity-bar">
+                          <div
+                            className="capacity-fill"
+                            style={{
+                              width: `${zone.capacity > 0 ? (zone.items / zone.capacity) * 100 : 0}%`,
+                              backgroundColor: zone.color
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {equipment.length > 0 && (
+            <div className="demo-map-equipment">
+              <h3>Equipment Status</h3>
+              <div className="equipment-list">
+                {equipment.map((item) => (
+                  <div key={item.id} className="equipment-item">
+                    <div className={`equipment-status ${item.status}`}></div>
+                    <div className="equipment-info">
+                      <div className="equipment-name">{item.name}</div>
+                      <div className="equipment-details">
+                        Status: {item.status}
+                        {item.temp && <span> | Temp: {item.temp}</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      );
+    }
+
+    if (sidebarData.type === 'custom') {
+      if (storageSummaries.length === 0) {
+        return (
+          <div className="demo-map-info empty-storage-summary">
+            <h3>Layout Components</h3>
+            <p>No storage metadata available for this layout.</p>
+          </div>
+        );
+      }
+
+      return (
+        <div className="demo-map-info">
+          <h3>Layout Components</h3>
+          <div className="zone-list storage-summary-list">
+            {storageSummaries.map((summary) => (
+              <div key={summary.id || summary.type} className="zone-info-item storage-summary-card">
+                <div className="zone-color" style={{ backgroundColor: summary.color }}></div>
+                <div className="zone-details">
+                  <div className="storage-header">
+                    <div className="storage-title">{summary.title || summary.label}</div>
+                    {summary.label && (
+                      <span className="storage-type-badge">{summary.label}</span>
+                    )}
+                  </div>
+                  {summary.subtitle && (
+                    <div className="storage-subtitle">{summary.subtitle}</div>
+                  )}
+                  <div className="storage-capacity-row">
+                    <span className="capacity-label">Max Capacity:</span>
+                    <span className="capacity-value">{summary.maxCapacity}</span>
+                  </div>
+                  <div className="storage-capacity-row">
+                    <span className="capacity-label">Used:</span>
+                    <span className="capacity-value used">{summary.usedCapacity}</span>
+                  </div>
+                  <div className="storage-capacity-row">
+                    <span className="capacity-label">Available:</span>
+                    <span className="capacity-value available">{summary.availableCapacity}</span>
+                  </div>
+                  {summary.locationIds && summary.locationIds.length > 0 && (
+                    <div className="storage-meta-block">
+                      <div className="meta-title">Location IDs</div>
+                      <div className="meta-values">
+                        {summary.locationIds.slice(0, 3).map((id) => (
+                          <span key={id} className="meta-chip">{id}</span>
+                        ))}
+                        {summary.locationIds.length > 3 && (
+                          <span className="meta-chip more-chip">+{summary.locationIds.length - 3}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {summary.skus && summary.skus.length > 0 && (
+                    <div className="storage-meta-block">
+                      <div className="meta-title">SKUs</div>
+                      <div className="meta-values">
+                        {summary.skus.slice(0, 3).map((sku) => (
+                          <span key={sku} className="meta-chip sku-chip">{sku}</span>
+                        ))}
+                        {summary.skus.length > 3 && (
+                          <span className="meta-chip more-chip">+{summary.skus.length - 3}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  }, [sidebarData, storageSummaries]);
 
   useEffect(() => {
     // Get map data from URL hash
@@ -135,12 +347,14 @@ const FullscreenMap = () => {
         setMapData(parsedData);
         
         // Generate operational data for each item
-        if (parsedData.layoutData && parsedData.layoutData.items) {
-          const opData = generateOperationalData(parsedData.layoutData.items);
+        const layoutItems = parsedData.layoutData?.items || parsedData.layoutItems || [];
+
+        if (layoutItems.length > 0) {
+          const opData = generateOperationalData(layoutItems);
           setOperationalData(opData);
-          
+
           // Extract dropdown options from operational data
-          extractDropdownOptions(parsedData.layoutData.items, opData);
+          extractDropdownOptions(layoutItems, opData);
         }
       } catch (err) {
         setError('Failed to load map data');
@@ -284,13 +498,22 @@ const FullscreenMap = () => {
       }
 
       addSku(content.sku);
+      addSku(content.uniqueId);
+      addSku(content.primarySku);
     };
 
     const collectLocationsFromItem = (item = {}, itemOpData = null) => {
+      if (item?.type === 'square_boundary') {
+        return;
+      }
+
       addLocation(item.locationId);
       addLocation(item.locationCode);
       addLocation(item.locationTag);
       addLocation(item.primaryLocationId);
+
+      addSku(item.skuId);
+      addSku(item.sku);
 
       if (Array.isArray(item.locationIds)) {
         item.locationIds.forEach(addLocation);
@@ -326,10 +549,10 @@ const FullscreenMap = () => {
 
       collectLocationsFromItem(item, itemOpData);
 
-      if (item.type) {
+      if (item.type && item.type !== 'square_boundary') {
         assets.add(item.type.toUpperCase().replace(/_/g, ' '));
       }
-      if (item.name) {
+      if (item.name && item.type !== 'square_boundary') {
         assets.add(item.name);
       }
       if (itemOpData) {
@@ -341,18 +564,19 @@ const FullscreenMap = () => {
     });
 
     setAvailableLocationTags(Array.from(locationTags).sort());
-    setAvailableSkus([]);
+    setAvailableSkus(Array.from(skus).sort());
     setAvailableAssets(Array.from(assets).sort());
   };
   
   // Enhanced search functionality with dropdown filters only
-  const performSearch = () => {
+  const performSearch = useCallback(() => {
     // Check if dropdown search is active
     const hasDropdownFilters = selectedLocationTag || selectedSku || selectedAsset;
     
     if (!hasDropdownFilters) {
       setSearchResults([]);
       setHighlightedItems([]);
+      setFilteredKeys([]);
       setDropdownSearchActive(false);
       return;
     }
@@ -452,36 +676,40 @@ const FullscreenMap = () => {
       });
     }
 
+    const uniqueHighlighted = Array.from(new Set(highlighted));
+
     setSearchResults(results);
-    setHighlightedItems(highlighted);
-  };
+    setHighlightedItems(uniqueHighlighted);
+    setFilteredKeys(uniqueHighlighted);
+  }, [selectedLocationTag, selectedSku, selectedAsset, mapData, operationalData]);
+
+  useEffect(() => {
+    performSearch();
+  }, [performSearch]);
 
   // Dropdown filter handlers
   const handleLocationTagChange = (e) => {
     const value = e.target.value;
     setSelectedLocationTag(value);
-    performSearch();
   };
   
   const handleSkuChange = (e) => {
     const value = e.target.value;
     setSelectedSku(value);
-    performSearch();
   };
   
   const handleAssetChange = (e) => {
     const value = e.target.value;
     setSelectedAsset(value);
-    performSearch();
   };
 
   const clearSearch = () => {
-    setSearchQuery('');
     setSelectedLocationTag('');
     setSelectedSku('');
     setSelectedAsset('');
     setSearchResults([]);
     setHighlightedItems([]);
+    setFilteredKeys([]);
     setDropdownSearchActive(false);
   };
 
@@ -499,29 +727,72 @@ const FullscreenMap = () => {
       );
     }
 
-    // Calculate ultra-tight bounds
-    const minX = Math.min(...items.map(item => item.x), 0);
-    const minY = Math.min(...items.map(item => item.y), 0);
-    const maxX = Math.max(...items.map(item => item.x + item.width));
-    const maxY = Math.max(...items.map(item => item.y + item.height));
-    
-    const contentWidth = maxX - minX;
-    const contentHeight = maxY - minY;
-    
-    // Minimal padding for fullscreen view
-    const padding = 40;
-    const viewBoxX = minX - padding;
-    const viewBoxY = minY - padding;
-    const viewBoxWidth = contentWidth + (padding * 2);
-    const viewBoxHeight = contentHeight + (padding * 2);
+    // Calculate ultra-tight bounds; prefer square boundary when available
+    const boundaryItem = items.find((item) => item.type === 'square_boundary');
+
+    let minX;
+    let minY;
+    let maxX;
+    let maxY;
+
+    if (boundaryItem && boundaryItem.width != null && boundaryItem.height != null) {
+      minX = boundaryItem.x;
+      minY = boundaryItem.y;
+      maxX = boundaryItem.x + boundaryItem.width;
+      maxY = boundaryItem.y + boundaryItem.height;
+    } else {
+      const xs = items.map((item) => item.x);
+      const ys = items.map((item) => item.y);
+      const xMaxes = items.map((item) => item.x + (item.width || 0));
+      const yMaxes = items.map((item) => item.y + (item.height || 0));
+
+      minX = xs.length ? Math.min(...xs) : 0;
+      minY = ys.length ? Math.min(...ys) : 0;
+      maxX = xMaxes.length ? Math.max(...xMaxes) : 0;
+      maxY = yMaxes.length ? Math.max(...yMaxes) : 0;
+    }
+
+    const contentWidth = Math.max(maxX - minX, 1);
+    const contentHeight = Math.max(maxY - minY, 1);
+
+    // Provide comfortable breathing room around the layout
+    const strokeAllowance = boundaryItem ? Math.max(boundaryItem.borderWidth || 4, 4) : 0;
+    const basePadding = 200 + strokeAllowance;
+    const zoomOutFactor = 2.4; // Zoom out while keeping the full boundary visible
+
+    const baseWidth = contentWidth + (basePadding * 2);
+    const baseHeight = contentHeight + (basePadding * 2);
+
+    const viewBoxWidth = baseWidth * zoomOutFactor;
+    const viewBoxHeight = baseHeight * zoomOutFactor;
+
+    const centerX = minX + contentWidth / 2;
+    const centerY = minY + contentHeight / 2;
+
+    const viewBoxX = centerX - viewBoxWidth / 2;
+    const viewBoxY = centerY - viewBoxHeight / 2;
+
+    const handleMouseDown = () => {};
+    const handleMouseMove = () => {};
+    const handleMouseUp = () => {};
+    const handleWheel = () => {};
 
     return (
       <svg 
+        ref={(node) => {
+          if (node) {
+            node.style.transform = 'none';
+          }
+        }}
         width="100%" 
         height="100%" 
         viewBox={`${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`}
         className="fullscreen-warehouse-svg"
         preserveAspectRatio="xMidYMid meet"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onWheel={handleWheel}
       >
         {/* Background */}
         <rect 
@@ -1287,65 +1558,81 @@ const FullscreenMap = () => {
       </div>
 
       <div className="fullscreen-map-content">
-        <div className="map-display-area">
-          {isCustomLayout && layoutData && Array.isArray(layoutData.items) ? (
-            <div className="fullscreen-custom-layout">
-              {layoutData.items.length === 0 ? (
-                <div className="empty-layout-message">
-                  <h3>No components found in this layout</h3>
-                  <p>The saved layout does not contain any items to display.</p>
+        <div
+          className="demo-map-body demo-map-body-fullscreen"
+          style={{ display: 'flex', flexDirection: 'row', gap: '20px', alignItems: 'stretch', flex: 1 }}
+        >
+          <div className="demo-map-canvas" style={{ flex: 1 }}>
+            <div className="map-display-area">
+              {isCustomLayout && layoutData && Array.isArray(layoutData.items) ? (
+                <div className="fullscreen-custom-layout">
+                  {layoutData.items.length === 0 ? (
+                    <div className="empty-layout-message">
+                      <h3>No components found in this layout</h3>
+                      <p>The saved layout does not contain any items to display.</p>
+                    </div>
+                  ) : (
+                    <SavedLayoutRenderer
+                      items={layoutData.items}
+                      metadata={{
+                        name: layoutData.name || unit?.name,
+                        timestamp: layoutData.timestamp
+                      }}
+                      width="100%"
+                      height="100%"
+                      background="transparent"
+                      showLabels={false}
+                      showMetadata={false}
+                      highlightedKeys={highlightedItems}
+                      filteredKeys={filteredKeys}
+                      padding={140}
+                      allowUpscale
+                      fitMode="cover"
+                      stageBackground="transparent"
+                      stageBorder="none"
+                      stageShadow="none"
+                      stageBorderRadius="0px"
+                    />
+                  )}
+                </div>
+              ) : demoData ? (
+                <div className="fullscreen-demo-layout">
+                  {renderDemoLayout(demoData)}
                 </div>
               ) : (
-                <SavedLayoutRenderer
-                  items={layoutData.items}
-                  metadata={{
-                    name: layoutData.name || unit?.name,
-                    timestamp: layoutData.timestamp
-                  }}
-                  width="100%"
-                  height="100%"
-                  showLabels
-                  showMetadata={false}
-                  highlightedKeys={highlightedItems}
-                  padding={8}
-                  allowUpscale
-                  stageBackground="transparent"
-                  stageBorder="none"
-                  stageShadow="none"
-                  stageBorderRadius="0px"
-                />
+                <div className="fullscreen-no-data">
+                  <h2>No map data available</h2>
+                  <p>This warehouse unit doesn't have map data configured.</p>
+                </div>
               )}
             </div>
-          ) : demoData ? (
-            <div className="fullscreen-demo-layout">
-              {renderDemoLayout(demoData)}
-            </div>
-          ) : (
-            <div className="fullscreen-no-data">
-              <h2>No map data available</h2>
-              <p>This warehouse unit doesn't have map data configured.</p>
-            </div>
-          )}
-        </div>
-
-        {/* Operational Info Panel */}
-        {showInfoPanel && selectedItem && (
-          <div className="operational-info-panel">
-            <div className="info-panel-header">
-              <h3>{getItemDisplayName(selectedItem)}</h3>
-              <button
-                className="close-info-btn"
-                onClick={() => setShowInfoPanel(false)}
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="info-panel-content">
-              {renderOperationalInfo(selectedItem)}
-            </div>
           </div>
-        )}
+
+          <div
+            className="demo-map-sidebar fullscreen-sidebar"
+            style={{ width: '300px', flexShrink: 0, overflowY: 'auto', height: '100%' }}
+          >
+            {sidebarContent}
+
+            {showInfoPanel && selectedItem && (
+              <div className="operational-info-panel operational-info-panel-inline">
+                <div className="info-panel-header">
+                  <h3>{getItemDisplayName(selectedItem)}</h3>
+                  <button
+                    className="close-info-btn"
+                    onClick={() => setShowInfoPanel(false)}
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="info-panel-content">
+                  {renderOperationalInfo(selectedItem)}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {!isEmptyCustomLayout && (
@@ -1356,6 +1643,22 @@ const FullscreenMap = () => {
             <span>Zones: {unit.zones || 0}</span>
             {unit.temperature && <span>Temperature: {unit.temperature}</span>}
           </div>
+          {!mapData?.isCustomLayout && shouldShowDemoLegend && (
+            <div className="demo-map-legend fullscreen-legend">
+              <div className="legend-item">
+                <div className="legend-color active"></div>
+                <span>Active Equipment</span>
+              </div>
+              <div className="legend-item">
+                <div className="legend-color offline"></div>
+                <span>Offline Equipment</span>
+              </div>
+              <div className="legend-item">
+                <div className="legend-color zone"></div>
+                <span>Storage Zones</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

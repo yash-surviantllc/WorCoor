@@ -5,15 +5,82 @@ const WarehousePropertiesPanel = ({
   selectedItem, 
   onUpdateItem, 
   onClose,
-  isVisible 
+  isVisible,
+  allItems = [] // Add allItems prop to check used locations
 }) => {
   const [properties, setProperties] = useState({});
+  const [availableLocations, setAvailableLocations] = useState([]);
+
+  // Get the current item's location ID
+  const currentLocationId = selectedItem?.locationId || 
+                          (selectedItem?.locationData?.location_id) ||
+                          '';
+
+  // Validate location ID format (must match 'Loc-001' format)
+  const isValidLocationId = useCallback((locId) => {
+    if (!locId) return false;
+    // Must match exactly 'Loc-001' format (case-sensitive with hyphen)
+    return /^Loc-\d{3}$/.test(String(locId).trim());
+  }, []);
+
+  // Get list of used location IDs from all items (except current item)
+  const usedLocationIds = React.useMemo(() => {
+    const used = new Set();
+    allItems.forEach(item => {
+      if (item.id !== selectedItem?.id) { // Exclude current item
+        // Check all possible locations where the location ID might be stored
+        const locId = item.locationId || 
+                     (item.locationData?.location_id) ||
+                     (item.properties?.locationId) ||
+                     (item.data?.locationId);
+        if (locId && isValidLocationId(locId)) {
+          used.add(String(locId).trim()); // Store exact format
+        }
+      }
+    });
+    return used;
+  }, [allItems, selectedItem?.id, isValidLocationId]);
+
+  // Load available locations, filtering out used ones
+  useEffect(() => {
+    const allLocations = getAllLocations();
+    
+    const locations = allLocations.filter(loc => {
+      if (!loc.location_id) return false;
+      
+      const locId = loc.location_id.trim();
+      
+      // Always include the current item's location (exact match)
+      if (currentLocationId && locId === currentLocationId.trim()) {
+        return true;
+      }
+      
+      // Only include valid format locations that aren't used
+      return isValidLocationId(locId) && !usedLocationIds.has(locId);
+    });
+    
+    setAvailableLocations(locations);
+  }, [usedLocationIds, currentLocationId, isValidLocationId]);
+  
+  // Function to check if a location ID is available
+  const isLocationAvailable = useCallback((locationId) => {
+    if (!locationId) return true; // Allow empty selection
+    
+    // Must match exact format
+    if (!isValidLocationId(locationId)) {
+      return false;
+    }
+    
+    // Check if the location ID is already used (exact match)
+    return !usedLocationIds.has(String(locationId).trim());
+  }, [usedLocationIds, isValidLocationId]);
 
   useEffect(() => {
     if (selectedItem) {
       setProperties({
         name: selectedItem.name || '',
         label: selectedItem.label || '',
+        locationId: selectedItem.locationId || '',
         locationTag: selectedItem.locationTag || '',
         type: selectedItem.type || '',
         color: selectedItem.color || '#00BCD4',
@@ -82,13 +149,58 @@ const WarehousePropertiesPanel = ({
     marginRight: '8px'
   };
 
-  const handlePropertyChange = (key, value) => {
-    const newProperties = { ...properties, [key]: value };
-    setProperties(newProperties);
+  const handlePropertyChange = (property, value) => {
+    setProperties(prev => ({
+      ...prev,
+      [property]: value
+    }));
+  };
+
+  const handleLocationChange = (e) => {
+    const newLocationId = e.target.value.trim();
+    
+    if (newLocationId) {
+      // Validate format
+      if (!isValidLocationId(newLocationId)) {
+        // Show error message or handle invalid format
+        console.error('Invalid location ID format. Must be in format "Loc-001"');
+        return;
+      }
+      
+      // Check if the location is already in use (exact match)
+      const isUsed = allItems.some(item => {
+        if (item.id === selectedItem?.id) return false; // Skip current item
+        
+        const itemLocId = item.locationId || 
+                         (item.locationData?.location_id) ||
+                         (item.properties?.locationId) ||
+                         (item.data?.locationId);
+                         
+        return itemLocId && itemLocId.trim() === newLocationId;
+      });
+      
+      if (isUsed) {
+        // Show error message or handle duplicate
+        console.error(`Location ID ${newLocationId} is already in use by another component`);
+        return;
+      }
+    }
+    
+    // Update the property
+    handlePropertyChange('locationId', newLocationId);
   };
 
   const handleSave = () => {
-    onUpdateItem(selectedItem.id, properties);
+    if (onUpdateItem) {
+      // Get the full location data if a location is selected
+      const selectedLocation = availableLocations.find(loc => loc.location_id === properties.locationId);
+      
+      onUpdateItem(selectedItem.id, {
+        ...properties,
+        locationData: selectedLocation || null,
+        name: properties.name || selectedLocation?.location_id || ''
+      });
+    }
   };
 
   const isZone = selectedItem.containerLevel === 2;
@@ -145,14 +257,38 @@ const WarehousePropertiesPanel = ({
         </small>
       </div>
 
+      {/* Location ID Selection */}
       <div style={fieldStyle}>
-        <label style={labelStyle}>Location Tag:</label>
+        <label style={labelStyle}>Location ID:</label>
+        <select
+          value={properties.locationId || ''}
+          onChange={handleLocationChange}
+          style={inputStyle}
+        >
+          <option value="">Select a location</option>
+          {availableLocations
+            .filter(loc => isLocationAvailable(loc.location_id))
+            .map(loc => (
+              <option key={loc.location_id} value={loc.location_id}>
+                {loc.location_id}
+              </option>
+            ))}
+        </select>
+        {!isLocationAvailable(properties.locationId) && (
+          <div style={{ color: 'red', fontSize: '12px', marginTop: '4px' }}>
+            This location ID is already in use
+          </div>
+        )}
+      </div>
+
+      <div style={fieldStyle}>
+        <label style={labelStyle}>Location Tag (optional):</label>
         <input
           type="text"
-          value={properties.locationTag}
-          onChange={(e) => handlePropertyChange('locationTag', e.target.value)}
+          value={properties.locationTag || ''}
+          onChange={(e) => setProperties({...properties, locationTag: e.target.value})}
           style={inputStyle}
-          placeholder="e.g., RM-1, ZONE-A, BAY-01"
+          placeholder="e.g., A1-R1-S1"
         />
         <small style={{ color: '#6c757d', fontSize: '11px' }}>
           Unique location identifier for search and tracking

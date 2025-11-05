@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import WarehouseDesigner from './WarehouseDesigner';
 import Dashboard from './Dashboard';
-import LocationDetailsPanel from './LocationDetailsPanel';
 import SavedLayoutRenderer, { getLayoutItemKey } from './SavedLayoutRenderer';
 import summarizeStorageComponents from '../utils/layoutComponentSummary';
 
@@ -32,8 +31,6 @@ const WarehouseMapView = ({ facilityData }) => {
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [savedLayouts, setSavedLayouts] = useState([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [showLocationDetails, setShowLocationDetails] = useState(false);
 
   // Load saved layouts from localStorage
   const refreshSavedLayouts = useCallback(() => {
@@ -468,11 +465,7 @@ const WarehouseMapView = ({ facilityData }) => {
   const shouldShowDemoLegend = !selectedDemoUnit || !selectedDemoUnit.isCustomLayout;
   const isDemoUnit = selectedDemoUnit && !selectedDemoUnit.isCustomLayout;
 
-  // Demo map data for each unit
-  const demoMapsData = {
-    unit1: {
-      name: 'Warehouse 1 - Org Unit',
-      location: 'RM 1',
+  // No demo maps - removed
       zones: [
         // Horizontal Storage Racks A-H (Cyan color like reference)
         { id: 'A', name: 'Rack A', type: 'rack', x: 120, y: 40, width: 55, height: 140, color: '#00CED1', items: 24, capacity: 28, racks: 4 },
@@ -500,7 +493,7 @@ const WarehouseMapView = ({ facilityData }) => {
         { id: 'TRANSIT', name: 'Transit/Temp Area', type: 'transit', x: 570, y: 200, width: 80, height: 60, color: '#90EE90', items: 3, capacity: 8 },
         
         // Packaging Area (Purple)
-        { id: 'PACK', name: 'Packaging Area', type: 'packaging', x: 20, y: 200, width: 80, height: 60, color: '#9370DB', items: 12, capacity: 15 }
+        { id: 'PACK', name: 'Packaging Area', type: 'packaging', x: 20, y: 200, width: 80, height: 60, color: '#9370DB', items: 12, capacity: 15 },
       ],
       gates: [
         { id: 'IN1', name: 'In-Gate 1', x: 150, y: 280, type: 'in-gate' },
@@ -826,10 +819,7 @@ const WarehouseMapView = ({ facilityData }) => {
       });
     }
 
-    // Search in demo data
-    const demoData = demoMapsData[selectedUnitForDemo];
-    if (demoData && demoData.zones) {
-      demoData.zones.forEach((zone, index) => {
+      // Demo data search removed
         if (type === 'location') {
           if (zone.id.toLowerCase().includes(searchTerm) ||
               zone.name?.toLowerCase().includes(searchTerm)) {
@@ -900,9 +890,7 @@ const WarehouseMapView = ({ facilityData }) => {
       unit: unitMeta,
       isCustomLayout: Boolean(unit.isCustomLayout),
       layoutData: unit.isCustomLayout ? unitLayoutData : null,
-      demoData: unit.isCustomLayout ? null : demoMapsData[unit.id] || null,
-      storageSummaries,
-      layoutItems: unit.isCustomLayout ? unitLayoutData?.items || [] : null
+      demoData: null
     };
 
     try {
@@ -1065,10 +1053,7 @@ const WarehouseMapView = ({ facilityData }) => {
         });
       }
 
-      // Search in demo data
-      const demoData = demoMapsData[unit.id];
-      if (demoData && demoData.zones) {
-        demoData.zones.forEach((zone, index) => {
+      // Demo data search removed
           const zoneId = `${unit.id}-zone-${index}`;
 
           if (searchType === 'all' || searchType === 'zones') {
@@ -1168,20 +1153,18 @@ const WarehouseMapView = ({ facilityData }) => {
     };
   }, [showGlobalSearchDropdown]);
 
-  const highlightData = useMemo(() => {
-    const empty = { itemKeys: [], compartmentMap: {} };
-
+  // Calculate which items should be faded based on filters
+  const getFilteredItemKeys = useCallback(() => {
     if (!selectedUnitForDemo || (!selectedLocationTag && !selectedSku && !selectedAsset)) {
-      return empty;
+      return []; // No filters active, show all items normally
     }
 
-    const unit = warehouseUnits.find((u) => u.id === selectedUnitForDemo);
+    const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
     if (!unit?.isCustomLayout || !unit?.layoutData?.items) {
-      return empty;
+      return [];
     }
 
-    const highlightedItemKeys = [];
-    const compartmentMap = {};
+    const matchingKeys = [];
     const typeMap = {
       'Storage Unit': 'storage_unit',
       'Spare Unit': 'spare_unit',
@@ -1194,97 +1177,40 @@ const WarehouseMapView = ({ facilityData }) => {
 
     unit.layoutData.items.forEach((item, index) => {
       const itemKey = getLayoutItemKey(item) || `${unit.id}-${item.id || index}`;
-      let matchesFilters = true;
+      let matches = true;
 
-      const locationCompartmentMatches = [];
-      const skuCompartmentMatches = [];
-
+      // Check location filter
       if (selectedLocationTag) {
-        const itemLevelMatch = [item.locationId, item.locationCode, item.locationTag, item.primaryLocationId]
-          .some((value) => typeof value === 'string' && value.trim() === selectedLocationTag);
-
-        if (item.compartmentContents) {
-          Object.entries(item.compartmentContents).forEach(([compartmentId, content]) => {
-            if (!content) {
-              return;
-            }
-
-            const matches = (
-              content.locationId === selectedLocationTag ||
-              content.uniqueId === selectedLocationTag ||
-              content.primaryLocationId === selectedLocationTag ||
-              (Array.isArray(content.locationIds) && content.locationIds.includes(selectedLocationTag))
-            );
-
-            if (matches) {
-              locationCompartmentMatches.push(compartmentId);
-            }
-          });
-        }
-
-        const hasLocationMatch = itemLevelMatch || locationCompartmentMatches.length > 0;
-        matchesFilters = matchesFilters && hasLocationMatch;
+        const locationMatches = item.locationId === selectedLocationTag ||
+          item.locationCode === selectedLocationTag ||
+          item.locationTag === selectedLocationTag;
+        matches = matches && locationMatches;
       }
 
-      if (selectedSku) {
-        let itemLevelSkuMatch = false;
-        itemLevelSkuMatch = [item.sku, item.skuId, item.locationId]
-          .some((value) => typeof value === 'string' && value.trim() === selectedSku);
-
-        if (item.compartmentContents) {
-          Object.entries(item.compartmentContents).forEach(([compartmentId, content]) => {
-            if (!content) {
-              return;
-            }
-
-            const matches = (
-              content.sku === selectedSku ||
-              content.uniqueId === selectedSku ||
-              content.primarySku === selectedSku ||
-              content.locationId === selectedSku
-            );
-
-            if (matches) {
-              skuCompartmentMatches.push(compartmentId);
-            }
-          });
-        }
-
-        const hasSkuMatch = itemLevelSkuMatch || skuCompartmentMatches.length > 0;
-        matchesFilters = matchesFilters && hasSkuMatch;
+      // Check SKU filter
+      if (selectedSku && item.compartmentContents) {
+        const skuMatches = Object.values(item.compartmentContents).some((content) =>
+          content.locationId === selectedSku ||
+          content.sku === selectedSku ||
+          content.uniqueId === selectedSku
+        );
+        matches = matches && skuMatches;
       }
 
+      // Check asset/type filter
       if (selectedAsset) {
         const itemType = typeMap[selectedAsset] || selectedAsset.toLowerCase().replace(/ /g, '_');
         const assetMatches = item.type === itemType;
-        matchesFilters = matchesFilters && assetMatches;
+        matches = matches && assetMatches;
       }
 
-      if (!matchesFilters) {
-        return;
-      }
-
-      highlightedItemKeys.push(itemKey);
-
-      let compartmentHighlights = [];
-      if (locationCompartmentMatches.length && skuCompartmentMatches.length) {
-        compartmentHighlights = locationCompartmentMatches.filter((id) => skuCompartmentMatches.includes(id));
-      } else if (locationCompartmentMatches.length) {
-        compartmentHighlights = locationCompartmentMatches;
-      } else if (skuCompartmentMatches.length) {
-        compartmentHighlights = skuCompartmentMatches;
-      }
-
-      if (compartmentHighlights.length) {
-        compartmentMap[itemKey] = Array.from(new Set(compartmentHighlights));
+      if (matches) {
+        matchingKeys.push(itemKey);
       }
     });
 
-    return { itemKeys: highlightedItemKeys, compartmentMap };
-  }, [selectedUnitForDemo, selectedLocationTag, selectedSku, selectedAsset, warehouseUnits]);
-
-  const filteredItemKeys = highlightData.itemKeys;
-  const highlightedCompartmentsMap = highlightData.compartmentMap;
+    return matchingKeys;
+  }, [selectedUnitForDemo, selectedLocationTag, selectedSku, selectedAsset]);
 
   // Dropdown filter handlers
   const handleLocationTagChange = (e) => {
@@ -2057,34 +1983,24 @@ const WarehouseMapView = ({ facilityData }) => {
                         width="100%"
                         height="100%"
                         background="transparent"
-                        showLabels={false}
+                        showLabels
                         showMetadata={false}
-                        highlightedKeys={filteredItemKeys}
-                        filteredKeys={filteredItemKeys}
-                        highlightedCompartmentsMap={highlightedCompartmentsMap}
-                        padding={60}
-                        allowUpscale={false}
-                        fitMode="contain"
+                        filteredKeys={getFilteredItemKeys()}
+                        padding={32}
+                        allowUpscale
+                        fitMode="cover"
                         stageBackground="transparent"
                         stageBorder="none"
                         stageShadow="none"
                         stageBorderRadius="0px"
-                        onItemClick={(item, index) => {
-                          console.log('WarehouseMapView - Item clicked:', item);
-                          console.log('WarehouseMapView - Item index:', index);
-                          setSelectedItem(item);
-                          setShowLocationDetails(true);
-                        }}
                       />
                     );
                   }
 
-                  // For default units, show demo map
-                  const demoData = demoMapsData[selectedUnitForDemo];
-                  if (!demoData) {
-                    return (
-                      <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
-                        <h3>No map data available</h3>
+                  // Demo map functionality removed
+                  return (
+                    <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
+                      <h3>No map data available</h3>
                         <p>This warehouse unit doesn't have map data configured.</p>
                         <p><strong>Unit ID:</strong> {selectedUnitForDemo}</p>
                         <p><strong>Unit Type:</strong> {unit?.isCustomLayout ? 'Custom Layout' : 'Default Unit'}</p>
@@ -2449,24 +2365,74 @@ const WarehouseMapView = ({ facilityData }) => {
                     );
                   }
                   
-                  // Show Location Details Panel if an item is selected
-                  if (showLocationDetails && selectedItem) {
+                  if (unit && unit.isCustomLayout && storageSummaries.length > 0) {
                     return (
-                      <div className="demo-map-info location-details-container">
-                        <LocationDetailsPanel
-                          selectedItem={selectedItem}
-                          onClose={() => {
-                            setShowLocationDetails(false);
-                            setSelectedItem(null);
-                          }}
-                          isEmbedded={true}
-                        />
+                      <div className="demo-map-info">
+                        <h3>Layout Components</h3>
+                        <div className="zone-list storage-summary-list">
+                          {storageSummaries.map((summary) => (
+                            <div key={summary.id} className="zone-info-item storage-summary-card">
+                              <div className="zone-color" style={{ backgroundColor: summary.color }}></div>
+                              <div className="zone-details">
+                                <div className="storage-header">
+                                  <div className="storage-title">{summary.title}</div>
+                                  <span className="storage-type-badge">{summary.label}</span>
+                                </div>
+                                {summary.subtitle && (
+                                  <div className="storage-subtitle">{summary.subtitle}</div>
+                                )}
+                                <div className="storage-capacity-row">
+                                  <span className="capacity-label">Max Capacity:</span>
+                                  <span className="capacity-value">{summary.maxCapacity}</span>
+                                </div>
+                                <div className="storage-capacity-row">
+                                  <span className="capacity-label">Used:</span>
+                                  <span className="capacity-value used">{summary.usedCapacity}</span>
+                                </div>
+                                <div className="storage-capacity-row">
+                                  <span className="capacity-label">Available:</span>
+                                  <span className="capacity-value available">{summary.availableCapacity}</span>
+                                </div>
+                                {summary.locationIds.length > 0 && (
+                                  <div className="storage-meta-block">
+                                    <div className="meta-title">Location IDs</div>
+                                    <div className="meta-values">
+                                      {summary.locationIds.slice(0, 3).map((id) => (
+                                        <span key={id} className="meta-chip">{id}</span>
+                                      ))}
+                                      {summary.locationIds.length > 3 && (
+                                        <span className="meta-chip more-chip">+{summary.locationIds.length - 3}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                {summary.skus.length > 0 && (
+                                  <div className="storage-meta-block">
+                                    <div className="meta-title">SKUs</div>
+                                    <div className="meta-values">
+                                      {summary.skus.slice(0, 3).map((sku) => (
+                                        <span key={sku} className="meta-chip sku-chip">{sku}</span>
+                                      ))}
+                                      {summary.skus.length > 3 && (
+                                        <span className="meta-chip more-chip">+{summary.skus.length - 3}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     );
                   }
-                  
-                  // Don't show Layout Components panel - only show when item is clicked
-                  return null;
+
+                  return (
+                    <div className="demo-map-info empty-storage-summary">
+                      <h3>Layout Components</h3>
+                      <p>No storage metadata available for this layout.</p>
+                    </div>
+                  );
                 })()}
               </div>
             </div>

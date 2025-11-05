@@ -44,7 +44,8 @@ const SavedLayoutRenderer = ({
   stageShadow = '0 1px 3px rgba(15, 23, 42, 0.08)',
   stageBorderRadius = '12px',
   showMetadata = true,
-  zoomLevel = 1
+  zoomLevel = 1,
+  onItemClick = null
 }) => {
   const containerRef = useRef(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -263,9 +264,28 @@ const SavedLayoutRenderer = ({
               height: '100%'
             }}
           >
-            {adjustedItems.map((item) => {
+            {adjustedItems.map((item, index) => {
               const itemKey = item.__layoutKey || getLayoutItemKey(item);
               const isFaded = hasActiveFilters && !filteredKeySet.has(itemKey);
+              
+              // Create a select handler that passes the full item to onItemClick
+              // Also handles compartment-specific clicks
+              const handleItemSelect = onItemClick ? (itemId, compartmentInfo) => {
+                if (compartmentInfo && compartmentInfo.compartmentData) {
+                  // Compartment was clicked - create a modified item with compartment data
+                  const modifiedItem = {
+                    ...item,
+                    selectedCompartment: compartmentInfo.compartmentData,
+                    selectedCompartmentId: compartmentInfo.compartmentId,
+                    selectedCompartmentRow: compartmentInfo.row,
+                    selectedCompartmentCol: compartmentInfo.col
+                  };
+                  onItemClick(modifiedItem, index);
+                } else {
+                  // Regular item click
+                  onItemClick(item, index);
+                }
+              } : noop;
               
               return (
                 <div
@@ -274,13 +294,14 @@ const SavedLayoutRenderer = ({
                     opacity: isFaded ? 0.08 : 1,
                     filter: isFaded ? 'blur(0.6px) saturate(0) brightness(1.5)' : 'none',
                     transition: 'opacity 0.25s ease, filter 0.25s ease',
-                    pointerEvents: isFaded ? 'none' : 'auto'
+                    pointerEvents: isFaded ? 'none' : 'auto',
+                    cursor: onItemClick ? 'pointer' : 'default'
                   }}
                 >
                   <WarehouseItem
                     item={item}
                     isSelected={false}
-                    onSelect={noop}
+                    onSelect={handleItemSelect}
                     onUpdate={noop}
                     onDelete={noop}
                     zoomLevel={zoomLevel}

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import SavedLayoutRenderer, { getLayoutItemKey } from './SavedLayoutRenderer';
 import { inferVerticalRackLevelCount } from '../utils/verticalRackUtils';
 import summarizeStorageComponents from '../utils/layoutComponentSummary';
+import locationDataService from '../services/locationDataService';
+import LocationDetailsPanel from './LocationDetailsPanel';
 
 const renderDemoLayout = (demoData) => (
   <svg width="100%" height="100%" viewBox="0 0 700 320" className="fullscreen-warehouse-svg">
@@ -199,142 +201,9 @@ const FullscreenMap = () => {
   }, [mapData]);
 
   const sidebarContent = useMemo(() => {
-    if (sidebarData.type === 'demo') {
-      const zones = sidebarData.zones || [];
-      const equipment = sidebarData.equipment || [];
-
-      if (zones.length === 0 && equipment.length === 0) {
-        return null;
-      }
-
-      return (
-        <>
-          {zones.length > 0 && (
-            <div className="demo-map-info">
-              <h3>Zone Information</h3>
-              <div className="zone-list">
-                {zones.map((zone) => (
-                  <div key={zone.id} className="zone-info-item">
-                    <div className="zone-color" style={{ backgroundColor: zone.color }}></div>
-                    <div className="zone-details">
-                      <div className="zone-name">{zone.name}</div>
-                      <div className="zone-capacity">
-                        {zone.items}/{zone.capacity} items
-                        <div className="capacity-bar">
-                          <div
-                            className="capacity-fill"
-                            style={{
-                              width: `${zone.capacity > 0 ? (zone.items / zone.capacity) * 100 : 0}%`,
-                              backgroundColor: zone.color
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {equipment.length > 0 && (
-            <div className="demo-map-equipment">
-              <h3>Equipment Status</h3>
-              <div className="equipment-list">
-                {equipment.map((item) => (
-                  <div key={item.id} className="equipment-item">
-                    <div className={`equipment-status ${item.status}`}></div>
-                    <div className="equipment-info">
-                      <div className="equipment-name">{item.name}</div>
-                      <div className="equipment-details">
-                        Status: {item.status}
-                        {item.temp && <span> | Temp: {item.temp}</span>}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      );
-    }
-
-    if (sidebarData.type === 'custom') {
-      if (storageSummaries.length === 0) {
-        return (
-          <div className="demo-map-info empty-storage-summary">
-            <h3>Layout Components</h3>
-            <p>No storage metadata available for this layout.</p>
-          </div>
-        );
-      }
-
-      return (
-        <div className="demo-map-info">
-          <h3>Layout Components</h3>
-          <div className="zone-list storage-summary-list">
-            {storageSummaries.map((summary) => (
-              <div key={summary.id || summary.type} className="zone-info-item storage-summary-card">
-                <div className="zone-color" style={{ backgroundColor: summary.color }}></div>
-                <div className="zone-details">
-                  <div className="storage-header">
-                    <div className="storage-title">{summary.title || summary.label}</div>
-                    {summary.label && (
-                      <span className="storage-type-badge">{summary.label}</span>
-                    )}
-                  </div>
-                  {summary.subtitle && (
-                    <div className="storage-subtitle">{summary.subtitle}</div>
-                  )}
-                  <div className="storage-capacity-row">
-                    <span className="capacity-label">Max Capacity:</span>
-                    <span className="capacity-value">{summary.maxCapacity}</span>
-                  </div>
-                  <div className="storage-capacity-row">
-                    <span className="capacity-label">Used:</span>
-                    <span className="capacity-value used">{summary.usedCapacity}</span>
-                  </div>
-                  <div className="storage-capacity-row">
-                    <span className="capacity-label">Available:</span>
-                    <span className="capacity-value available">{summary.availableCapacity}</span>
-                  </div>
-                  {summary.locationIds && summary.locationIds.length > 0 && (
-                    <div className="storage-meta-block">
-                      <div className="meta-title">Location IDs</div>
-                      <div className="meta-values">
-                        {summary.locationIds.slice(0, 3).map((id) => (
-                          <span key={id} className="meta-chip">{id}</span>
-                        ))}
-                        {summary.locationIds.length > 3 && (
-                          <span className="meta-chip more-chip">+{summary.locationIds.length - 3}</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {summary.skus && summary.skus.length > 0 && (
-                    <div className="storage-meta-block">
-                      <div className="meta-title">SKUs</div>
-                      <div className="meta-values">
-                        {summary.skus.slice(0, 3).map((sku) => (
-                          <span key={sku} className="meta-chip sku-chip">{sku}</span>
-                        ))}
-                        {summary.skus.length > 3 && (
-                          <span className="meta-chip more-chip">+{summary.skus.length - 3}</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
+    // Don't show any sidebar content - only show operational info panel when item is clicked
     return null;
-  }, [sidebarData, storageSummaries]);
+  }, []);
 
   useEffect(() => {
     // Get map data from URL hash
@@ -370,6 +239,28 @@ const FullscreenMap = () => {
 
     items.forEach((item, index) => {
       const itemId = `item-${index}`;
+      
+      // Extract locationId from various possible sources
+      let locationId = item.locationId || 
+                       item.locationData?.location_id ||
+                       item.properties?.locationId ||
+                       item.data?.locationId;
+      
+      // For storage racks with compartments, try to get locationId from first compartment
+      if (!locationId && item.compartmentContents) {
+        const compartments = Object.values(item.compartmentContents);
+        if (compartments.length > 0) {
+          const firstCompartment = compartments[0];
+          locationId = firstCompartment.locationId || firstCompartment.uniqueId;
+        }
+      }
+
+      // Fetch real data from the service if locationId exists
+      const realLocationData = locationId ? locationDataService.getLocationById(locationId) : null;
+      
+      if (locationId) {
+        console.log(`FullscreenMap - Item ${index}: locationId=${locationId}, realData=`, realLocationData);
+      }
 
       if (item.compartmentContents) {
         const contents = Object.values(item.compartmentContents || {});
@@ -397,7 +288,9 @@ const FullscreenMap = () => {
           skus,
           alerts: [],
           activity: [],
-          equipment: []
+          equipment: [],
+          // Add real location data if available
+          realData: realLocationData
         };
         return;
       }
@@ -414,7 +307,9 @@ const FullscreenMap = () => {
         },
         alerts: [],
         activity: [],
-        equipment: []
+        equipment: [],
+        // Add real location data if available
+        realData: realLocationData
       };
     });
 
@@ -427,7 +322,25 @@ const FullscreenMap = () => {
     }
 
     const itemId = `item-${index}`;
-    const opData = operationalData[itemId];
+    let opData = operationalData[itemId];
+    
+    // If a specific compartment was clicked, fetch its real data
+    if (item.selectedCompartment) {
+      const compartmentLocationId = item.selectedCompartment.locationId || item.selectedCompartment.uniqueId;
+      const compartmentRealData = compartmentLocationId ? locationDataService.getLocationById(compartmentLocationId) : null;
+      
+      console.log('FullscreenMap - Compartment clicked:', {
+        compartmentId: item.selectedCompartmentId,
+        locationId: compartmentLocationId,
+        realData: compartmentRealData
+      });
+      
+      // Create modified opData with compartment-specific real data
+      opData = {
+        ...opData,
+        realData: compartmentRealData
+      };
+    }
 
     setSelectedItem({ ...item, id: itemId, operationalData: opData });
     setShowInfoPanel(true);
@@ -1169,8 +1082,101 @@ const FullscreenMap = () => {
     const opData = item.operationalData;
     if (!opData) return <p>No operational data available</p>;
 
+    // Check if we have real data from the mock JSON
+    const realData = opData.realData;
+
     return (
       <div className="operational-details">
+        {/* Real Data Section - Show if available */}
+        {realData && (
+          <>
+            <div className="info-section" style={{ background: 'linear-gradient(135deg, #e3f2fd, #bbdefb)', border: '2px solid #2196F3' }}>
+              <h4 style={{ color: '#1565C0' }}>📍 Real Location Data</h4>
+              <div className="status-grid">
+                <div className="status-item">
+                  <span className="label">Location ID:</span>
+                  <span className="status-value" style={{ fontWeight: 'bold', color: '#1565C0' }}>{realData.location_id}</span>
+                </div>
+                <div className="status-item">
+                  <span className="label">Physical Location:</span>
+                  <span className="status-value">{realData.location || 'N/A'}</span>
+                </div>
+                <div className="status-item">
+                  <span className="label">Storage Type:</span>
+                  <span className="status-value">{realData.parent_resource || 'N/A'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="info-section" style={{ background: 'linear-gradient(135deg, #f3e5f5, #e1bee7)', border: '2px solid #9C27B0' }}>
+              <h4 style={{ color: '#6A1B9A' }}>📦 SKU Information</h4>
+              <div className="status-grid">
+                <div className="status-item">
+                  <span className="label">SKU Instance ID:</span>
+                  <span className="status-value">{realData.sku_instance_id || 'N/A'}</span>
+                </div>
+                <div className="status-item">
+                  <span className="label">SKU Code:</span>
+                  <span className="status-value">{realData.sku_code || 'N/A'}</span>
+                </div>
+                <div className="status-item">
+                  <span className="label">Product Name:</span>
+                  <span className="status-value" style={{ fontWeight: 'bold', fontSize: '1.05em' }}>{realData.sku_name || 'N/A'}</span>
+                </div>
+                <div className="status-item">
+                  <span className="label">Brand / Vendor:</span>
+                  <span className="status-value">{realData.sku_brand_vendor || 'N/A'}</span>
+                </div>
+                <div className="status-item">
+                  <span className="label">Procurement Date:</span>
+                  <span className="status-value">
+                    {realData.sku_procured_date 
+                      ? new Date(realData.sku_procured_date).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })
+                      : 'N/A'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="info-section" style={{ 
+              background: realData.available_quantity > 0 
+                ? 'linear-gradient(135deg, #e8f5e9, #c8e6c9)' 
+                : 'linear-gradient(135deg, #ffebee, #ffcdd2)',
+              border: realData.available_quantity > 0 ? '2px solid #4CAF50' : '2px solid #F44336'
+            }}>
+              <h4 style={{ color: realData.available_quantity > 0 ? '#2E7D32' : '#C62828' }}>📊 Inventory Status</h4>
+              <div className="status-grid">
+                <div className="status-item">
+                  <span className="label">Available Quantity:</span>
+                  <span className="status-value" style={{ 
+                    fontSize: '1.5em', 
+                    fontWeight: 'bold',
+                    color: realData.available_quantity > 0 ? '#2E7D32' : '#C62828'
+                  }}>
+                    {realData.available_quantity || 0} units
+                  </span>
+                </div>
+                <div className="status-item">
+                  <span className="label">Stock Status:</span>
+                  <span className="status-value">
+                    {realData.available_quantity > 100 
+                      ? '✅ Well Stocked' 
+                      : realData.available_quantity > 50 
+                      ? '⚠️ Moderate Stock' 
+                      : realData.available_quantity > 0 
+                      ? '🔴 Low Stock' 
+                      : '❌ Out of Stock'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
         {/* Unit/Zone Identification */}
         <div className="info-section">
           <h4>Unit Information</h4>
@@ -1592,6 +1598,7 @@ const FullscreenMap = () => {
                       stageBorder="none"
                       stageShadow="none"
                       stageBorderRadius="0px"
+                      onItemClick={handleItemClick}
                     />
                   )}
                 </div>
@@ -1615,21 +1622,11 @@ const FullscreenMap = () => {
             {sidebarContent}
 
             {showInfoPanel && selectedItem && (
-              <div className="operational-info-panel operational-info-panel-inline">
-                <div className="info-panel-header">
-                  <h3>{getItemDisplayName(selectedItem)}</h3>
-                  <button
-                    className="close-info-btn"
-                    onClick={() => setShowInfoPanel(false)}
-                  >
-                    ×
-                  </button>
-                </div>
-
-                <div className="info-panel-content">
-                  {renderOperationalInfo(selectedItem)}
-                </div>
-              </div>
+              <LocationDetailsPanel
+                selectedItem={selectedItem}
+                onClose={() => setShowInfoPanel(false)}
+                isEmbedded={true}
+              />
             )}
           </div>
         </div>

@@ -551,6 +551,16 @@ const WarehouseItem = ({
               }}
               onClick={(event) => {
                 event.stopPropagation();
+                
+                // In readonly mode, trigger item selection for location details
+                if (isReadOnly && onSelect) {
+                  console.log('Compartment clicked in readonly mode:', { item, compartmentId, row, col, compartmentData });
+                  // Pass the compartment-specific data by calling onSelect with a special format
+                  // We'll pass the compartmentId so the parent can identify which compartment was clicked
+                  onSelect(item.id, { compartmentId, compartmentData, row, col });
+                  return;
+                }
+                
                 if (onUpdate && !compartmentData && onRequestSkuId) {
                   onRequestSkuId(item.id, compartmentId, row, col);
                 }
@@ -784,8 +794,33 @@ const WarehouseItem = ({
       {/* Shape rendering for shape components */}
       {item.isShape && renderShapeComponent(item)}
       
-      {/* Storage Racks - Show only Location ID in black text */}
-      {(item.type === 'sku_holder' || item.type === 'vertical_sku_holder') && !item.showCompartments && (() => {
+      {/* Storage Racks and Spare Units - Show Location ID in black text */}
+      {((item.type === 'sku_holder' || item.type === 'vertical_sku_holder' || item.type === 'spare_unit') && !item.showCompartments) && (() => {
+        if (item.type === 'spare_unit') {
+          // For Spare Units, show the locationId if it exists
+          return item.locationId ? (
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: 0,
+              right: 0,
+              textAlign: 'center',
+              transform: 'translateY(-50%)',
+              color: spareUnitTextColor,
+              fontWeight: 'bold',
+              fontSize: Math.min(Math.max(item.width / 10, 10), 14),
+              textShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              padding: '0 5px',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}>
+              {item.locationId}
+            </div>
+          ) : null;
+        }
+
+        // For storage racks
         const totalLevels = inferVerticalRackLevelCount(item);
         let displayText = null;
 

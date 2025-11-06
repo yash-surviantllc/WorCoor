@@ -95,7 +95,8 @@ const WarehouseItem = ({
   stackMode, 
   isReadOnly,
   isHighlighted = false,
-  highlightedCompartments
+  highlightedCompartments,
+  showLabels = true
 }) => {
   const [hoverTooltip, setHoverTooltip] = useState(null);
   const [hoveredCompartment, setHoveredCompartment] = useState(null);
@@ -673,6 +674,74 @@ const WarehouseItem = ({
   const hasStack = item.stack && item.stack.layers && item.stack.layers.length > 1;
   const isContainer = item.isContainer;
 
+  // Render label below component
+  const renderComponentLabel = () => {
+    if (!showLabels) return null;
+    
+    const getAssetTypeLabel = () => {
+      const typeLabels = {
+        'storage_unit': 'Storage Unit',
+        'sku_holder': 'Horizontal Storage Rack',
+        'vertical_sku_holder': 'Vertical Storage Rack',
+        'spare_unit': 'Spare Unit',
+        'zone': 'Zone',
+        'square_boundary': 'Warehouse Boundary',
+        'warehouse_block': 'Warehouse Block',
+        'storage_zone': 'Storage Zone',
+        'processing_area': 'Processing Area',
+        'container_unit': 'Container Unit',
+        'zone_divider': 'Zone Divider',
+        'area_boundary': 'Area Boundary',
+        'solid_boundary': 'Solid Boundary',
+        'dotted_boundary': 'Dotted Boundary'
+      };
+      
+      return typeLabels[item.type] || item.type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Component';
+    };
+
+    const getDisplayLabel = () => {
+      if (item.name) return item.name;
+      if (item.label) return item.label;
+      if (item.locationTag) return item.locationTag;
+      if (item.locationId) return item.locationId;
+      return null;
+    };
+
+    const displayLabel = getDisplayLabel();
+    const assetType = getAssetTypeLabel();
+    
+    // Don't show labels for boundaries as they're too large
+    if (item.type === 'square_boundary') return null;
+
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          top: '100%',
+          left: '50%',
+          marginTop: '4px',
+          transform: 'translateX(-50%)',
+          pointerEvents: 'none',
+          userSelect: 'none',
+          fontFamily: 'Arial, sans-serif',
+          whiteSpace: 'nowrap',
+          zIndex: 15,
+          textAlign: 'center',
+          fontSize: '11px',
+          fontWeight: '600',
+          color: '#000000',
+          backgroundColor: '#FFFFFF',
+          padding: '3px 8px',
+          borderRadius: '3px',
+          border: '1px solid #ddd',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
+        }}
+      >
+        {assetType}
+      </div>
+    );
+  };
+
   // Resize handling functions
   const handleResizeStart = (e, direction) => {
     e.stopPropagation();
@@ -749,21 +818,33 @@ const WarehouseItem = ({
 
   return (
     <div
-      ref={drag}
-      className={`warehouse-item ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${isContainer ? 'container' : ''} ${isContained ? 'contained' : ''} ${isMainBoundary ? 'main-boundary' : ''} ${isZone ? 'zone' : ''} ${isUnit ? 'unit' : ''}`}
-      data-type={item.type}
-      data-occupancy={item.occupancyStatus || OCCUPANCY_STATUS.EMPTY}
-      data-container={isContainer}
-      data-contained={isContained}
-      data-container-level={containerLevel}
-      data-position-locked={item.isPositionLocked || false}
-      data-size-locked={item.isSizeLocked || false}
-      data-color={isSpareUnit ? spareUnitColor : (item.type === 'storage_unit' ? storageUnitColor : item.color || '')}
       style={{
+        position: 'absolute',
         left: item.x,
         top: item.y,
         width: item.width,
-        height: item.height,
+        height: 'auto',
+        pointerEvents: 'none'
+      }}
+    >
+      <div
+        ref={drag}
+        className={`warehouse-item ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${isContainer ? 'container' : ''} ${isContained ? 'contained' : ''} ${isMainBoundary ? 'main-boundary' : ''} ${isZone ? 'zone' : ''} ${isUnit ? 'unit' : ''}`}
+        data-type={item.type}
+        data-occupancy={item.occupancyStatus || OCCUPANCY_STATUS.EMPTY}
+        data-container={isContainer}
+        data-contained={isContained}
+        data-container-level={containerLevel}
+        data-position-locked={item.isPositionLocked || false}
+        data-size-locked={item.isSizeLocked || false}
+        data-color={isSpareUnit ? spareUnitColor : (item.type === 'storage_unit' ? storageUnitColor : item.color || '')}
+        style={{
+          position: 'relative',
+          left: 0,
+          top: 0,
+          width: item.width,
+          height: item.height,
+          pointerEvents: 'auto',
         backgroundColor: item.isHollow ? 'transparent' : 
           (item.type === 'storage_unit' ? storageUnitColor : 
            item.type === 'sku_holder' ? (item.showCompartments ? 'transparent' : '#2196F3') :
@@ -975,6 +1056,10 @@ const WarehouseItem = ({
         color={item.type === 'sku_holder' ? '#2196F3' : '#FF9800'}
         isReadOnly={isReadOnly}
       />
+      
+      {/* Label below component */}
+      {renderComponentLabel()}
+      </div>
     </div>
   );
 };
@@ -994,7 +1079,8 @@ WarehouseItem.propTypes = {
   stackMode: PropTypes.bool,
   isReadOnly: PropTypes.bool,
   isHighlighted: PropTypes.bool,
-  highlightedCompartments: PropTypes.arrayOf(PropTypes.string)
+  highlightedCompartments: PropTypes.arrayOf(PropTypes.string),
+  showLabels: PropTypes.bool
 };
 
 // Default props
@@ -1010,7 +1096,8 @@ WarehouseItem.defaultProps = {
   stackMode: false,
   isReadOnly: false,
   isHighlighted: false,
-  highlightedCompartments: null
+  highlightedCompartments: null,
+  showLabels: true
 };
 
 export default WarehouseItem;

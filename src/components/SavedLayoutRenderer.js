@@ -125,7 +125,7 @@ const SavedLayoutRenderer = ({
 
     const effectivePadding = typeof padding === 'number' ? padding : DEFAULT_PADDING;
     const paddedWidth = widthSpan + effectivePadding * 2;
-    const paddedHeight = heightSpan + effectivePadding * 2;
+    const paddedHeight = heightSpan + effectivePadding * 2 + 40; // Add extra space for labels below components
 
     const normalizedItems = items.map((item) => ({
       ...item,
@@ -189,7 +189,7 @@ const SavedLayoutRenderer = ({
         position: 'relative',
         width,
         height,
-        overflow: 'hidden',
+        overflow: 'visible',
         background,
         alignSelf: 'stretch',
         flex: '1 1 auto',
@@ -237,7 +237,8 @@ const SavedLayoutRenderer = ({
             border: stageBorder,
             borderRadius: stageBorderRadius,
             boxShadow: stageShadow,
-            overflow: 'visible'
+            overflow: 'visible',
+            paddingBottom: '60px'
           }}
         >
           <div
@@ -261,7 +262,8 @@ const SavedLayoutRenderer = ({
               left: 0,
               top: 0,
               width: '100%',
-              height: '100%'
+              height: '100%',
+              overflow: 'visible'
             }}
           >
             {adjustedItems.map((item, index) => {

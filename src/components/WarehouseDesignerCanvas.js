@@ -309,8 +309,29 @@ const WarehouseItem = ({
       return `${prefix}-${index.toString().padStart(2, '0')}`;
     };
 
+    const getAssetTypeLabel = () => {
+      const typeLabels = {
+        'storage_unit': 'Storage Unit',
+        'sku_holder': 'Horizontal Storage Rack',
+        'vertical_sku_holder': 'Vertical Storage Rack',
+        'spare_unit': 'Spare Unit',
+        'zone': 'Zone',
+        'square_boundary': 'Warehouse Boundary',
+        'warehouse_block': 'Warehouse Block',
+        'storage_zone': 'Storage Zone',
+        'processing_area': 'Processing Area',
+        'container_unit': 'Container Unit',
+        'zone_divider': 'Zone Divider',
+        'area_boundary': 'Area Boundary',
+        'solid_boundary': 'Solid Boundary',
+        'dotted_boundary': 'Dotted Boundary'
+      };
+      
+      return typeLabels[item.type] || item.type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Component';
+    };
+
     const label = getSmartLabel();
-    if (!label) return null;
+    const assetType = getAssetTypeLabel();
     
     // Unified label positioning - ALL labels appear below components
     const getUnifiedLabelStyle = () => {
@@ -411,10 +432,30 @@ const WarehouseItem = ({
     
     return (
       <div 
-        style={getUnifiedLabelStyle()}
-        title={`${item.name || item.type} - ${label}`}
+        style={{
+          position: 'absolute',
+          top: '100%',
+          left: '50%',
+          marginTop: '4px',
+          transform: 'translateX(-50%)',
+          pointerEvents: 'none',
+          userSelect: 'none',
+          fontFamily: 'Arial, sans-serif',
+          whiteSpace: 'nowrap',
+          zIndex: 15,
+          textAlign: 'center',
+          fontSize: '11px',
+          fontWeight: '600',
+          color: '#000000',
+          backgroundColor: '#FFFFFF',
+          padding: '3px 8px',
+          borderRadius: '3px',
+          border: '1px solid #ddd',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
+        }}
+        title={`${item.name || item.type} - ${assetType}`}
       >
-        {label}
+        {assetType}
       </div>
     );
   };

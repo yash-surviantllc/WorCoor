@@ -66,9 +66,13 @@ const TopNavbar = ({
     setActiveDropdown(null);
   };
 
-  const handleOrgUnitSelectInternal = (orgUnit) => {
+  const handleOrgUnitSelectInternal = (option) => {
     if (onOrgUnitSelect) {
-      onOrgUnitSelect({ orgUnit, status: { id: 'operational', name: 'Operational' } });
+      // Properly structure the selection object with orgUnit property
+      onOrgUnitSelect({ 
+        orgUnit: option, 
+        status: { id: 'operational', name: 'Operational' } 
+      });
     }
     if (onOrgMapSelect) {
       onOrgMapSelect(null);

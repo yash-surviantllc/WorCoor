@@ -272,21 +272,15 @@ const WarehouseItem = ({
     if (!showLabels) return null;
     
     const getSmartLabel = () => {
-      // For storage components, only show label if locationId is assigned
-      const isStorageComponent = item.type === 'storage_unit' || item.type === 'sku_holder' || item.type === 'vertical_sku_holder';
-
-      if (isStorageComponent) {
-        if (item.type === 'vertical_sku_holder') {
-          const levelCount = inferVerticalRackLevelCount(item);
-          return levelCount > 0 ? `${levelCount} Level${levelCount > 1 ? 's' : ''}` : null;
-        }
-        return item.locationId || null;
+      // ALWAYS return the item name if it exists
+      if (item.name) {
+        return item.name;
       }
 
-      // For other components: Priority: custom label > locationTag > name > auto-generated
-      if (item.label && item.label.trim()) return item.label.trim();
-      if (item.locationTag && item.locationTag.trim()) return item.locationTag.trim();
-      if (item.name && item.name.trim()) return item.name.trim();
+      // Fallback for components without a name
+      if (item.label) return item.label;
+      if (item.locationTag) return item.locationTag;
+      if (item.locationId) return item.locationId;
 
       // Auto-generate label based on type for non-storage components
       const typeLabels = {

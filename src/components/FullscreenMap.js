@@ -4,6 +4,7 @@ import { inferVerticalRackLevelCount } from '../utils/verticalRackUtils';
 import summarizeStorageComponents from '../utils/layoutComponentSummary';
 import locationDataService from '../services/locationDataService';
 import LocationDetailsPanel from './LocationDetailsPanel';
+import layoutComponentsMock from '../data/layoutComponentsMock.json';
 
 const renderDemoLayout = (demoData) => (
   <svg width="100%" height="100%" viewBox="0 0 700 320" className="fullscreen-warehouse-svg">
@@ -116,6 +117,7 @@ const FullscreenMap = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [highlightedItems, setHighlightedItems] = useState([]);
   const [filteredKeys, setFilteredKeys] = useState([]);
+  const [highlightedCompartmentsMap, setHighlightedCompartmentsMap] = useState({});
   
   // Enhanced dropdown search states
   const [selectedLocationTag, setSelectedLocationTag] = useState('');
@@ -374,6 +376,19 @@ const FullscreenMap = () => {
     const skus = new Set();
     const assets = new Set();
 
+    // Create a lookup map from location_id to sku_name (case-insensitive)
+    const locationToSkuMap = {};
+    if (layoutComponentsMock?.locations) {
+      layoutComponentsMock.locations.forEach(loc => {
+        if (loc.location_id && loc.sku_name) {
+          // Store both original case and uppercase version for matching
+          locationToSkuMap[loc.location_id] = loc.sku_name;
+          locationToSkuMap[loc.location_id.toUpperCase()] = loc.sku_name;
+          locationToSkuMap[loc.location_id.toLowerCase()] = loc.sku_name;
+        }
+      });
+    }
+
     const addLocation = (value) => {
       if (!value) return;
       const normalized = typeof value === 'string' ? value.trim() : String(value).trim();
@@ -386,13 +401,32 @@ const FullscreenMap = () => {
       if (!value) return;
       const normalized = typeof value === 'string' ? value.trim() : String(value).trim();
       if (normalized) {
-        skus.add(normalized);
+        // Handle comma-separated location IDs (e.g., "LOC-007,LOC-008")
+        if (normalized.includes(',')) {
+          const locationIds = normalized.split(',').map(id => id.trim());
+          locationIds.forEach(locId => {
+            const skuName = locationToSkuMap[locId];
+            if (skuName) {
+              skus.add(skuName);
+            }
+          });
+        } else {
+          // Single location ID - map it to SKU name
+          const skuName = locationToSkuMap[normalized];
+          if (skuName) {
+            skus.add(skuName);
+          } else if (!normalized.startsWith('LOC-') && !normalized.startsWith('Loc-') && !normalized.startsWith('loc-')) {
+            // If it's not a location ID pattern, add it as-is (might be actual SKU)
+            skus.add(normalized);
+          }
+        }
       }
     };
 
     const collectLocationsFromContent = (content = {}) => {
       if (!content) return;
 
+      // Collect all location IDs from content
       addLocation(content.locationId);
       addLocation(content.primaryLocationId);
 
@@ -403,16 +437,29 @@ const FullscreenMap = () => {
       if (Array.isArray(content.levelLocationMappings)) {
         content.levelLocationMappings.forEach((mapping) => {
           addLocation(mapping?.locationId || mapping?.locId);
+          // Also extract SKU from location ID in mapping
+          addSku(mapping?.locationId || mapping?.locId);
         });
       }
 
       if (Array.isArray(content.levelIds) && Array.isArray(content.locationIds)) {
-        content.locationIds.forEach(addLocation);
+        content.locationIds.forEach(locId => {
+          addLocation(locId);
+          addSku(locId); // Also add as SKU to map to name
+        });
       }
 
+      // Add SKU data from all content fields
       addSku(content.sku);
       addSku(content.uniqueId);
       addSku(content.primarySku);
+      addSku(content.locationId); // Location ID can map to SKU name
+      addSku(content.primaryLocationId); // Primary location ID can map to SKU name
+      
+      // Handle locationIds array
+      if (Array.isArray(content.locationIds)) {
+        content.locationIds.forEach(addSku);
+      }
     };
 
     const collectLocationsFromItem = (item = {}, itemOpData = null) => {
@@ -427,14 +474,22 @@ const FullscreenMap = () => {
 
       addSku(item.skuId);
       addSku(item.sku);
+      addSku(item.locationId); // Extract SKU from location ID
+      addSku(item.primaryLocationId); // Extract SKU from primary location
 
       if (Array.isArray(item.locationIds)) {
-        item.locationIds.forEach(addLocation);
+        item.locationIds.forEach(locId => {
+          addLocation(locId);
+          addSku(locId); // Extract SKU from each location ID
+        });
       }
 
+      // Extract from item-level levelLocationMappings (vertical racks)
       if (Array.isArray(item.levelLocationMappings)) {
         item.levelLocationMappings.forEach((mapping) => {
-          addLocation(mapping?.locationId || mapping?.locId);
+          const locId = mapping?.locationId || mapping?.locId;
+          addLocation(locId);
+          addSku(locId); // Extract SKU from each level's location ID
         });
       }
 
@@ -481,7 +536,7 @@ const FullscreenMap = () => {
     setAvailableAssets(Array.from(assets).sort());
   };
   
-  // Enhanced search functionality with dropdown filters only
+  // Enhanced search functionality with dropdown filters only - matching WarehouseMapView approach
   const performSearch = useCallback(() => {
     // Check if dropdown search is active
     const hasDropdownFilters = selectedLocationTag || selectedSku || selectedAsset;
@@ -490,102 +545,205 @@ const FullscreenMap = () => {
       setSearchResults([]);
       setHighlightedItems([]);
       setFilteredKeys([]);
+      setHighlightedCompartmentsMap({});
       setDropdownSearchActive(false);
       return;
     }
 
     const results = [];
     const highlighted = [];
+    const compartmentMap = {};
     setDropdownSearchActive(hasDropdownFilters);
 
     if (mapData && mapData.layoutData && mapData.layoutData.items) {
+      const typeMap = {
+        'Storage Unit': 'storage_unit',
+        'Spare Unit': 'spare_unit',
+        'Horizontal Storage': 'sku_holder',
+        'Vertical Storage': 'vertical_sku_holder',
+        'Square Boundary': 'square_boundary',
+        'Solid Boundary': 'solid_boundary',
+        'Dotted Boundary': 'dotted_boundary'
+      };
+
+      // Create reverse lookup: SKU name -> location IDs (with all case variations)
+      const skuNameToLocationIds = {};
+      if (layoutComponentsMock?.locations) {
+        layoutComponentsMock.locations.forEach(loc => {
+          if (loc.sku_name && loc.location_id) {
+            if (!skuNameToLocationIds[loc.sku_name]) {
+              skuNameToLocationIds[loc.sku_name] = [];
+            }
+            // Add all case variations of the location ID
+            skuNameToLocationIds[loc.sku_name].push(loc.location_id);
+            skuNameToLocationIds[loc.sku_name].push(loc.location_id.toUpperCase());
+            skuNameToLocationIds[loc.sku_name].push(loc.location_id.toLowerCase());
+          }
+        });
+      }
+
       mapData.layoutData.items.forEach((item, index) => {
         const itemId = `item-${index}`;
         const itemKey = getLayoutItemKey(item) || itemId;
-        const opData = operationalData[itemId];
+        let matchesFilters = true;
 
-        let matchesSearch = false;
-        let matchesDropdowns = true;
-        
-        // Check dropdown filters first
-        if (selectedLocationTag && opData) {
-          const locationMatches = opData.type === 'storage' 
-            ? (`${opData.location.zone}-${opData.location.aisle}-${opData.location.position}`.includes(selectedLocationTag) ||
-               opData.location.zone === selectedLocationTag ||
-               `Aisle-${opData.location.aisle}` === selectedLocationTag)
-            : (opData.type === 'zone' && 
-               (opData.zoneId === selectedLocationTag ||
-                opData.location.sector === selectedLocationTag ||
-                `Floor-${opData.location.floor}` === selectedLocationTag));
-          matchesDropdowns = matchesDropdowns && locationMatches;
-        }
-        
-        if (selectedSku && opData && opData.skus) {
-          const skuMatches = Object.values(opData.skus).some(sku => 
-            sku.uniqueId === selectedSku ||
-            sku.sku === selectedSku ||
-            sku.category === selectedSku ||
-            sku.brand === selectedSku
-          );
-          matchesDropdowns = matchesDropdowns && skuMatches;
-        }
-        
-        if (selectedAsset && opData) {
-          const assetMatches = opData.unitId === selectedAsset ||
-                              opData.zoneId === selectedAsset ||
-                              (opData.equipment && opData.equipment.includes(selectedAsset)) ||
-                              opData.type.toUpperCase() === selectedAsset;
-          matchesDropdowns = matchesDropdowns && assetMatches;
-        }
-        
-        // Item must match dropdown filters
-        if (matchesDropdowns) {
-          if (opData && (opData.type === 'storage' || opData.type === 'zone')) {
-            let title,
-              subtitle;
+        const locationCompartmentMatches = [];
+        const skuCompartmentMatches = [];
 
-            if (opData.type === 'storage') {
-              title = `Location: ${opData.unitId}`;
-              subtitle = `Zone ${opData.location.zone}, Aisle ${opData.location.aisle}, Position ${opData.location.position}`;
-            } else {
-              title = `Zone: ${opData.zoneId}`;
-              subtitle = `Throughput: ${opData.throughput} items/hr`;
-            }
+        // Check location tag filter
+        if (selectedLocationTag) {
+          const itemLevelMatch = [item.locationId, item.locationCode, item.locationTag, item.primaryLocationId]
+            .some((value) => typeof value === 'string' && value.trim() === selectedLocationTag);
 
-            results.push({
-              id: itemKey,
-              type: 'location',
-              title: title,
-              subtitle: subtitle,
-              item: item,
-              opData: opData
-            });
-            highlighted.push(itemKey);
+          // Check item-level locationIds array
+          let itemLocationIdsMatch = false;
+          if (Array.isArray(item.locationIds)) {
+            itemLocationIdsMatch = item.locationIds.includes(selectedLocationTag);
           }
 
-          // Add SKU-specific results if SKU filter is active
-          if (selectedSku && opData && opData.skus) {
-            Object.values(opData.skus).forEach(itemData => {
-              if (itemData.uniqueId === selectedSku ||
-                  itemData.sku === selectedSku ||
-                  itemData.category === selectedSku ||
-                  itemData.brand === selectedSku) {
-                results.push({
-                  id: itemKey,
-                  type: 'item',
-                  title: `Item: ${itemData.uniqueId}`,
-                  subtitle: `${itemData.description} - ${itemData.sku}`,
-                  item: item,
-                  itemData: itemData,
-                  opData: opData
-                });
-                if (!highlighted.includes(itemKey)) {
-                  highlighted.push(itemKey);
-                }
+          // Check item-level levelLocationMappings (vertical racks)
+          let itemLevelMappingsMatch = false;
+          if (Array.isArray(item.levelLocationMappings)) {
+            itemLevelMappingsMatch = item.levelLocationMappings.some(mapping => 
+              (mapping?.locationId === selectedLocationTag || mapping?.locId === selectedLocationTag)
+            );
+          }
+
+          if (item.compartmentContents) {
+            Object.entries(item.compartmentContents).forEach(([compartmentId, content]) => {
+              if (!content) return;
+
+              const matches = (
+                content.locationId === selectedLocationTag ||
+                content.uniqueId === selectedLocationTag ||
+                content.primaryLocationId === selectedLocationTag ||
+                (Array.isArray(content.locationIds) && content.locationIds.includes(selectedLocationTag)) ||
+                (Array.isArray(content.levelLocationMappings) && content.levelLocationMappings.some(mapping =>
+                  mapping?.locationId === selectedLocationTag || mapping?.locId === selectedLocationTag
+                ))
+              );
+
+              if (matches) {
+                locationCompartmentMatches.push(compartmentId);
               }
             });
           }
+
+          const hasLocationMatch = itemLevelMatch || itemLocationIdsMatch || itemLevelMappingsMatch || locationCompartmentMatches.length > 0;
+          matchesFilters = matchesFilters && hasLocationMatch;
         }
+
+        // Check SKU filter
+        if (selectedSku) {
+          // Get location IDs that have this SKU name
+          const locationIdsForSku = skuNameToLocationIds[selectedSku] || [];
+          
+          let itemLevelSkuMatch = false;
+          itemLevelSkuMatch = [item.sku, item.skuId, item.locationId]
+            .some((value) => typeof value === 'string' && (value.trim() === selectedSku || locationIdsForSku.includes(value.trim())));
+
+          // Check item-level locationIds array
+          let itemLocationIdsSkuMatch = false;
+          if (Array.isArray(item.locationIds)) {
+            itemLocationIdsSkuMatch = item.locationIds.some(locId => locationIdsForSku.includes(locId));
+          }
+
+          // Check item-level levelLocationMappings (vertical racks)
+          let itemLevelMappingsSkuMatch = false;
+          if (Array.isArray(item.levelLocationMappings)) {
+            itemLevelMappingsSkuMatch = item.levelLocationMappings.some(mapping => {
+              const locId = mapping?.locationId || mapping?.locId;
+              return locId && locationIdsForSku.includes(locId);
+            });
+          }
+
+          if (item.compartmentContents) {
+            Object.entries(item.compartmentContents).forEach(([compartmentId, content]) => {
+              if (!content) return;
+
+              // Check all possible SKU/location fields
+              const matches = (
+                content.sku === selectedSku ||
+                content.uniqueId === selectedSku ||
+                content.primarySku === selectedSku ||
+                content.locationId === selectedSku ||
+                locationIdsForSku.includes(content.sku) ||
+                locationIdsForSku.includes(content.uniqueId) ||
+                locationIdsForSku.includes(content.locationId) ||
+                locationIdsForSku.includes(content.primaryLocationId) ||
+                (Array.isArray(content.locationIds) && content.locationIds.some(locId => locationIdsForSku.includes(locId))) ||
+                (Array.isArray(content.levelLocationMappings) && content.levelLocationMappings.some(mapping => {
+                  const locId = mapping?.locationId || mapping?.locId;
+                  return locId && locationIdsForSku.includes(locId);
+                }))
+              );
+
+              if (matches) {
+                skuCompartmentMatches.push(compartmentId);
+              }
+            });
+          }
+
+          const hasSkuMatch = itemLevelSkuMatch || itemLocationIdsSkuMatch || itemLevelMappingsSkuMatch || skuCompartmentMatches.length > 0;
+          matchesFilters = matchesFilters && hasSkuMatch;
+        }
+
+        // Check asset filter
+        if (selectedAsset) {
+          const itemType = typeMap[selectedAsset] || selectedAsset.toLowerCase().replace(/ /g, '_');
+          const assetMatches = item.type === itemType;
+          matchesFilters = matchesFilters && assetMatches;
+        }
+
+        if (!matchesFilters) {
+          return;
+        }
+
+        // Add to highlighted items
+        highlighted.push(itemKey);
+
+        // Track which compartments to highlight
+        let compartmentHighlights = [];
+        if (locationCompartmentMatches.length && skuCompartmentMatches.length) {
+          // If both filters active, only highlight compartments that match both
+          compartmentHighlights = locationCompartmentMatches.filter((id) => skuCompartmentMatches.includes(id));
+        } else if (locationCompartmentMatches.length) {
+          compartmentHighlights = locationCompartmentMatches;
+        } else if (skuCompartmentMatches.length) {
+          compartmentHighlights = skuCompartmentMatches;
+        }
+
+        if (compartmentHighlights.length) {
+          compartmentMap[itemKey] = Array.from(new Set(compartmentHighlights));
+        }
+
+        // Create result entry
+        const opData = operationalData[itemId];
+        let title = item.name || item.label || item.type || 'Item';
+        let subtitle = '';
+
+        if (opData) {
+          if (opData.type === 'storage') {
+            title = `Location: ${opData.unitId}`;
+            subtitle = `Zone ${opData.location.zone}, Aisle ${opData.location.aisle}, Position ${opData.location.position}`;
+          } else if (opData.type === 'zone') {
+            title = `Zone: ${opData.zoneId}`;
+            subtitle = `Throughput: ${opData.throughput} items/hr`;
+          }
+        } else {
+          // Fallback when no operational data
+          if (item.locationId) subtitle = `Location: ${item.locationId}`;
+          else if (item.locationTag) subtitle = `Tag: ${item.locationTag}`;
+        }
+
+        results.push({
+          id: itemKey,
+          type: 'location',
+          title: title,
+          subtitle: subtitle,
+          item: item,
+          opData: opData
+        });
       });
     }
 
@@ -594,6 +752,7 @@ const FullscreenMap = () => {
     setSearchResults(results);
     setHighlightedItems(uniqueHighlighted);
     setFilteredKeys(uniqueHighlighted);
+    setHighlightedCompartmentsMap(compartmentMap);
   }, [selectedLocationTag, selectedSku, selectedAsset, mapData, operationalData]);
 
   useEffect(() => {
@@ -623,6 +782,7 @@ const FullscreenMap = () => {
     setSearchResults([]);
     setHighlightedItems([]);
     setFilteredKeys([]);
+    setHighlightedCompartmentsMap({});
     setDropdownSearchActive(false);
   };
 
@@ -1591,6 +1751,7 @@ const FullscreenMap = () => {
                       showMetadata={false}
                       highlightedKeys={highlightedItems}
                       filteredKeys={filteredKeys}
+                      highlightedCompartmentsMap={highlightedCompartmentsMap}
                       padding={140}
                       allowUpscale
                       fitMode="cover"

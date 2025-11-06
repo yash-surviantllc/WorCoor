@@ -4,6 +4,7 @@ import Dashboard from './Dashboard';
 import LocationDetailsPanel from './LocationDetailsPanel';
 import SavedLayoutRenderer, { getLayoutItemKey } from './SavedLayoutRenderer';
 import summarizeStorageComponents from '../utils/layoutComponentSummary';
+import layoutComponentsMock from '../data/layoutComponentsMock.json';
 
 const WarehouseMapView = ({ facilityData }) => {
   const [selectedZone, setSelectedZone] = useState(null);
@@ -85,6 +86,19 @@ const WarehouseMapView = ({ facilityData }) => {
     const skus = new Set();
     const assets = new Set();
 
+    // Create a lookup map from location_id to sku_name (case-insensitive)
+    const locationToSkuMap = {};
+    if (layoutComponentsMock?.locations) {
+      layoutComponentsMock.locations.forEach(loc => {
+        if (loc.location_id && loc.sku_name) {
+          // Store both original case and uppercase version for matching
+          locationToSkuMap[loc.location_id] = loc.sku_name;
+          locationToSkuMap[loc.location_id.toUpperCase()] = loc.sku_name;
+          locationToSkuMap[loc.location_id.toLowerCase()] = loc.sku_name;
+        }
+      });
+    }
+
     const addLocation = (value) => {
       if (!value) return;
       const normalized = typeof value === 'string' ? value.trim() : String(value).trim();
@@ -97,7 +111,25 @@ const WarehouseMapView = ({ facilityData }) => {
       if (!value) return;
       const normalized = typeof value === 'string' ? value.trim() : String(value).trim();
       if (normalized) {
-        skus.add(normalized);
+        // Handle comma-separated location IDs (e.g., "LOC-007,LOC-008")
+        if (normalized.includes(',')) {
+          const locationIds = normalized.split(',').map(id => id.trim());
+          locationIds.forEach(locId => {
+            const skuName = locationToSkuMap[locId];
+            if (skuName) {
+              skus.add(skuName);
+            }
+          });
+        } else {
+          // Single location ID - map it to SKU name
+          const skuName = locationToSkuMap[normalized];
+          if (skuName) {
+            skus.add(skuName);
+          } else if (!normalized.startsWith('LOC-') && !normalized.startsWith('Loc-') && !normalized.startsWith('loc-')) {
+            // If it's not a location ID pattern, add it as-is (might be actual SKU)
+            skus.add(normalized);
+          }
+        }
       }
     };
 
@@ -119,6 +151,7 @@ const WarehouseMapView = ({ facilityData }) => {
     const collectLocationsFromContent = (content = {}) => {
       if (!content) return;
 
+      // Collect all location IDs from content
       addLocation(content.locationId);
       addLocation(content.primaryLocationId);
 
@@ -129,11 +162,28 @@ const WarehouseMapView = ({ facilityData }) => {
       if (Array.isArray(content.levelLocationMappings)) {
         content.levelLocationMappings.forEach((mapping) => {
           addLocation(mapping?.locationId || mapping?.locId);
+          // Also extract SKU from location ID in mapping
+          addSku(mapping?.locationId || mapping?.locId);
         });
       }
 
       if (Array.isArray(content.levelIds) && Array.isArray(content.locationIds)) {
-        content.locationIds.forEach(addLocation);
+        content.locationIds.forEach(locId => {
+          addLocation(locId);
+          addSku(locId); // Also add as SKU to map to name
+        });
+      }
+
+      // Add SKU data from all content fields
+      addSku(content.sku);
+      addSku(content.uniqueId);
+      addSku(content.primarySku);
+      addSku(content.locationId); // Location ID can map to SKU name
+      addSku(content.primaryLocationId); // Primary location ID can map to SKU name
+      
+      // Handle locationIds array
+      if (Array.isArray(content.locationIds)) {
+        content.locationIds.forEach(addSku);
       }
     };
 
@@ -147,16 +197,23 @@ const WarehouseMapView = ({ facilityData }) => {
       addLocation(item.locationTag);
 
       if (Array.isArray(item.locationIds)) {
-        item.locationIds.forEach(addLocation);
+        item.locationIds.forEach(locId => {
+          addLocation(locId);
+          addSku(locId); // Extract SKU from location ID
+        });
       }
 
+      // Extract from item-level levelLocationMappings (vertical racks)
       if (Array.isArray(item.levelLocationMappings)) {
         item.levelLocationMappings.forEach((mapping) => {
-          addLocation(mapping?.locationId || mapping?.locId);
+          const locId = mapping?.locationId || mapping?.locId;
+          addLocation(locId);
+          addSku(locId); // Extract SKU from each level's location ID
         });
       }
 
       addLocation(item.primaryLocationId);
+      addSku(item.primaryLocationId); // Extract SKU from primary location
 
       if (item.compartmentContents) {
         Object.values(item.compartmentContents).forEach((content) => {
@@ -200,75 +257,8 @@ const WarehouseMapView = ({ facilityData }) => {
     };
   }, [showFilterDropdown]);
 
-  // Combine default units with saved layouts
-  const defaultUnits = [
-    {
-      id: 'unit1',
-      name: 'Unit 1',
-      subtitle: 'Floor Plan 1 - Building 1',
-      status: 'LIVE',
-      statusColor: '#00D4AA',
-      utilization: 85,
-      zones: 12,
-      temperature: null,
-      details: 'Primary storage facility with automated systems'
-    },
-    {
-      id: 'unit2', 
-      name: 'Unit 2',
-      subtitle: 'Floor Plan 1 - Building 2',
-      status: 'LIVE',
-      statusColor: '#00D4AA',
-      utilization: 72,
-      zones: 8,
-      temperature: '-18°C',
-      details: 'Temperature-controlled storage for perishables'
-    },
-    {
-      id: 'unit3',
-      name: 'Unit 3',
-      subtitle: 'Floor Plan 2 - Building 1',
-      status: 'MAINTENANCE',
-      statusColor: '#FFB800',
-      utilization: 45,
-      zones: 6,
-      temperature: null,
-      details: 'Cross-docking and distribution hub'
-    },
-    {
-      id: 'unit4',
-      name: 'Unit 4',
-      subtitle: 'Floor Plan 2 - Building 2',
-      status: 'LIVE',
-      statusColor: '#00D4AA',
-      utilization: 63,
-      zones: 10,
-      temperature: null,
-      details: 'Returns processing and quality control'
-    },
-    {
-      id: 'unit5',
-      name: 'Unit 5',
-      subtitle: 'Floor Plan 3 - Building 1',
-      status: 'OFFLINE',
-      statusColor: '#FF6B6B',
-      utilization: 0,
-      zones: 8,
-      temperature: null,
-      details: 'Hazardous materials storage (Currently offline)'
-    },
-    {
-      id: 'unit6',
-      name: 'Unit 6',
-      subtitle: 'Floor Plan 3 - Building 2',
-      status: 'LIVE',
-      statusColor: '#00D4AA',
-      utilization: 92,
-      zones: 15,
-      temperature: null,
-      details: 'Additional storage capacity for peak seasons'
-    }
-  ];
+  // No default demo units - only show saved layouts
+  const defaultUnits = [];
   
   // Convert saved layouts to warehouse units format
   const savedLayoutUnits = savedLayouts.map(layout => ({
@@ -285,94 +275,8 @@ const WarehouseMapView = ({ facilityData }) => {
     layoutData: layout.layoutData
   }));
 
-  const mockOrgLayoutUnit = {
-    id: 'mock-org1',
-    name: 'Org 1',
-    subtitle: 'Reference Layout',
-    status: 'PLANNING',
-    statusColor: getStatusColor('planning'),
-    utilization: 72,
-    zones: 6,
-    temperature: null,
-    details: 'Static recreation of the provided Org 1 layout',
-    isCustomLayout: true,
-    isMockLayout: true,
-    layoutData: {
-      name: 'Org 1 Reference Layout',
-      timestamp: '2025-10-30T10:00:00.000Z',
-      metadata: {
-        description: 'Org 1 map reproduced from reference artwork',
-        isMockLayout: true
-      },
-      items: [
-        { id: 'org1-boundary', type: 'square_boundary', name: 'Org 1 Boundary', x: 0, y: 0, width: 1080, height: 600, containerLevel: 1, isContainer: true, cornerRadius: 0, borderWidth: 3, borderColor: '#1976D2', fill: '#FFFFFF', fillOpacity: 0, disableAutoLabel: true },
-        { id: 'org1-packing-area', type: 'org1_zone', name: 'Packing Area', x: 60, y: 60, width: 240, height: 240, cornerRadius: 0, borderWidth: 3, borderColor: '#1976D2', fill: '#E3F2FD', fillOpacity: 1, textLines: ['Packing', 'Area'], textSize: 18, textColor: '#1565C0', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center', grid: { rows: 6, cols: 4, padding: 12, gap: 6, fill: '#C5E7FA', stroke: '#64B5F6' } },
-        { id: 'org1-back-office', type: 'warehouse_block', name: 'Back Office Space', x: 60, y: 360, width: 240, height: 180, cornerRadius: 0, borderWidth: 3, borderColor: '#0D47A1', fill: '#1565C0', fillOpacity: 1, textLines: ['Back Office', 'Space'], textSize: 18, textColor: '#FFFFFF', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
-        ...['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((letter, index) => ({
-          id: `org1-rack-${letter.toLowerCase()}`,
-          type: 'org1_rack',
-          name: `Rack ${letter}`,
-          x: 360 + index * 90,
-          y: 60,
-          width: 60,
-          height: 300,
-          cornerRadius: 0,
-          borderWidth: 2,
-          borderColor: '#00897B',
-          fill: '#C8FFF4',
-          fillOpacity: 1,
-          disableAutoLabel: true,
-          labelPosition: 'none',
-          grid: { rows: 10, cols: 2, padding: 8, gap: 6, fill: '#E0F2F1', stroke: '#26A69A' }
-        })),
-        ...['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((letter, index) => ({
-          id: `org1-rack-label-${letter.toLowerCase()}`,
-          type: 'org1_label',
-          displayAsLabel: true,
-          text: letter,
-          x: 360 + index * 90 + 30,
-          y: 378,
-          fontSize: 18,
-          fontWeight: '700',
-          textColor: '#37474F'
-        })),
-        { id: 'org1-receiving-1', type: 'org1_receiving', name: 'Receiving Area 1', x: 360, y: 390, width: 120, height: 120, cornerRadius: 0, borderWidth: 2, borderColor: '#F9A825', fill: '#FFE082', fillOpacity: 1, textLines: ['Receiving', 'Area 1'], textSize: 16, textColor: '#5D4037', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
-        { id: 'org1-receiving-2', type: 'org1_receiving', name: 'Receiving Area 2', x: 510, y: 390, width: 120, height: 120, cornerRadius: 0, borderWidth: 2, borderColor: '#F9A825', fill: '#FFE082', fillOpacity: 1, textLines: ['Receiving', 'Area 2'], textSize: 16, textColor: '#5D4037', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
-        { id: 'org1-dispatch-1', type: 'org1_dispatch', name: 'Dispatch Area 1', x: 660, y: 390, width: 120, height: 120, cornerRadius: 0, borderWidth: 2, borderColor: '#2E7D32', fill: '#A5D6A7', fillOpacity: 1, textLines: ['Dispatch', 'Area 1'], textSize: 16, textColor: '#1B5E20', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
-        { id: 'org1-dispatch-2', type: 'org1_dispatch', name: 'Dispatch Area 2', x: 810, y: 390, width: 120, height: 120, cornerRadius: 0, borderWidth: 2, borderColor: '#2E7D32', fill: '#A5D6A7', fillOpacity: 1, textLines: ['Dispatch', 'Area 2'], textSize: 16, textColor: '#1B5E20', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
-        { id: 'org1-transit-temp', type: 'org1_transit', name: 'Transit/Temp Area', x: 960, y: 390, width: 120, height: 120, cornerRadius: 0, borderWidth: 2, borderColor: '#8D6E63', fill: '#D7CCC8', fillOpacity: 1, textLines: ['Transit/Temp', 'Area'], textSize: 16, textColor: '#5D4037', fontWeight: '700', disableAutoLabel: true, labelPosition: 'inside-center' },
-        { id: 'org1-walkway', type: 'org1_walkway', name: 'Gate Walkway', x: 60, y: 520, width: 960, height: 60, cornerRadius: 0, borderWidth: 1, borderColor: '#E0E0E0', fill: '#FFFFFF', fillOpacity: 1, disableAutoLabel: true, labelPosition: 'none' },
-        ...(() => {
-          const segments = [
-            { id: 'org1-entrance', label: 'Entrance', width: 180 },
-            { id: 'org1-in-gate-1', label: 'In-Gate 1', width: 150 },
-            { id: 'org1-in-gate-2', label: 'In-Gate 2', width: 150 },
-            { id: 'org1-out-gate-1', label: 'Out Gate 1', width: 150 },
-            { id: 'org1-out-gate-2', label: 'Out Gate 2', width: 150 },
-            { id: 'org1-out-gate-3', label: 'Out Gate 3', width: 180 }
-          ];
-          let currentX = 60;
-          return segments.map(segment => {
-            const labelItem = {
-              id: segment.id,
-              type: 'org1_gate_label',
-              displayAsLabel: true,
-              text: segment.label,
-              x: currentX + segment.width / 2,
-              y: 548,
-              fontSize: 14,
-              fontWeight: '700',
-              textColor: '#333333'
-            };
-            currentX += segment.width;
-            return labelItem;
-          });
-        })()
-      ]
-    }
-  };
-
-  const customLayoutUnits = [mockOrgLayoutUnit, ...savedLayoutUnits];
+  // Only use saved layouts - no mock/demo units
+  const customLayoutUnits = savedLayoutUnits;
   
   // Helper function to get status colors
   function getStatusColor(status) {
@@ -405,8 +309,8 @@ const WarehouseMapView = ({ facilityData }) => {
   }, [warehouseUnits, selectedUnitForDemo]);
 
   const selectedOrgUnitForDashboard = useMemo(() => {
-    if (!selectedUnitForDemo) return mockOrgLayoutUnit;
-    return warehouseUnits.find(unit => unit.id === selectedUnitForDemo) || mockOrgLayoutUnit;
+    if (!selectedUnitForDemo) return null;
+    return warehouseUnits.find(unit => unit.id === selectedUnitForDemo) || null;
   }, [selectedUnitForDemo, warehouseUnits]);
 
   const dashboardItems = useMemo(() => {
@@ -1192,6 +1096,22 @@ const WarehouseMapView = ({ facilityData }) => {
       'Dotted Boundary': 'dotted_boundary'
     };
 
+    // Create reverse lookup: SKU name -> location IDs (with all case variations)
+    const skuNameToLocationIds = {};
+    if (layoutComponentsMock?.locations) {
+      layoutComponentsMock.locations.forEach(loc => {
+        if (loc.sku_name && loc.location_id) {
+          if (!skuNameToLocationIds[loc.sku_name]) {
+            skuNameToLocationIds[loc.sku_name] = [];
+          }
+          // Add all case variations of the location ID
+          skuNameToLocationIds[loc.sku_name].push(loc.location_id);
+          skuNameToLocationIds[loc.sku_name].push(loc.location_id.toUpperCase());
+          skuNameToLocationIds[loc.sku_name].push(loc.location_id.toLowerCase());
+        }
+      });
+    }
+
     unit.layoutData.items.forEach((item, index) => {
       const itemKey = getLayoutItemKey(item) || `${unit.id}-${item.id || index}`;
       let matchesFilters = true;
@@ -1203,6 +1123,20 @@ const WarehouseMapView = ({ facilityData }) => {
         const itemLevelMatch = [item.locationId, item.locationCode, item.locationTag, item.primaryLocationId]
           .some((value) => typeof value === 'string' && value.trim() === selectedLocationTag);
 
+        // Check item-level locationIds array
+        let itemLocationIdsMatch = false;
+        if (Array.isArray(item.locationIds)) {
+          itemLocationIdsMatch = item.locationIds.includes(selectedLocationTag);
+        }
+
+        // Check item-level levelLocationMappings (vertical racks)
+        let itemLevelMappingsMatch = false;
+        if (Array.isArray(item.levelLocationMappings)) {
+          itemLevelMappingsMatch = item.levelLocationMappings.some(mapping => 
+            (mapping?.locationId === selectedLocationTag || mapping?.locId === selectedLocationTag)
+          );
+        }
+
         if (item.compartmentContents) {
           Object.entries(item.compartmentContents).forEach(([compartmentId, content]) => {
             if (!content) {
@@ -1213,7 +1147,10 @@ const WarehouseMapView = ({ facilityData }) => {
               content.locationId === selectedLocationTag ||
               content.uniqueId === selectedLocationTag ||
               content.primaryLocationId === selectedLocationTag ||
-              (Array.isArray(content.locationIds) && content.locationIds.includes(selectedLocationTag))
+              (Array.isArray(content.locationIds) && content.locationIds.includes(selectedLocationTag)) ||
+              (Array.isArray(content.levelLocationMappings) && content.levelLocationMappings.some(mapping =>
+                mapping?.locationId === selectedLocationTag || mapping?.locId === selectedLocationTag
+              ))
             );
 
             if (matches) {
@@ -1222,14 +1159,32 @@ const WarehouseMapView = ({ facilityData }) => {
           });
         }
 
-        const hasLocationMatch = itemLevelMatch || locationCompartmentMatches.length > 0;
+        const hasLocationMatch = itemLevelMatch || itemLocationIdsMatch || itemLevelMappingsMatch || locationCompartmentMatches.length > 0;
         matchesFilters = matchesFilters && hasLocationMatch;
       }
 
       if (selectedSku) {
+        // Get location IDs that have this SKU name
+        const locationIdsForSku = skuNameToLocationIds[selectedSku] || [];
+        
         let itemLevelSkuMatch = false;
         itemLevelSkuMatch = [item.sku, item.skuId, item.locationId]
-          .some((value) => typeof value === 'string' && value.trim() === selectedSku);
+          .some((value) => typeof value === 'string' && (value.trim() === selectedSku || locationIdsForSku.includes(value.trim())));
+
+        // Check item-level locationIds array
+        let itemLocationIdsSkuMatch = false;
+        if (Array.isArray(item.locationIds)) {
+          itemLocationIdsSkuMatch = item.locationIds.some(locId => locationIdsForSku.includes(locId));
+        }
+
+        // Check item-level levelLocationMappings (vertical racks)
+        let itemLevelMappingsSkuMatch = false;
+        if (Array.isArray(item.levelLocationMappings)) {
+          itemLevelMappingsSkuMatch = item.levelLocationMappings.some(mapping => {
+            const locId = mapping?.locationId || mapping?.locId;
+            return locId && locationIdsForSku.includes(locId);
+          });
+        }
 
         if (item.compartmentContents) {
           Object.entries(item.compartmentContents).forEach(([compartmentId, content]) => {
@@ -1237,11 +1192,21 @@ const WarehouseMapView = ({ facilityData }) => {
               return;
             }
 
+            // Check all possible SKU/location fields
             const matches = (
               content.sku === selectedSku ||
               content.uniqueId === selectedSku ||
               content.primarySku === selectedSku ||
-              content.locationId === selectedSku
+              content.locationId === selectedSku ||
+              locationIdsForSku.includes(content.sku) ||
+              locationIdsForSku.includes(content.uniqueId) ||
+              locationIdsForSku.includes(content.locationId) ||
+              locationIdsForSku.includes(content.primaryLocationId) ||
+              (Array.isArray(content.locationIds) && content.locationIds.some(locId => locationIdsForSku.includes(locId))) ||
+              (Array.isArray(content.levelLocationMappings) && content.levelLocationMappings.some(mapping => {
+                const locId = mapping?.locationId || mapping?.locId;
+                return locId && locationIdsForSku.includes(locId);
+              }))
             );
 
             if (matches) {
@@ -1250,7 +1215,7 @@ const WarehouseMapView = ({ facilityData }) => {
           });
         }
 
-        const hasSkuMatch = itemLevelSkuMatch || skuCompartmentMatches.length > 0;
+        const hasSkuMatch = itemLevelSkuMatch || itemLocationIdsSkuMatch || itemLevelMappingsSkuMatch || skuCompartmentMatches.length > 0;
         matchesFilters = matchesFilters && hasSkuMatch;
       }
 

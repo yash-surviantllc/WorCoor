@@ -21,7 +21,7 @@ const WarehouseDesigner = ({ onBack, initialLayout = null }) => {
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [boundaryCreated, setBoundaryCreated] = useState(false);
   const canvasRef = useRef(null);
-
+-
   // Initialize global ID cache when component mounts
   useEffect(() => {
     globalIdCache.initialize(items);

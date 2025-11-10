@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDrag } from 'react-dnd';
 import { DRAG_TYPES, WAREHOUSE_COMPONENTS } from '../constants/warehouseComponents';
 
 const DraggableComponent = ({ component }) => {
-  const [{ isDragging }, drag] = useDrag({
+  const [{ isDragging }, drag, preview] = useDrag({
     type: DRAG_TYPES.COMPONENT,
     item: {
       ...component,
@@ -31,6 +31,13 @@ const DraggableComponent = ({ component }) => {
       }
     }
   });
+
+  // Create custom drag preview with label
+  useEffect(() => {
+    const img = new Image();
+    img.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='; // 1x1 transparent gif
+    img.onload = () => preview(img);
+  }, [preview]);
 
   return (
     <div

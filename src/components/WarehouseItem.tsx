@@ -856,7 +856,7 @@ const WarehouseItem = ({
         ) : null;
       })()}
 
-      {/* Storage Unit - Display name and label */}
+      {/* Storage Unit - Display category name inside */}
       {item.type === 'storage_unit' && (() => {
         const trimmedName = item.name ? item.name.trim() : '';
         const categoryDisplayNames = {
@@ -870,20 +870,10 @@ const WarehouseItem = ({
         const categoryText = item.labelInfo?.categoryText
           || categoryDisplayNames[item.category]
           || 'Storage Unit';
+        // Show only the category text or name, not the label
         const primaryText = trimmedName || categoryText;
-        const labelText = (() => {
-          if (item.locationId && item.locationId.trim()) {
-            return item.locationId.trim();
-          }
-          const trimmedLabel = item.label ? item.label.trim() : '';
-          if (trimmedLabel && trimmedLabel !== trimmedName) {
-            return trimmedLabel;
-          }
-          return null;
-        })();
         const minDimension = Math.min(item.width || 60, item.height || 60);
         const primaryFontSize = Math.max(9, Math.min(14, Math.floor(minDimension / 6)));
-        const secondaryFontSize = Math.max(7, Math.min(12, Math.floor(minDimension / 8)));
 
         return (
           <div
@@ -900,7 +890,6 @@ const WarehouseItem = ({
               pointerEvents: 'none',
               userSelect: 'none',
               fontFamily: 'Arial, sans-serif',
-              gap: '4px',
               maxWidth: '88%'
             }}
           >
@@ -917,28 +906,18 @@ const WarehouseItem = ({
             >
               {primaryText}
             </div>
-            {labelText && (
-              <div
-                style={{
-                  color: storageUnitTextColor,
-                  fontSize: `${secondaryFontSize}px`,
-                  fontWeight: 500,
-                  lineHeight: 1.1,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis'
-                }}
-              >
-                {labelText}
-              </div>
-            )}
           </div>
         );
       })()}
 
-      {/* Spare Unit - Display name inside the square */}
+      {/* Spare Unit - Display custom name inside the square (if different from default) */}
       {item.type === 'spare_unit' && (() => {
-        const displayText = (item.name && item.name.trim()) || 'Spare Unit';
+        // Only show name inside if it's a custom name (not the default "Spare Unit")
+        const hasCustomName = item.name && item.name.trim() && item.name.trim() !== 'Spare Unit';
+        if (!hasCustomName) {
+          return null; // Don't show anything inside if no custom name
+        }
+        
         return (
           <div style={{
             position: 'absolute',
@@ -955,7 +934,7 @@ const WarehouseItem = ({
             textShadow: '0 1px 2px rgba(0,0,0,0.35)',
             maxWidth: '90%'
           }}>
-            {displayText}
+            {item.name.trim()}
           </div>
         );
       })()}
@@ -977,6 +956,53 @@ const WarehouseItem = ({
         color={item.type === 'sku_holder' ? '#2196F3' : '#FF9800'}
         isReadOnly={isReadOnly}
       />
+
+      {/* Component Type Label - Shown below the component */}
+      {(item.type === 'sku_holder' || item.type === 'vertical_sku_holder' || item.type === 'storage_unit' || item.type === 'spare_unit') && (() => {
+        // Determine the label text - use item.label if available, otherwise use default component type
+        let labelText = '';
+        
+        // First check if there's a custom label from properties panel
+        if (item.label && item.label.trim()) {
+          labelText = item.label.trim();
+        } else {
+          // Fall back to default component type names
+          if (item.type === 'sku_holder') {
+            labelText = 'Horizontal Storage Rack';
+          } else if (item.type === 'vertical_sku_holder') {
+            labelText = 'Vertical Storage Rack';
+          } else if (item.type === 'storage_unit') {
+            labelText = 'Storage Unit';
+          } else if (item.type === 'spare_unit') {
+            labelText = 'Spare Unit';
+          }
+        }
+        
+        return (
+          <div
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              marginTop: '6px',
+              backgroundColor: 'transparent',
+              color: '#000000',
+              padding: '5px 10px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: '700',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              userSelect: 'none',
+              zIndex: 10000,
+              textShadow: '0 0 3px rgba(255,255,255,0.8), 0 0 5px rgba(255,255,255,0.6)'
+            }}
+          >
+            {labelText}
+          </div>
+        );
+      })()}
     </div>
   );
 };

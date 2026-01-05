@@ -1,0 +1,21 @@
+{
+  "name": "worcoor-integration",
+  "version": "1.0.0",
+  "description": "Integration package for WorCoor Layout Builder and Warehouse Maps",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./LayoutBuilderWrapper": "./LayoutBuilderWrapper.js",
+    "./WarehouseMapWrapper": "./WarehouseMapWrapper.js",
+    "./example": "./integration-example.js"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
+    "react-feather": "^2.0.10",
+    "styled-components": "^6.1.19",
+    "uuid": "^9.0.0"
+  }
+}

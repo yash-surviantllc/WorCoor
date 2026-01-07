@@ -98,54 +98,54 @@ export function DashboardSidebar({ isOpen, toggle }: SidebarProps) {
       icon: Package,
       parent: "Product Management",
     },
-    {
-      title: "Manufacturing Process",
-      href: "/dashboard/product-manager/manufacturing",
-      icon: Truck,
-      parent: "Product Management",
-    },
+    // {
+    //   title: "Manufacturing Process",
+    //   href: "/dashboard/product-manager/manufacturing",
+    //   icon: Truck,
+    //   parent: "Product Management",
+    // },
     // Task Management Menu
-    {
-      title: "Task Management",
-      href: "/dashboard/task-manager",
-      icon: ClipboardList,
-    },
-    {
-      title: "Task Alerts Management",
-      href: "/dashboard/task-manager/alerts",
-      icon: Bell,
-      parent: "Task Management",
-    },
-    {
-      title: "Task Repository",
-      href: "/dashboard/task-manager/repository",
-      icon: ClipboardList,
-      parent: "Task Management",
-    },
-    {
-      title: "Task Assignment",
-      href: "/dashboard/task-manager/assignments",
-      icon: Users,
-      parent: "Task Management",
-    },
-    {
-      title: "Task Dashboard",
-      href: "/dashboard/task-manager/dashboards",
-      icon: LayoutDashboard,
-      parent: "Task Management",
-    },
-    {
-      title: "Task Tracking",
-      href: "/dashboard/task-manager/tracking",
-      icon: Activity,
-      parent: "Task Management",
-    },
-    {
-      title: "Performance Analytics",
-      href: "/dashboard/analytics",
-      icon: LineChart,
-      parent: "Task Management",
-    },
+    // {
+    //   title: "Task Management",
+    //   href: "/dashboard/task-manager",
+    //   icon: ClipboardList,
+    // },
+    // {
+    //   title: "Task Alerts Management",
+    //   href: "/dashboard/task-manager/alerts",
+    //   icon: Bell,
+    //   parent: "Task Management",
+    // },
+    // {
+    //   title: "Task Repository",
+    //   href: "/dashboard/task-manager/repository",
+    //   icon: ClipboardList,
+    //   parent: "Task Management",
+    // },
+    // {
+    //   title: "Task Assignment",
+    //   href: "/dashboard/task-manager/assignments",
+    //   icon: Users,
+    //   parent: "Task Management",
+    // },
+    // {
+    //   title: "Task Dashboard",
+    //   href: "/dashboard/task-manager/dashboards",
+    //   icon: LayoutDashboard,
+    //   parent: "Task Management",
+    // },
+    // {
+    //   title: "Task Tracking",
+    //   href: "/dashboard/task-manager/tracking",
+    //   icon: Activity,
+    //   parent: "Task Management",
+    // },
+    // {
+    //   title: "Performance Analytics",
+    //   href: "/dashboard/analytics",
+    //   icon: LineChart,
+    //   parent: "Task Management",
+    // },
     // Inventory Management Menu
     {
       title: "Inventory Management",
@@ -189,35 +189,35 @@ export function DashboardSidebar({ isOpen, toggle }: SidebarProps) {
       parent: "Warehouse Management",
     },
     // Procurement Management Menu
-    {
-      title: "Procurement Management",
-      href: "/dashboard/procurement-management",
-      icon: PackageSearch,
-    },
-    {
-      title: "Purchase Order Management",
-      href: "/dashboard/procurement-management/purchase-order",
-      icon: ReceiptText,
-      parent: "Procurement Management",
-    },
-    {
-      title: "Procurement Request",
-      href: "/dashboard/procurement-management/procurement-request",
-      icon: FilePlus,
-      parent: "Procurement Management",
-    },
+    // {
+    //   title: "Procurement Management",
+    //   href: "/dashboard/procurement-management",
+    //   icon: PackageSearch,
+    // },
+    // {
+    //   title: "Purchase Order Management",
+    //   href: "/dashboard/procurement-management/purchase-order",
+    //   icon: ReceiptText,
+    //   parent: "Procurement Management",
+    // },
+    // {
+    //   title: "Procurement Request",
+    //   href: "/dashboard/procurement-management/procurement-request",
+    //   icon: FilePlus,
+    //   parent: "Procurement Management",
+    // },
     // Order Management Menu
-    {
-      title: "Order Management",
-      href: "/dashboard/order-management",
-      icon: ClipboardList,
-    },
-    {
-      title: "Sales Order Management",
-      href: "/dashboard/order-management/sales-order",
-      icon: ShoppingCart,
-      parent: "Order Management",
-    },
+    // {
+    //   title: "Order Management",
+    //   href: "/dashboard/order-management",
+    //   icon: ClipboardList,
+    // },
+    // {
+    //   title: "Sales Order Management",
+    //   href: "/dashboard/order-management/sales-order",
+    //   icon: ShoppingCart,
+    //   parent: "Order Management",
+    // },
     // Asset Management Menu
     {
       title: "Asset Management",
@@ -237,23 +237,23 @@ export function DashboardSidebar({ isOpen, toggle }: SidebarProps) {
       parent: "Asset Management",
     },
     // Audit Management Menu
-    {
-      title: "Audit Management",
-      href: "/dashboard/audit",
-      icon: FileText,
-    },
-    {
-      title: "Audit Form Management",
-      href: "/dashboard/audit/forms",
-      icon: FileText,
-      parent: "Audit Management",
-    },
-    {
-      title: "Audit Report",
-      href: "/dashboard/audit/reports",
-      icon: BarChart3,
-      parent: "Audit Management",
-    },
+    // {
+    //   title: "Audit Management",
+    //   href: "/dashboard/audit",
+    //   icon: FileText,
+    // },
+    // {
+    //   title: "Audit Form Management",
+    //   href: "/dashboard/audit/forms",
+    //   icon: FileText,
+    //   parent: "Audit Management",
+    // },
+    // {
+    //   title: "Audit Report",
+    //   href: "/dashboard/audit/reports",
+    //   icon: BarChart3,
+    //   parent: "Audit Management",
+    // },
     ]
 
   const getInitials = (name?: string) => {

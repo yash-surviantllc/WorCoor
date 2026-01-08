@@ -75,12 +75,6 @@ export function DashboardSidebar({ isOpen, toggle }: SidebarProps) {
       parent: "Admin Panel",
     },
     {
-      title: "Reference Data Management",
-      href: "/dashboard/admin/reference-data",
-      icon: Database,
-      parent: "Admin Panel",
-    },
-    {
       title: "System Settings",
       href: "/dashboard/admin/settings",
       icon: Cog,
@@ -146,29 +140,29 @@ export function DashboardSidebar({ isOpen, toggle }: SidebarProps) {
     //   icon: LineChart,
     //   parent: "Task Management",
     // },
-    // Inventory Management Menu
+    // Reference Data Management Menu
     {
-      title: "Inventory Management",
-      href: "/dashboard/inventory",
+      title: "Reference Data Management",
+      href: "/dashboard/reference-data",
       icon: Database,
     },
     {
       title: "SKU Management",
-      href: "/dashboard/inventory/skus",
+      href: "/dashboard/reference-data/skus",
       icon: Layers,
-      parent: "Inventory Management",
+      parent: "Reference Data Management",
     },
     {
       title: "Wastage Tracking",
-      href: "/dashboard/inventory/wastage",
+      href: "/dashboard/reference-data/wastage",
       icon: Trash,
-      parent: "Inventory Management",
+      parent: "Reference Data Management",
     },
     {
-      title: "Inventory Analytics",
-      href: "/dashboard/inventory/analytics",
+      title: "Reference Data Analytics",
+      href: "/dashboard/reference-data/analytics",
       icon: BarChart3,
-      parent: "Inventory Management",
+      parent: "Reference Data Management",
     },
     // Warehouse Management Menu
     {

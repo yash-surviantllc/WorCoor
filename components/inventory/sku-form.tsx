@@ -28,11 +28,20 @@ const skuFormSchema = z.object({
     required_error: "Please select a category.",
   }).min(1, { message: "Please select a category." }),
   description: z.string().transform((val) => val.trim()),
-  code: z.string().min(1, { message: "Task Code is required." }).transform((val) => val.trim()),
+  code: z.string().min(1, { message: "SKU ID is required." }).transform((val) => val.trim()),
   unitId: z.string({
     required_error: "Please select a unit.",
   }).min(1, { message: "Please select a unit." }),
   type: z.string(),
+  quantity: z.number().min(0, { message: "Quantity must be a positive number." }),
+  effectiveDate: z.string().min(1, { message: "Effective date is required." }),
+  expiryDate: z.string().optional(),
+  orgUnitId: z.string({
+    required_error: "Please select an org unit.",
+  }).min(1, { message: "Please select an org unit." }),
+  locationTagId: z.string({
+    required_error: "Please select a location tag.",
+  }).min(1, { message: "Please select a location tag." }),
   attachments: z.array(z.string().url()).optional()
 })
 
@@ -48,9 +57,11 @@ interface SkuFormProps {
   units: { label: string; value: string }[]
   parentResources: { label: string; value: string }[]
   departments: { label: string; value: string }[]
+  orgUnits: { label: string; value: string }[]
+  locationTags: { label: string; value: string }[]
 }
 
-export function SkuForm({ initialData = {}, onSubmit, onCancel, categories, types, units, parentResources, departments }: SkuFormProps) {
+export function SkuForm({ initialData = {}, onSubmit, onCancel, categories, types, units, parentResources, departments, orgUnits, locationTags }: SkuFormProps) {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   types = types.filter(t => t.value !== "000000000000000000000000");
 
@@ -66,6 +77,11 @@ export function SkuForm({ initialData = {}, onSubmit, onCancel, categories, type
       code: initialData?.code || "",
       unitId: initialData?.unitId || "",
       departmentId: initialData?.departmentId || "",
+      quantity: initialData?.quantity || 0,
+      effectiveDate: initialData?.effectiveDate || "",
+      expiryDate: initialData?.expiryDate || "",
+      orgUnitId: initialData?.orgUnitId || "",
+      locationTagId: initialData?.locationTagId || "",
       attachments: initialData?.attachments || []
     },
   })
@@ -239,6 +255,90 @@ export function SkuForm({ initialData = {}, onSubmit, onCancel, categories, type
                 )}
               />
             </div>
+            {/* SKU Quantity and Effective Date */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField control={form.control} name="quantity"
+                render={({ field }) => (
+                  <FormItem className="space-y-1 gap-2">
+                    <FormLabel className="text-sm font-medium leading-none">SKU Quantity <span className="text-destructive">*</span></FormLabel>
+                    <FormControl>
+                      <Input type="number" className="h-12 rounded-md border border-input bg-white/100 dark:bg-slate-800/80 dark:border-slate-700" placeholder="Enter quantity" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField control={form.control} name="effectiveDate"
+                render={({ field }) => (
+                  <FormItem className="space-y-1 gap-2">
+                    <FormLabel className="text-sm font-medium leading-none">SKU Effective Date <span className="text-destructive">*</span></FormLabel>
+                    <FormControl>
+                      <Input type="date" className="h-12 rounded-md border border-input bg-white/100 dark:bg-slate-800/80 dark:border-slate-700" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            {/* Expiry Date and Org Unit */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField control={form.control} name="expiryDate"
+                render={({ field }) => (
+                  <FormItem className="space-y-1 gap-2">
+                    <FormLabel className="text-sm font-medium leading-none">Expiry Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" className="h-12 rounded-md border border-input bg-white/100 dark:bg-slate-800/80 dark:border-slate-700" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField control={form.control} name="orgUnitId"
+                render={({ field }) => (
+                  <FormItem className="space-y-1 gap-2">
+                    <FormLabel className="text-sm font-medium leading-none">Org Unit <span className="text-destructive">*</span></FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="h-12 rounded-md border border-input bg-white/100 dark:bg-slate-800/80 dark:border-slate-700">
+                          <SelectValue placeholder="Select Org Unit" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {orgUnits.map((unit) => (
+                          <SelectItem key={unit.value} value={unit.value}>
+                            {unit.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            {/* Location Tag */}
+            <FormField control={form.control} name="locationTagId"
+              render={({ field }) => (
+                <FormItem className="space-y-1 gap-2">
+                  <FormLabel className="text-sm font-medium leading-none">Location Tag <span className="text-destructive">*</span></FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-12 rounded-md border border-input bg-white/100 dark:bg-slate-800/80 dark:border-slate-700">
+                        <SelectValue placeholder="Select Location Tag" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {locationTags.map((tag) => (
+                        <SelectItem key={tag.value} value={tag.value}>
+                          {tag.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             {/* Description */}
             <FormField control={form.control} name="description"
               render={({ field }) => (
@@ -279,3 +379,5 @@ export function SkuForm({ initialData = {}, onSubmit, onCancel, categories, type
     </Form>
   )
 }
+
+export default SkuForm

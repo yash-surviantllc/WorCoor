@@ -1,36 +1,43 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Edit, MoreHorizontal, Plus, Search, Trash2, FileText, BarChart3, CheckCircle, Tag } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { toast } from "@/components/ui/use-toast"
-import { SkuForm } from "@/components/inventory/sku-form"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Progress } from "@/components/ui/progress"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Textarea } from "@/components/ui/textarea"
-import { PageHeader } from "@/components/dashboard/page-header"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form"
-import * as z from "zod"
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/src/utils/AuthContext";
-import { notification } from '@/src/services/notificationService'
 import { apiService } from "@/src/services/apiService";
 import { api_url } from "@/src/constants/api_url";
-import { useInfiniteScroll } from "@/src/lib/use-infinite-scroll";
-import { getPaginatedRequestParams } from "@/src/lib/pagination";
-import { HistoryModal } from "@/components/inventory/sku-history/history-modal";
 
+// UI Components
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Form, FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
+
+// Icons
+import { Plus, Search, Tag, Edit, Trash2, FileText } from "lucide-react";
+
+// Hooks and Utils
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import { Controller } from "react-hook-form";
+
+// Components
+import PageHeader from "@/components/layout/page-header";
+import SkuForm from "@/components/inventory/sku-form";
+import HistoryModal from "@/components/inventory/history-modal";
+import { toast as toastFn } from "@/hooks/use-toast";
+
+// localStorage key for SKUs
+const SKUS_STORAGE_KEY = "worcoor-skus";
 
 // Sample data - replace with actual data import
 const skusData = [
@@ -63,6 +70,11 @@ const skusData = [
     taggedForProduction: 30,
     wastage: 5,
     totalProcured: 180,
+    quantity: 150,
+    effectiveDate: "2024-01-15",
+    expiryDate: "",
+    orgUnitId: "WH-001",
+    locationTagId: "TAG-001"
   },
   {
     id: "SKU-002",
@@ -93,8 +105,14 @@ const skusData = [
     taggedForProduction: 20,
     wastage: 3,
     totalProcured: 225,
+    quantity: 200,
+    effectiveDate: "2024-01-20",
+    expiryDate: "",
+    orgUnitId: "WH-001",
+    locationTagId: "TAG-002"
   },
 ]
+
 // Quality Check Form Schema
 const qualityCheckSchema = z.object({
   qualityRating: z.string().min(1, "Please select a quality rating"),
@@ -136,13 +154,15 @@ export default function SkuManagementPage() {
   const [categories, setSkuCategories] = useState<{ value: string; label: string }[]>([]);
   const [parentResources, setParentResources] = useState<{ value: string; label: string }[]>([]);
   const [departments, setDepartments] = useState<{ value: string; label: string }[]>([]);
+  const [orgUnits, setOrgUnits] = useState<{ value: string; label: string }[]>([]);
+  const [locationTags, setLocationTags] = useState<{ value: string; label: string }[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [typesFilter, setTypesFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [filtersReady, setFiltersReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenu>({ visible: false, x: 0, y: 0, skuId: "" })
-  
+
   const router = useRouter();
   const rightClickBtnClass = "w-full text-left px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 dark:hover:from-blue-900/30 dark:hover:to-blue-800/30 rounded-md transition-all duration-200 flex items-center gap-3 group";
 
@@ -154,6 +174,33 @@ export default function SkuManagementPage() {
       setPage((prev) => prev + 1);
     }
   });
+
+  // Load SKUs from localStorage on mount
+  useEffect(() => {
+    const storedSkus = localStorage.getItem(SKUS_STORAGE_KEY);
+    if (storedSkus) {
+      try {
+        const parsedSkus = JSON.parse(storedSkus);
+        setSkus(parsedSkus);
+      } catch (error) {
+        console.error("Error parsing stored SKUs:", error);
+        // Fallback to sample data
+        setSkus(skusData);
+        localStorage.setItem(SKUS_STORAGE_KEY, JSON.stringify(skusData));
+      }
+    } else {
+      // Initialize with sample data
+      setSkus(skusData);
+      localStorage.setItem(SKUS_STORAGE_KEY, JSON.stringify(skusData));
+    }
+  }, []);
+
+  // Save SKUs to localStorage whenever skus state changes
+  useEffect(() => {
+    if (skus.length > 0) {
+      localStorage.setItem(SKUS_STORAGE_KEY, JSON.stringify(skus));
+    }
+  }, [skus]);
 
   // Auth Check
   useEffect(() => {
@@ -242,6 +289,42 @@ export default function SkuManagementPage() {
     return department ? department.label : "-";
   };
 
+  const getOrgUnitNameById = (id: string): string => {
+    const orgUnit = orgUnits.find(o => o.value === id);
+    return orgUnit ? orgUnit.label : id || "-";
+  };
+
+  const getLocationTagNameById = (id: string): string => {
+    const locationTag = locationTags.find(l => l.value === id);
+    return locationTag ? locationTag.label : id || "-";
+  };
+
+  // Get Org Units
+  useEffect(() => {
+    const storedUnits = localStorage.getItem("worcoor-org-units");
+    if (storedUnits) {
+      try {
+        const parsedUnits = JSON.parse(storedUnits);
+        const formattedUnits = parsedUnits.map((unit: any) => ({
+          value: unit.id,
+          label: unit.name,
+        }));
+        setOrgUnits(formattedUnits);
+      } catch (error) {
+        console.error("Error parsing org units:", error);
+      }
+    }
+  }, []);
+
+  // Get Location Tags
+  useEffect(() => {
+    fetchDropdownOptions({
+      apiId: "68565e8ff70897486c46853c", // Using same as units for now, adjust if different API exists
+      setState: setLocationTags,
+      defaultLabel: "LocationTags",
+    });
+  }, []);
+
   // Comman Dropdown Filter Api
   const fetchDropdownOptions = async ({
     apiId,
@@ -321,89 +404,133 @@ export default function SkuManagementPage() {
     setHasMore(true);
     setIsLoading(false);
   }, [searchTerm, statusFilter, categoryFilter, typesFilter]);
-  
+
   const fetchSkuList = async () => {
     try {
-      const filters = buildFilterQuery(); // dynamic filtering logic
-      const requestData: any = {
-        ...getPaginatedRequestParams(page, pageSize),
-        searchText: searchTerm || undefined,
-      };
-      if (Object.keys(filters).length > 0) {
-        requestData.refFilter = filters;
-      }
-      const response = await apiService.post({
-        path: api_url.worCoorService.inventory.sku.skuList,
-        data: requestData,
-        isAuth: true,
+      // Get all SKUs from localStorage
+      const storedSkus = localStorage.getItem(SKUS_STORAGE_KEY);
+      const allSkus = storedSkus ? JSON.parse(storedSkus) : [];
+
+      // Filter SKUs based on search term and filters
+      let filteredSkus = allSkus.filter((sku: any) => {
+        // Search filter
+        const matchesSearch = !searchTerm ||
+          sku.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          sku.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          sku.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          sku.brand?.toLowerCase().includes(searchTerm.toLowerCase());
+
+        // Category filter
+        const matchesCategory = !categoryFilter || categoryFilter === "000000000000000000000000" || sku.categoryId === categoryFilter;
+
+        // Type filter
+        const matchesType = !typesFilter || typesFilter === "000000000000000000000000" || sku.type === typesFilter;
+
+        return matchesSearch && matchesCategory && matchesType;
       });
 
-      const list = Array.isArray(response.data?.data?.list) ? response.data.data.list : [];
-      const totalCount = response.data?.data?.total || 0;
-      setSkus((prev) => {
-        const merged = [...prev, ...list];
-        const uniqueById = Array.from(new Map(merged.map((item) => [item.id, item])).values());
-        setHasMore(uniqueById.length < totalCount);
-        return uniqueById;
+      // Pagination
+      const startIndex = page * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedSkus = filteredSkus.slice(startIndex, endIndex);
+
+      // Update state with filtered and paginated results
+      setSkus((prev: any[]) => {
+        if (page === 0) {
+          return paginatedSkus;
+        } else {
+          // For subsequent pages, merge with existing data
+          const merged = [...prev, ...paginatedSkus];
+          const uniqueById = Array.from(new Map(merged.map((item) => [item.id, item])).values());
+          return uniqueById;
+        }
       });
+
+      // Check if there are more items to load
+      setHasMore(endIndex < filteredSkus.length);
     } catch (error) {
       setHasMore(false);
-      notification.error("Failed to load skus list.");
+      toastFn.error("Failed to load SKUs from local storage.");
     } finally {
       setIsLoading(false);
     }
-  };
-  
+  }
+
   // Handle adding a new SKU
   const handleAddSku = async (skuData: any) => {
     if (skuData.attachments && skuData.attachments.length === 0) {
       delete skuData.attachments;
     }
     try {
-      const response = await apiService.post({
-        path: api_url.worCoorService.inventory.sku.addSku,
-        isAuth: true,
-        data: skuData,
-      });
-      if (response.data.status === "OK") {
-        notification.success(response.data.message);
-        setIsAddDialogOpen(false);
-        setPage(0);
-        setSkus([]);
-        setHasMore(true);
-        setIsLoading(false);
-        await fetchSkuList();
-      } else {
-        notification.error(response.data.message);
-      }
+      // Get current SKUs from localStorage
+      const storedSkus = localStorage.getItem(SKUS_STORAGE_KEY);
+      const currentSkus = storedSkus ? JSON.parse(storedSkus) : [];
+
+      // Generate unique ID for new SKU
+      const newSku = {
+        ...skuData,
+        id: `SKU-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Add new SKU to array
+      const updatedSkus = [...currentSkus, newSku];
+
+      // Save to localStorage
+      localStorage.setItem(SKUS_STORAGE_KEY, JSON.stringify(updatedSkus));
+
+      // Update state
+      setSkus(updatedSkus);
+
+      toastFn.success("SKU added successfully");
+      setIsAddDialogOpen(false);
+      setPage(0);
+      setSkus([]);
+      setHasMore(true);
+      setIsLoading(false);
+      await fetchSkuList();
     } catch (error) {
-      notification.error("Something went wrong. Please try again.");
+      toastFn.error("Something went wrong. Please try again.");
     }
   }
 
   // Handle editing a SKU
   const handleEditSku = async (skuData: any) => {
     if (!selectedSku) return
+
     try {
-      skuData.id = selectedSku.id;
-      const response = await apiService.put({
-        path: api_url.worCoorService.inventory.sku.updateSku,
-        isAuth: true,
-        data: skuData,
-      });
-      if (response.data.status === "OK") {
-        notification.success(response.data.message);
-        setIsEditDialogOpen(false);
-        setPage(0);
-        setSkus([]);
-        setHasMore(true);
-        setIsLoading(false);
-        await fetchSkuList();
-      } else {
-        notification.error(response.data.message);
-      }
+      // Get current SKUs from localStorage
+      const storedSkus = localStorage.getItem(SKUS_STORAGE_KEY);
+      const currentSkus = storedSkus ? JSON.parse(storedSkus) : [];
+
+      // Update the SKU with new data
+      const updatedSku = {
+        ...skuData,
+        id: selectedSku.id,
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Replace the SKU in the array
+      const updatedSkus = currentSkus.map((sku: any) =>
+        sku.id === selectedSku.id ? updatedSku : sku
+      );
+
+      // Save to localStorage
+      localStorage.setItem(SKUS_STORAGE_KEY, JSON.stringify(updatedSkus));
+
+      // Update state
+      setSkus(updatedSkus);
+
+      toastFn.success("SKU updated successfully");
+      setIsEditDialogOpen(false);
+      setPage(0);
+      setSkus([]);
+      setHasMore(true);
+      setIsLoading(false);
+      await fetchSkuList();
     } catch (error) {
-      notification.error("Something went wrong while updating the asset.");
+      toastFn.error("Something went wrong while updating the SKU.");
     }
   }
 
@@ -412,20 +539,28 @@ export default function SkuManagementPage() {
     if (!selectedSku) return
     setIsDeleting(true);
     try {
-      const response = await apiService.delete({
-        path: `${api_url.worCoorService.inventory.sku.deleteSku}/${selectedSku.id}`,
-        isAuth: true,
-      });
-      if (response.data?.status === "OK") {
-        notification.success(response.data.message);
-        setSkus(skus.filter((sku) => sku.id !== selectedSku.id))
-        setIsDeleteDialogOpen(false)
-      } else {
-        notification.error(response.data?.message);
-      }
-      setIsDeleting(false);
+      // Get current SKUs from localStorage
+      const storedSkus = localStorage.getItem(SKUS_STORAGE_KEY);
+      const currentSkus = storedSkus ? JSON.parse(storedSkus) : [];
+
+      // Remove the SKU from the array
+      const updatedSkus = currentSkus.filter((sku: any) => sku.id !== selectedSku.id);
+
+      // Save to localStorage
+      localStorage.setItem(SKUS_STORAGE_KEY, JSON.stringify(updatedSkus));
+
+      // Update state
+      setSkus(updatedSkus);
+
+      toastFn.success("SKU deleted successfully");
+      setIsDeleteDialogOpen(false);
+      setPage(0);
+      setSkus([]);
+      setHasMore(true);
+      setIsLoading(false);
+      await fetchSkuList();
     } catch (error) {
-      notification.error("Something went wrong while deleting the asset.");
+      toastFn.error("Something went wrong while deleting the SKU.");
     } finally {
       setIsDeleting(false);
     }
@@ -434,7 +569,7 @@ export default function SkuManagementPage() {
   // Handle toggling SKU type
   const handleToggleType = (id: string, newType: string) => {
     setSkus(skus.map((sku) => (sku.id === id ? { ...sku, type: newType } : sku)))
-    toast({
+    toastFn({
       title: "SKU type updated",
       description: `SKU type has been updated to ${newType}.`,
     })
@@ -468,7 +603,7 @@ export default function SkuManagementPage() {
     setSkus(updatedSkus)
     setIsQualityCheckDialogOpen(false)
     // qualityForm.reset()
-    toast({
+    toastFn({
       title: "Quality check completed",
       description: `Quality check for ${selectedSku.name} has been recorded.`,
     })
@@ -564,24 +699,24 @@ export default function SkuManagementPage() {
     onContextMenu: (e: React.MouseEvent, skuId: string) => void;
   }) {
     return (
-      <div ref={scrollContainerRef}
-            className="rounded-md min-h-[300px] max-h-[calc(100dvh-240px)] overflow-y-auto overflow-x-auto scroll-auto"
-          >
+      <div className="h-full overflow-y-auto">
         <Table>
-          <TableHeader className="bg-gray-100 text-black dark:bg-slate-950 dark:hover:bg-slate-950">
+          <TableHeader>
             <TableRow>
-              <TableHead className="w-[120px] text-black font-semibold whitespace-nowrap">Parent Resource</TableHead>
-              <TableHead className="min-w-[130px] text-black font-semibold whitespace-nowrap">Name</TableHead>
-              <TableHead className="w-[120px] text-black font-semibold whitespace-nowrap">Code</TableHead>
-              <TableHead className="w-[100px] text-black font-semibold whitespace-nowrap">SKU Unit</TableHead>
-              <TableHead className="w-[120px] text-black font-semibold whitespace-nowrap">Department</TableHead>
-              <TableHead className="w-[120px] text-black font-semibold whitespace-nowrap">SKU Category</TableHead>
-              <TableHead className="w-[130px] text-black font-semibold">SKU Type</TableHead>
-              <TableHead className="w-[130px] text-black font-semibold">Available</TableHead>
-              <TableHead className="w-[130px] text-black font-semibold">Block</TableHead>
-              <TableHead className="w-[130px] text-black font-semibold">wastage</TableHead>
-              <TableHead className="w-[130px] text-black font-semibold">Dispatched</TableHead>
-              <TableHead className="w-[130px] text-black font-semibold">Total</TableHead>
+              <TableCell>Resource</TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Code</TableCell>
+              <TableCell>Unit</TableCell>
+              <TableCell>Department</TableCell>
+              <TableCell>Category</TableCell>
+              <TableCell>Type</TableCell>
+              <TableCell>Description</TableCell>
+              <TableCell>Quantity</TableCell>
+              <TableCell>Effective Date</TableCell>
+              <TableCell>Expiry Date</TableCell>
+              <TableCell>Org Unit</TableCell>
+              <TableCell>Location Tag</TableCell>
+              <TableCell>Attachments</TableCell>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -597,25 +732,52 @@ export default function SkuManagementPage() {
                   <TableCell className="p-4 md:p-6">{getDepartmentsById(sku.departmentId)}</TableCell>
                   <TableCell className="p-4 md:p-6">{getSkuCategoriesById(sku.categoryId)}</TableCell>
                   <TableCell className="p-4 md:p-6">{getSkuUnitTypeById(sku.type)}</TableCell>
-                  <TableCell className="p-4 md:p-6">
-                    {Math.max(
-                      (sku.totalQty || 0) -
-                      (sku.blockedQty || 0) -
-                      (sku.wastageQty || 0) -
-                      (sku.consumeQty || 0) -
-                      (sku.dispatchQty || 0),
-                      0
-                    )}
+                  <TableCell className="p-4 md:p-6 max-w-[150px] truncate" title={sku.description || "No description"}>
+                    {sku.description || "No description"}
                   </TableCell>
-                  <TableCell className="p-4 md:p-6">{sku.blockedQty ? sku.blockedQty : 0}</TableCell>
-                  <TableCell className="p-4 md:p-6">{sku.wastageQty ? sku.wastageQty : 0}</TableCell>
-                  <TableCell className="p-4 md:p-6">{sku.dispatchQty ? sku.dispatchQty : 0}</TableCell>
-                  <TableCell className="p-4 md:p-6">{sku.totalQty ? sku.totalQty : 0}</TableCell>
+                  <TableCell className="p-4 md:p-6">{sku.quantity || 0}</TableCell>
+                  <TableCell className="p-4 md:p-6">{sku.effectiveDate || "N/A"}</TableCell>
+                  <TableCell className="p-4 md:p-6">{sku.expiryDate || "N/A"}</TableCell>
+                  <TableCell className="p-4 md:p-6">{getOrgUnitNameById ? getOrgUnitNameById(sku.orgUnitId) : sku.orgUnitId || "N/A"}</TableCell>
+                  <TableCell className="p-4 md:p-6">{getLocationTagNameById ? getLocationTagNameById(sku.locationTagId) : sku.locationTagId || "N/A"}</TableCell>
+                  <TableCell className="p-4 md:p-6">
+                    {sku.attachments && sku.attachments.length > 0 ? `${sku.attachments.length} file(s)` : "None"}
+                  </TableCell>
+                  <TableCell className="p-4 md:p-6">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setselectedSku(sku);
+                          setIsEditDialogOpen(true);
+                        }}
+                        className="h-8 px-2"
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setselectedSku(sku);
+                          setIsDeleteDialogOpen(true);
+                        }}
+                        className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={13} className="h-24 text-center">
+                <TableCell colSpan={15} className="h-24 text-center">
                   No SKUs found.
                 </TableCell>
               </TableRow>
@@ -658,13 +820,10 @@ export default function SkuManagementPage() {
   
   return (
     <div className="h-[calc(100vh-3rem)] overflow-hidden">
-      <div className="h-full skus flex flex-col gap-2"  onClick={handleDocumentClick}>
+      <div className="h-full skus flex flex-col gap-2" onClick={handleDocumentClick}>
         <div className="flex items-center pb-2 sm:pb-4">
           <PageHeader title="SKU Management" description="Manage SKUs and inventory levels" icon={Tag}/>
           <div className="flex items-center ml-auto gap-2">
-            {/* <Button variant="outline" className="flex items-center " onClick={() => setIsTotalDialogOpen(true)}>
-              <BarChart3 className="h-4 w-4" />
-            </Button> */}
             <Button 
               className="border border-primary bg-darkblue text-white hover:bg-darkblue/90"
               onClick={() => setIsAddDialogOpen(true)}>
@@ -960,6 +1119,8 @@ export default function SkuManagementPage() {
                 units={units}
                 parentResources={parentResources}
                 departments={departments}
+                orgUnits={orgUnits}
+                locationTags={locationTags}
               />
             </div>
           </DialogContent>
@@ -984,6 +1145,8 @@ export default function SkuManagementPage() {
                   units={units}
                   parentResources={parentResources}
                   departments={departments}
+                  orgUnits={orgUnits}
+                  locationTags={locationTags}
                 />
               )}
             </div>
@@ -1035,18 +1198,16 @@ export default function SkuManagementPage() {
             {selectedSku && (
               <Form {...qualityForm}>
                 <form  onSubmit={qualityForm.handleSubmit(handleQualityCheck)} className="space-y-6 flex-grow-1 overflow-y-auto px-4 md:px-6 pt-4">
-                  <FormField
+                  <Controller
                     control={qualityForm.control}
                     name="qualityRating"
                     render={({ field }) => (
-                      <FormItem className="space-y-1 gap-2">
-                        <FormLabel className="text-sm font-medium leading-none">Quality Rating</FormLabel>
+                      <div className="space-y-1 gap-2">
+                        <Label className="text-sm font-medium leading-none">Quality Rating</Label>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-12 rounded-md border border-input bg-white/100 dark:bg-slate-800/80 dark:border-slate-700">
-                              <SelectValue placeholder="Select quality rating" />
-                            </SelectTrigger>
-                          </FormControl>
+                          <SelectTrigger className="h-12 rounded-md border border-input bg-white/100 dark:bg-slate-800/80 dark:border-slate-700">
+                            <SelectValue placeholder="Select quality rating" />
+                          </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="A">A - Premium</SelectItem>
                             <SelectItem value="B">B - Standard</SelectItem>
@@ -1054,37 +1215,41 @@ export default function SkuManagementPage() {
                             <SelectItem value="Not Rated">Not Rated</SelectItem>
                           </SelectContent>
                         </Select>
-                        <FormMessage />
-                      </FormItem>
+                        {qualityForm.formState.errors.qualityRating && (
+                          <p className="text-xs pl-2 font-medium text-destructive">
+                            {qualityForm.formState.errors.qualityRating.message}
+                          </p>
+                        )}
+                      </div>
                     )}
                   />
 
-                  <FormField
+                  <Controller
                     control={qualityForm.control}
                     name="qualityCheckDone"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                        <FormControl className="text-sm">
-                          <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
+                      <div className="flex flex-row items-start space-x-3 space-y-0">
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} className="text-sm" />
                         <div className="space-y-1 leading-none">
-                          <FormLabel className="text-sm font-medium leading-none">Mark as checked</FormLabel>
+                          <Label className="text-sm font-medium leading-none">Mark as checked</Label>
                         </div>
-                      </FormItem>
+                      </div>
                     )}
                   />
 
-                  <FormField
+                  <Controller
                     control={qualityForm.control}
                     name="qualityCheckNotes"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium leading-none">Notes</FormLabel>
-                        <FormControl>
-                          <Textarea className=" rounded-md border border-input bg-white/100 dark:bg-slate-800/80 dark:border-slate-700" placeholder="Enter quality check notes..." {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                      <div>
+                        <Label className="text-sm font-medium leading-none">Notes</Label>
+                        <Textarea className=" rounded-md border border-input bg-white/100 dark:bg-slate-800/80 dark:border-slate-700 mt-2" placeholder="Enter quality check notes..." {...field} />
+                        {qualityForm.formState.errors.qualityCheckNotes && (
+                          <p className="text-xs pl-2 font-medium text-destructive">
+                            {qualityForm.formState.errors.qualityCheckNotes.message}
+                          </p>
+                        )}
+                      </div>
                     )}
                   />
 
@@ -1100,392 +1265,13 @@ export default function SkuManagementPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Total SKUs Dialog */}
-        {/* <Dialog open={isTotalDialogOpen} onOpenChange={setIsTotalDialogOpen}>
-          <DialogContent className="max-w-4xl md:max-h-[90dvh] min-h-[90dvh] md:h-[90dvh] h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] dark:bg-modal p-0 gap-0">
-            <DialogHeader className="px-2 md:px-6 pt-6 pb-[1.1rem] border-b">
-              <DialogTitle>Total SKU Inventory</DialogTitle>
-              <DialogDescription>Comprehensive view of all SKUs in inventory</DialogDescription>
-            </DialogHeader>
-            <div className="h-full space-y-6 flex-grow-1 overflow-y-auto px-2 md:px-6 dark:[&::-webkit-scrollbar-thumb]:bg-slate-500  dark:[&::-webkit-scrollbar]:w-[4px] pt-4">
-              <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
-                <TabsList className="w-full flex justify-start h-14 bg-gray-200 p-0 dark:bg-gray-900 overflow-y-auto rounded-xl dark:[&::-webkit-scrollbar-thumb]:bg-slate-500  scrollbar-thumb-hover dark-scrollbar-thumb-hover dark:[&::-webkit-scrollbar]y:w-[4px] [&::-webkit-scrollbar]:h-[2px] mb-4">
-                  <TabsTrigger className="w-full h-fill-available transition-transform rounded-lg m-[5px] duration-800 px-8 data-[state=active]:bg-darkblue-foreground  data-[state=active]:text-gray-50 dark:data-[state=active]:bg-gray-600 hover:bg-gray/300" value="all">All SKUs</TabsTrigger>
-                  <TabsTrigger className="w-full h-fill-available transition-transform rounded-lg m-[5px] duration-800 px-8 data-[state=active]:bg-darkblue-foreground  data-[state=active]:text-gray-50 dark:data-[state=active]:bg-gray-600 hover:bg-gray/300" value="category">By Category</TabsTrigger>
-                  <TabsTrigger className="w-full h-fill-available transition-transform rounded-lg m-[5px] duration-800 px-8 data-[state=active]:bg-darkblue-foreground  data-[state=active]:text-gray-50 dark:data-[state=active]:bg-gray-600 hover:bg-gray/300" value="quality">By Quality</TabsTrigger>
-                  <TabsTrigger className="w-full h-fill-available transition-transform rounded-lg m-[5px] duration-800 px-8 data-[state=active]:bg-darkblue-foreground  data-[state=active]:text-gray-50 dark:data-[state=active]:bg-gray-600 hover:bg-gray/300" value="production">Production & Wastage</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="all" className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    <Card className="bg-gradient-to-br from-slate-200  to-rose-50/10  dark:from-slate-500 dark:to-indigo-200/10">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">Total SKUs</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">{skus.length}</div>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-gradient-to-br from-slate-200   to-rose-50/10  dark:from-slate-500 dark:to-indigo-200/10">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">Total Quantity</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">{calculateTotalQuantity()}</div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <div className="rounded-md shadow-none">
-                    <Table className="shadow-none">
-                      <TableHeader className="bg-gray-100 text-black dark:bg-slate-950 dark:hover:bg-slate-950">
-                        <TableRow>
-                          <TableHead className="text-black font-semibold whitespace-nowrap w-[150px]">SKU Name</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Category</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Current Quantity</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Total Procured</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Unit Weight</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Total Weight</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Quality</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Unit Cost</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Total Value</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {skus.map((sku) => (
-                          <TableRow key={sku.id}>
-                            <TableCell className="font-medium p-4 md:p-6 whitespace-nowrap">{sku.name || ""}</TableCell>
-                            <TableCell className="p-4 md:p-6">{sku.category || ""}</TableCell>
-                            <TableCell className="p-4 md:p-6">
-                              {sku.availableQuantity || 0} {sku.quantityUnit || ""}
-                            </TableCell>
-                            <TableCell className="p-4 md:p-6">
-                              {sku.totalProcured || 0} {sku.quantityUnit || ""}
-                            </TableCell>
-                            <TableCell className="p-4 md:p-6">
-                              {sku.unitWeight || 0} {sku.weightUnit || ""}
-                            </TableCell>
-                            <TableCell className="p-4 md:p-6">
-                              {((sku.unitWeight || 0) * (sku.availableQuantity || 0)).toFixed(2)} {sku.weightUnit || ""}
-                            </TableCell>
-                            <TableCell className="p-4 md:p-6 whitespace-nowrap">
-                              {sku.qualityRating ? getQualityBadge(sku.qualityRating) : getQualityBadge("Not Rated")}
-                            </TableCell>
-                            <TableCell className="p-4 md:p-6 whitespace-nowrap">
-                              {sku.unitCost || 0} {sku.currency || ""}
-                            </TableCell>
-                            <TableCell className="p-4 md:p-6 whitespace-nowrap">
-                              {((sku.unitCost || 0) * (sku.availableQuantity || 0)).toFixed(2)} {sku.currency || ""}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow className="font-bold bg-gray-100">
-                          <TableCell className="p-4 md:p-6" colSpan={2}>Total</TableCell>
-                          <TableCell className="p-4 md:p-6">{calculateTotalQuantity()}</TableCell>
-                          <TableCell className="p-4 md:p-6">{skus.reduce((total, sku) => total + (sku.totalProcured || 0), 0)}</TableCell>
-                          <TableCell className="p-4 md:p-6">-</TableCell>
-                          <TableCell className="p-4 md:p-6">{calculateTotalWeight()}</TableCell>
-                          <TableCell className="p-4 md:p-6">-</TableCell>
-                          <TableCell className="p-4 md:p-6">-</TableCell>
-                          <TableCell className="p-4 md:p-6 whitespace-nowrap">
-                            {skus
-                              .reduce((total, sku) => total + (sku.unitCost || 0) * (sku.availableQuantity || 0), 0)
-                              .toFixed(2)}{" "}
-                            {skus[0]?.currency || "USD"}
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="category" className="space-y-4">
-                  {Object.entries(skusByCategory).map(([category, categorySkus]) => {
-                    const totalCategoryQuantity = categorySkus.reduce((sum, sku) => sum + (sku.availableQuantity || 0), 0)
-                    const totalCategoryWeight = categorySkus.reduce(
-                      (sum, sku) => sum + (sku.unitWeight || 0) * (sku.availableQuantity || 0),
-                      0,
-                    )
-                    const totalCategoryValue = categorySkus.reduce(
-                      (sum, sku) => sum + (sku.unitCost || 0) * (sku.availableQuantity || 0),
-                      0,
-                    )
-
-                    return (
-                      <Card key={category}>
-                        <CardHeader className="space-y-0">
-                          <CardTitle className="text-lg">{category}</CardTitle>
-                          <CardDescription className="text-xs">
-                            {categorySkus.length} SKUs | {totalCategoryQuantity} items | {totalCategoryWeight.toFixed(2)} kg
-                            | {totalCategoryValue.toFixed(2)} {categorySkus[0]?.currency || "USD"}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="rounded-md shadow-none">
-                            <Table>
-                              <TableHeader className="bg-gray-100 text-black dark:bg-slate-950 dark:hover:bg-slate-950">
-                                <TableRow>
-                                  <TableHead  className="text-black font-semibold whitespace-nowrap">SKU Name</TableHead>
-                                  <TableHead className="text-black font-semibold whitespace-nowrap">Quantity</TableHead>
-                                  <TableHead className="text-black font-semibold whitespace-nowrap">% of Category</TableHead>
-                                  <TableHead className="text-black font-semibold whitespace-nowrap">Weight</TableHead>
-                                  <TableHead className="text-black font-semibold whitespace-nowrap">Value</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {categorySkus.map((sku) => (
-                                  <TableRow key={sku.id}>
-                                    <TableCell className="font-medium">{sku.name || ""}</TableCell>
-                                    <TableCell>
-                                      {sku.availableQuantity || 0} {sku.quantityUnit || ""}
-                                    </TableCell>
-                                    <TableCell>
-                                      {totalCategoryQuantity > 0
-                                        ? Math.round(((sku.availableQuantity || 0) / totalCategoryQuantity) * 100)
-                                        : 0}
-                                      %
-                                      <Progress
-                                        value={
-                                          totalCategoryQuantity > 0
-                                            ? ((sku.availableQuantity || 0) / totalCategoryQuantity) * 100
-                                            : 0
-                                        }
-                                        className="h-2 mt-1"
-                                      />
-                                    </TableCell>
-                                    <TableCell>
-                                      {((sku.unitWeight || 0) * (sku.availableQuantity || 0)).toFixed(2)}{" "}
-                                      {sku.weightUnit || ""}
-                                    </TableCell>
-                                    <TableCell>
-                                      {((sku.unitCost || 0) * (sku.availableQuantity || 0)).toFixed(2)} {sku.currency || ""}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </TabsContent>
-
-                <TabsContent value="quality" className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    <Card className="flex flex-col justify-between bg-gradient-to-br from-slate-200  to-rose-50/10  dark:from-slate-500 dark:to-indigo-200/10">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium">Quality Checked</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">
-                          {countQualityCheckedSkus()} / {skus.length}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {Math.round((countQualityCheckedSkus() / (skus.length || 1)) * 100)}% completion rate
-                        </div>
-                        <Progress value={(countQualityCheckedSkus() / (skus.length || 1)) * 100} className="h-2 mt-2" />
-                      </CardContent>
-                    </Card>
-                    <Card className="flex flex-col justify-between bg-gradient-to-br from-slate-200  to-rose-50/10  dark:from-slate-500 dark:to-indigo-200/10">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium">Quality Distribution</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <div className="flex items-center text-xs gap-2">
-                              <div className="w-3 h-3 rounded-full text-xs bg-green-500"></div>
-                              <span>A - Premium</span>
-                            </div>
-                            <div className="flex items-center text-xs gap-2">
-                              <div className="w-3 h-3 rounded-full text-xs bg-blue-500"></div>
-                              <span>B - Standard</span>
-                            </div>
-                            <div className="flex items-center text-xs gap-2">
-                              <div className="w-3 h-3 rounded-full text-xs bg-orange-500"></div>
-                              <span>C - Economy</span>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div>{skus.filter((s) => s.qualityRating === "A").length}</div>
-                            <div>{skus.filter((s) => s.qualityRating === "B").length}</div>
-                            <div>{skus.filter((s) => s.qualityRating === "C").length}</div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <div className="rounded-md shadow-none">
-                    <Table>
-                      <TableHeader className="bg-gray-100 text-black dark:bg-slate-950 dark:hover:bg-slate-950">
-                        <TableRow>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">SKU Name</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Quality Rating</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">QC Status</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Last Checked</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Quantity</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Category</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {skus.map((sku) => (
-                          <TableRow key={sku.id}>
-                            <TableCell className="font-medium">{sku.name || ""}</TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              {sku.qualityRating ? getQualityBadge(sku.qualityRating) : getQualityBadge("Not Rated")}
-                            </TableCell>
-                            <TableCell>{getQualityCheckBadge(sku.qualityCheckDone)}</TableCell>
-                            <TableCell>{sku.qualityCheckDate || "Not checked"}</TableCell>
-                            <TableCell>
-                              {sku.availableQuantity || 0} {sku.quantityUnit || ""}
-                            </TableCell>
-                            <TableCell>{sku.category || ""}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="production" className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                    <Card className="flex flex-col justify-between bg-gradient-to-br from-slate-200  to-rose-50/10  dark:from-slate-500 dark:to-indigo-200/10">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium">Available for Production</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">
-                          {skus.reduce(
-                            (total, sku) => total + (sku.availableQuantity || 0) - (sku.taggedForProduction || 0),
-                            0,
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground">Units available for new production orders</div>
-                      </CardContent>
-                    </Card>
-                    <Card className="flex flex-col justify-between bg-gradient-to-br from-slate-200  to-rose-50/10  dark:from-slate-500 dark:to-indigo-200/10">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium">Tagged for Production</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">
-                          {skus.reduce((total, sku) => total + (sku.taggedForProduction || 0), 0)}
-                        </div>
-                        <div className="text-xs text-muted-foreground">Units already allocated to production orders</div>
-                      </CardContent>
-                    </Card>
-                    <Card className="flex flex-col justify-between bg-gradient-to-br from-slate-200  to-rose-50/10  dark:from-slate-500 dark:to-indigo-200/10">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium">Total Wastage</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">
-                          {skus.reduce((total, sku) => total + (sku.wastage || 0), 0)}
-                        </div>
-                        <div className="text-xs text-muted-foreground">Units recorded as wastage</div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <div className="rounded-md shadow-none">
-                    <Table>
-                      <TableHeader className="bg-gray-100 text-black dark:bg-slate-950 dark:hover:bg-slate-950">
-                        <TableRow>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">SKU Name</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Total Procured</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Current Quantity</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Tagged for Production</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Available</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Wastage</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Wastage %</TableHead>
-                          <TableHead className="text-black font-semibold whitespace-nowrap">Wastage Cost</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {skus.map((sku) => {
-                          const totalProcured = sku.totalProcured || 0
-                          const wastage = sku.wastage || 0
-                          const unitCost = sku.unitCost || 0
-                          const availableQuantity = sku.availableQuantity || 0
-                          const taggedForProduction = sku.taggedForProduction || 0
-
-                          const wastagePercentage = totalProcured > 0 ? (wastage / totalProcured) * 100 : 0
-                          const wastageCost = wastage * unitCost
-
-                          return (
-                            <TableRow key={sku.id}>
-                              <TableCell className="font-medium p-4 md:p-6">{sku.name || ""}</TableCell>
-                              <TableCell className="p-4 md:p-6">
-                                {totalProcured} {sku.quantityUnit || ""}
-                              </TableCell>
-                              <TableCell className="p-4 md:p-6">
-                                {availableQuantity} {sku.quantityUnit || ""}
-                              </TableCell>
-                              <TableCell className="p-4 md:p-6">
-                                {taggedForProduction} {sku.quantityUnit || ""}
-                              </TableCell>
-                              <TableCell className="p-4 md:p-6">
-                                {availableQuantity - taggedForProduction} {sku.quantityUnit || ""}
-                              </TableCell>
-                              <TableCell className="p-4 md:p-6">
-                                {wastage} {sku.quantityUnit || ""}
-                              </TableCell>
-                              <TableCell className="p-4 md:p-6">{wastagePercentage.toFixed(1)}%</TableCell>
-                              <TableCell className="p-4 md:p-6">
-                                {wastageCost.toFixed(2)} {sku.currency || ""}
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
-                        <TableRow className="font-bold bg-gray-100">
-                          <TableCell className="p-4 md:p-6">Total</TableCell>
-                          <TableCell className="p-4 md:p-6">{skus.reduce((total, sku) => total + (sku.totalProcured || 0), 0)}</TableCell>
-                          <TableCell className="p-4 md:p-6">{skus.reduce((total, sku) => total + (sku.availableQuantity || 0), 0)}</TableCell>
-                          <TableCell className="p-4 md:p-6">{skus.reduce((total, sku) => total + (sku.taggedForProduction || 0), 0)}</TableCell>
-                          <TableCell className="p-4 md:p-6">
-                            {skus.reduce(
-                              (total, sku) => total + ((sku.availableQuantity || 0) - (sku.taggedForProduction || 0)),
-                              0,
-                            )}
-                          </TableCell>
-                          <TableCell className="p-4 md:p-6">{skus.reduce((total, sku) => total + (sku.wastage || 0), 0)}</TableCell>
-                          <TableCell className="p-4 md:p-6">
-                            {(
-                              (skus.reduce((total, sku) => total + (sku.wastage || 0), 0) /
-                                Math.max(
-                                  1,
-                                  skus.reduce((total, sku) => total + (sku.totalProcured || 0), 0),
-                                )) *
-                              100
-                            ).toFixed(1)}
-                            %
-                          </TableCell>
-                          <TableCell className="p-4 md:p-6">
-                            {skus.reduce((total, sku) => total + (sku.wastage || 0) * (sku.unitCost || 0), 0).toFixed(2)}{" "}
-                            {skus[0]?.currency || "USD"}
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-            <DialogFooter className="px-2 md:px-6 py-4">
-              <Button className="text-sm font-medium mb-2" variant="outline" onClick={() => setIsTotalDialogOpen(false)}>
-                Close
-              </Button>
-              <Button variant="default" className="text-sm font-medium bg-darkblue mb-2" onClick={() => setIsTotalDialogOpen(false)}>
-                <FileText className="mr-2 h-4 w-4" />
-                Export Report
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog> */}
+        {/* Total SKUs Dialog - commented out to avoid errors */}
+        {/*
+        <Dialog open={isTotalDialogOpen} onOpenChange={setIsTotalDialogOpen}>
+          ... rest of total SKUs dialog content ...
+        </Dialog>
+        */}
       </div>
     </div>
   )
-
 }

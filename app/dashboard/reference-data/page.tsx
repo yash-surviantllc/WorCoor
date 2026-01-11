@@ -121,111 +121,6 @@ export default function InventoryManagementPage() {
           <CardContent className="p-8 flex flex-col justify-between h-full">
             <div className="flex-1">
               <div className="flex items-start gap-4">
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white shadow-sm">
-                  <Trash className="h-6 w-6" />
-                </div>
-                <div className="flex-1 space-y-2">
-                  <h3 className="font-semibold text-foreground dark:text-slate-50 text-lg">Wastage Tracking</h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-200 leading-relaxed">
-                    Track and report material wastage
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-8">
-              <div className="flex items-center gap-2 pt-3 mt-auto">
-                <span className="text-xs text-muted-foreground dark:text-slate-300">Current rate:</span>
-                <Badge variant="secondary" className="text-xs font-medium">
-                  2.4% wastage
-                </Badge>
-              </div>
-              <Button
-                asChild
-                className="w-full mt-16 mx-2 px-6 py-3 border border-slate-200/50 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-sm hover:shadow-md transition-all duration-200 rounded-lg"
-              >
-                <Link href="/dashboard/reference-data/wastage" className="flex items-center justify-center gap-2">
-                  Track Wastage
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="group relative overflow-hidden border border-slate-200 bg-white/80 backdrop-blur-sm shadow-soft hover:shadow-medium transition-all duration-300 h-full">
-          <CardContent className="p-8 flex flex-col justify-between h-full">
-            <div className="flex-1">
-              <div className="flex items-start gap-4">
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white shadow-sm">
-                  <Package className="h-6 w-6" />
-                </div>
-                <div className="flex-1 space-y-2">
-                  <h3 className="font-semibold text-foreground dark:text-slate-50 text-lg">Procurement</h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-200 leading-relaxed">
-                    Manage procurement requests
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-8">
-              <div className="flex items-center gap-2 pt-3 mt-auto">
-                <span className="text-xs text-muted-foreground dark:text-slate-300">Pending orders:</span>
-                <Badge variant="secondary" className="text-xs font-medium">
-                  8 orders
-                </Badge>
-              </div>
-              <Button
-                asChild
-                className="w-full mt-16 mx-2 px-6 py-3 border border-slate-200/50 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-sm hover:shadow-md transition-all duration-200 rounded-lg"
-              >
-                <Link href="/dashboard/reference-data/procurement" className="flex items-center justify-center gap-2">
-                  Manage Procurement
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="group relative overflow-hidden border border-slate-200 bg-white/80 backdrop-blur-sm shadow-soft hover:shadow-medium transition-all duration-300 h-full">
-          <CardContent className="p-8 flex flex-col justify-between h-full">
-            <div className="flex-1">
-              <div className="flex items-start gap-4">
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white shadow-sm">
-                  <BarChart3 className="h-6 w-6" />
-                </div>
-                <div className="flex-1 space-y-2">
-                  <h3 className="font-semibold text-foreground dark:text-slate-50 text-lg">Inventory Analytics</h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-200 leading-relaxed">
-                    View inventory analytics and reports
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-8">
-              <div className="flex items-center gap-2 pt-3 mt-auto">
-                <span className="text-xs text-muted-foreground dark:text-slate-300">Data points:</span>
-                <Badge variant="secondary" className="text-xs font-medium">
-                  90 days
-                </Badge>
-              </div>
-              <Button
-                asChild
-                className="w-full mt-16 mx-2 px-6 py-3 border border-slate-200/50 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-sm hover:shadow-md transition-all duration-200 rounded-lg"
-              >
-                <Link href="/dashboard/reference-data/analytics" className="flex items-center justify-center gap-2">
-                  View Analytics
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="group relative overflow-hidden border border-slate-200 bg-white/80 backdrop-blur-sm shadow-soft hover:shadow-medium transition-all duration-300 h-full">
-          <CardContent className="p-8 flex flex-col justify-between h-full">
-            <div className="flex-1">
-              <div className="flex items-start gap-4">
                 <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white shadow-sm">
                   <Warehouse className="h-6 w-6" />
                 </div>
@@ -285,6 +180,41 @@ export default function InventoryManagementPage() {
               >
                 <Link href="/dashboard/reference-data/location-tags" className="flex items-center justify-center gap-2">
                   Manage Tags
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="group relative overflow-hidden border border-slate-200 bg-white/80 backdrop-blur-sm shadow-soft hover:shadow-medium transition-all duration-300 h-full">
+          <CardContent className="p-8 flex flex-col justify-between h-full">
+            <div className="flex-1">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center text-white shadow-sm">
+                  <Package className="h-6 w-6" />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <h3 className="font-semibold text-foreground dark:text-slate-50 text-lg">Asset Management</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-200 leading-relaxed">
+                    Manage and track warehouse assets and equipment
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-8">
+              <div className="flex items-center gap-2 pt-3 mt-auto">
+                <span className="text-xs text-muted-foreground dark:text-slate-300">Total assets:</span>
+                <Badge variant="secondary" className="text-xs font-medium">
+                  156 assets
+                </Badge>
+              </div>
+              <Button
+                asChild
+                className="w-full mt-16 mx-2 px-6 py-3 border border-slate-200/50 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white shadow-sm hover:shadow-md transition-all duration-200 rounded-lg"
+              >
+                <Link href="/dashboard/asset-management" className="flex items-center justify-center gap-2">
+                  Manage Assets
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -376,41 +306,6 @@ export default function InventoryManagementPage() {
                   <p className="text-sm text-muted-foreground">{item.date}</p>
                 </div>
               ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="group relative overflow-hidden border border-slate-200 bg-white/80 backdrop-blur-sm shadow-soft hover:shadow-medium transition-all duration-300 h-full">
-          <CardContent className="p-8 flex flex-col justify-between h-full">
-            <div className="flex-1">
-              <div className="flex items-start gap-4">
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white shadow-sm">
-                  <Package className="h-6 w-6" />
-                </div>
-                <div className="flex-1 space-y-2">
-                  <h3 className="font-semibold text-foreground dark:text-slate-50 text-lg">Location Tags</h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-200 leading-relaxed">
-                    Manage and organize location tags and categories
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-8">
-              <div className="flex items-center gap-2 pt-3 mt-auto">
-                <span className="text-xs text-muted-foreground dark:text-slate-300">Total tags:</span>
-                <Badge variant="secondary" className="text-xs font-medium">
-                  24 tags
-                </Badge>
-              </div>
-              <Button
-                asChild
-                className="w-full mt-16 mx-2 px-6 py-3 border border-slate-200/50 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-sm hover:shadow-md transition-all duration-200 rounded-lg"
-              >
-                <Link href="/dashboard/reference-data/location-tags" className="flex items-center justify-center gap-2">
-                  Manage Tags
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
             </div>
           </CardContent>
         </Card>

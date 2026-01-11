@@ -152,18 +152,42 @@ export function DashboardSidebar({ isOpen, toggle }: SidebarProps) {
       icon: Layers,
       parent: "Reference Data Management",
     },
+    // {
+    //   title: "Inventory Analytics",
+    //   href: "/dashboard/reference-data/analytics",
+    //   icon: BarChart3,
+    //   parent: "Reference Data Management",
+    // },
     {
-      title: "Wastage Tracking",
-      href: "/dashboard/reference-data/wastage",
-      icon: Trash,
+      title: "Manage Org Units",
+      href: "/dashboard/reference-data/org-units",
+      icon: Layers,
       parent: "Reference Data Management",
     },
     {
-      title: "Reference Data Analytics",
-      href: "/dashboard/reference-data/analytics",
-      icon: BarChart3,
+      title: "Location Tags",
+      href: "/dashboard/reference-data/location-tags",
+      icon: Package,
       parent: "Reference Data Management",
     },
+    {
+      title: "Asset Management",
+      href: "/dashboard/asset-management",
+      icon: Package,
+      parent: "Reference Data Management",
+    },
+    // {
+    //   title: "Wastage Tracking",
+    //   href: "/dashboard/reference-data/wastage",
+    //   icon: Trash,
+    //   parent: "Reference Data Management",
+    // },
+    // {
+    //   title: "Reference Data Analytics",
+    //   href: "/dashboard/reference-data/analytics",
+    //   icon: BarChart3,
+    //   parent: "Reference Data Management",
+    // },
     // Warehouse Management Menu
     {
       title: "Warehouse Management",
@@ -213,23 +237,23 @@ export function DashboardSidebar({ isOpen, toggle }: SidebarProps) {
     //   parent: "Order Management",
     // },
     // Asset Management Menu
-    {
-      title: "Asset Management",
-      href: "/dashboard/asset-management",
-      icon: Package,
-    },
-    {
-      title: "Asset Management",
-      href: "/dashboard/asset-management/assets",
-      icon: Package,
-      parent: "Asset Management",
-    },
-    {
-      title: "Asset Dashboard",
-      href: "/dashboard/asset-management/dashboard",
-      icon: BarChart3,
-      parent: "Asset Management",
-    },
+    // {
+    //   title: "Asset Management",
+    //   href: "/dashboard/asset-management",
+    //   icon: Package,
+    // },
+    // {
+    //   title: "Asset Management",
+    //   href: "/dashboard/asset-management/assets",
+    //   icon: Package,
+    //   parent: "Asset Management",
+    // },
+    // {
+    //   title: "Asset Dashboard",
+    //   href: "/dashboard/asset-management/dashboard",
+    //   icon: BarChart3,
+    //   parent: "Asset Management",
+    // },
     // Audit Management Menu
     // {
     //   title: "Audit Management",

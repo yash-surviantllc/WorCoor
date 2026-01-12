@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, BarChart3, Box, Database, Package, Trash, Warehouse } from "lucide-react"
+import { ArrowRight, BarChart3, Box, Database, Package, Trash, Upload, Warehouse } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -215,6 +215,41 @@ export default function InventoryManagementPage() {
               >
                 <Link href="/dashboard/asset-management" className="flex items-center justify-center gap-2">
                   Manage Assets
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="group relative overflow-hidden border border-slate-200 bg-white/80 backdrop-blur-sm shadow-soft hover:shadow-medium transition-all duration-300 h-full">
+          <CardContent className="p-8 flex flex-col justify-between h-full">
+            <div className="flex-1">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-pink-500 to-pink-600 flex items-center justify-center text-white shadow-sm">
+                  <Upload className="h-6 w-6" />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <h3 className="font-semibold text-foreground dark:text-slate-50 text-lg">Bulk Upload</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-200 leading-relaxed">
+                    Upload and import multiple SKUs, locations, or assets in bulk from CSV or Excel files
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-8">
+              <div className="flex items-center gap-2 pt-3 mt-auto">
+                <span className="text-xs text-muted-foreground dark:text-slate-300">Supported formats:</span>
+                <Badge variant="secondary" className="text-xs font-medium">
+                  CSV & Excel
+                </Badge>
+              </div>
+              <Button
+                asChild
+                className="w-full mt-16 mx-2 px-6 py-3 border border-slate-200/50 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white shadow-sm hover:shadow-md transition-all duration-200 rounded-lg"
+              >
+                <Link href="/dashboard/reference-data/bulk-upload" className="flex items-center justify-center gap-2">
+                  Bulk Upload
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>

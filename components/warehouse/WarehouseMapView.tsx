@@ -499,62 +499,7 @@ const WarehouseMapView = ({ facilityData }) => {
   };
 
   // Real-time notifications data
-  const notifications = [
-    {
-      id: 'notif1',
-      type: 'success',
-      title: 'Unit 2 - Capacity Updated',
-      message: 'Cold storage capacity increased to 85%. Temperature maintained at -18°C.',
-      timestamp: '2 minutes ago',
-      unit: 'Unit 2',
-      priority: 'medium'
-    },
-    {
-      id: 'notif2',
-      type: 'warning',
-      title: 'Unit 3 - Maintenance Required',
-      message: 'Distribution hub showing reduced efficiency. Scheduled maintenance in progress.',
-      timestamp: '15 minutes ago',
-      unit: 'Unit 3',
-      priority: 'high'
-    },
-    {
-      id: 'notif3',
-      type: 'info',
-      title: 'Unit 1 - Inventory Movement',
-      message: 'Large shipment processed. 150 pallets moved to storage zones A-D.',
-      timestamp: '1 hour ago',
-      unit: 'Unit 1',
-      priority: 'low'
-    },
-    {
-      id: 'notif4',
-      type: 'error',
-      title: 'Unit 5 - System Offline',
-      message: 'Hazmat storage unit offline due to safety protocol activation.',
-      timestamp: '2 hours ago',
-      unit: 'Unit 5',
-      priority: 'critical'
-    },
-    {
-      id: 'notif5',
-      type: 'success',
-      title: 'Unit 6 - Peak Capacity Reached',
-      message: 'Overflow storage at 92% capacity. Additional space allocation recommended.',
-      timestamp: '3 hours ago',
-      unit: 'Unit 6',
-      priority: 'medium'
-    },
-    {
-      id: 'notif6',
-      type: 'info',
-      title: 'Unit 4 - Quality Control Complete',
-      message: 'Returns processing completed. 45 items cleared for redistribution.',
-      timestamp: '4 hours ago',
-      unit: 'Unit 4',
-      priority: 'low'
-    }
-  ];
+  const notifications = [];
 
   const areas = [
     { name: 'Storage A', color: '#4A90E2', occupied: true },
@@ -631,33 +576,6 @@ const WarehouseMapView = ({ facilityData }) => {
 
   const handleUseTemplate = () => {
     setShowTemplateModal(true);
-  };
-
-  const handleNotificationAction = (notificationId, action) => {
-    console.log('Notification action:', notificationId, action);
-    
-    switch(action) {
-      case 'view':
-        // Navigate to the specific unit mentioned in notification
-        const notification = notifications.find(n => n.id === notificationId);
-        if (notification) {
-          const unitId = notification.unit.toLowerCase().replace(' ', '');
-          handleUnitAction(unitId, 'view-live');
-        }
-        break;
-      case 'dismiss':
-        // Remove notification from list
-        // In this demo implementation we simply log the dismissal
-        console.log('Notification dismissed:', notificationId);
-        break;
-      default:
-        break;
-    }
-  };
-
-  const handleMarkAllAsRead = () => {
-    console.log('Mark all notifications as read');
-    // Mark all notifications as read
   };
 
   // Search functionality
@@ -823,11 +741,6 @@ const WarehouseMapView = ({ facilityData }) => {
 
   const handleExitFullscreen = () => {
     setIsFullscreen(false);
-  };
-
-  const handleClearAllNotifications = () => {
-    console.log('Clear all notifications');
-    // Clear all notifications
   };
 
   // Filter handlers
@@ -1336,12 +1249,11 @@ const WarehouseMapView = ({ facilityData }) => {
             <WarehouseDesigner onBack={() => setCurrentSection('dashboard')} />
           </div>
         ) : (
-          <>
-        {/* Live Warehouse Maps Section */}
-        <div className="maps-section">
-          <div className="section-header">
-            <h2 className="section-title">Live Warehouse Maps</h2>
-            <div className="section-controls">
+          <div>
+            {/* Live Warehouse Maps Section */}
+            <div className="section-header">
+              <h2 className="section-title">Live Warehouse Maps</h2>
+              <div className="section-controls">
               {/* Global Search Dropdown */}
               <div className="global-search-container">
                 <div className="global-search-input-container">
@@ -1616,165 +1528,9 @@ const WarehouseMapView = ({ facilityData }) => {
             </div>
           </div>
         </div>
-
-        {/* Real-time Notifications Panel */}
-        <div className="notifications-section">
-          <div className="section-header">
-            <h2 className="section-title">Real-time Notifications</h2>
-            <div className="section-controls">
-              <button 
-                className="control-btn"
-                onClick={handleMarkAllAsRead}
-              >
-                Mark All Read
-              </button>
-              <button 
-                className="control-btn primary"
-                onClick={handleClearAllNotifications}
-              >
-                Clear All
-              </button>
-            </div>
-          </div>
-          
-          <div className="notifications-container">
-            <div className="notifications-list">
-              {notifications.map((notification) => (
-                <div key={notification.id} className={`notification-item ${notification.type} ${notification.priority}`}>
-                  <div className="notification-indicator">
-                    <div className={`notification-icon ${notification.type}`}>
-                      {notification.type === 'success' && '✓'}
-                      {notification.type === 'warning' && '⚠'}
-                      {notification.type === 'error' && '✕'}
-                      {notification.type === 'info' && 'ℹ'}
-                    </div>
-                    {notification.priority === 'critical' && <div className="priority-pulse"></div>}
-                  </div>
-                  
-                  <div className="notification-content">
-                    <div className="notification-header">
-                      <h4 className="notification-title">{notification.title}</h4>
-                      <div className="notification-meta">
-                        <span className={`unit-tag ${notification.unit.toLowerCase().replace(' ', '')}`}>
-                          {notification.unit}
-                        </span>
-                        <span className={`priority-badge ${notification.priority}`}>
-                          {notification.priority.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <p className="notification-message">{notification.message}</p>
-                    
-                    <div className="notification-footer">
-                      <span className="notification-timestamp">{notification.timestamp}</span>
-                      <div className="notification-actions">
-                        <button 
-                          className="notification-btn"
-                          onClick={() => handleNotificationAction(notification.id, 'view')}
-                        >
-                          View
-                        </button>
-                        <button 
-                          className="notification-btn dismiss"
-                          onClick={() => handleNotificationAction(notification.id, 'dismiss')}
-                        >
-                          Dismiss
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="notifications-summary">
-              <div className="summary-stats">
-                <div className="summary-item">
-                  <span className="summary-count">{notifications.filter(n => n.priority === 'critical').length}</span>
-                  <span className="summary-label">Critical</span>
-                </div>
-                <div className="summary-item">
-                  <span className="summary-count">{notifications.filter(n => n.priority === 'high').length}</span>
-                  <span className="summary-label">High</span>
-                </div>
-                <div className="summary-item">
-                  <span className="summary-count">{notifications.filter(n => n.priority === 'medium').length}</span>
-                  <span className="summary-label">Medium</span>
-                </div>
-                <div className="summary-item">
-                  <span className="summary-count">{notifications.filter(n => n.priority === 'low').length}</span>
-                  <span className="summary-label">Low</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-          </>
         )}
-      </div>
 
       {/* Create New Unit Modal */}
-      {showCreateUnitModal && (
-        <div className="modal-overlay" onClick={() => setShowCreateUnitModal(false)}>
-          <div className="modal-content create-unit-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Create New Warehouse Unit</h3>
-              <button className="close-btn" onClick={() => setShowCreateUnitModal(false)}>×</button>
-            </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Unit Name</label>
-                <input type="text" placeholder="Enter unit name (e.g., Unit 7)" />
-              </div>
-              <div className="form-group">
-                <label>Floor Plan</label>
-                <select>
-                  <option>Floor Plan 1</option>
-                  <option>Floor Plan 2</option>
-                  <option>Floor Plan 3</option>
-                  <option>Floor Plan 4</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Building</label>
-                <select>
-                  <option>Building 1</option>
-                  <option>Building 2</option>
-                  <option>Building 3</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Unit Type</label>
-                <select>
-                  <option>General Storage</option>
-                  <option>Cold Storage</option>
-                  <option>Distribution Hub</option>
-                  <option>Hazmat Storage</option>
-                  <option>Returns Processing</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Initial Zones</label>
-                <input type="number" placeholder="Number of zones (e.g., 8)" min="1" max="20" />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn secondary" onClick={() => setShowCreateUnitModal(false)}>
-                Cancel
-              </button>
-              <button className="btn primary" onClick={() => {
-                console.log('Creating new unit...');
-                setShowCreateUnitModal(false);
-              }}>
-                Create Unit
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Template Selection Modal */}
       {showTemplateModal && (
         <div className="modal-overlay" onClick={() => setShowTemplateModal(false)}>
           <div className="modal-content template-modal" onClick={(e) => e.stopPropagation()}>
@@ -1834,633 +1590,634 @@ const WarehouseMapView = ({ facilityData }) => {
 
       {/* Live Map Modal */}
       {showDemoMapModal && selectedUnitForDemo && (
-        <div 
-          className={`demo-map-modal-overlay ${isFullscreen ? 'fullscreen-mode' : ''}`} 
-          onClick={() => !isFullscreen && setShowDemoMapModal(false)}
-          style={isFullscreen ? {
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: '100vw',
-            height: '100vh',
-            zIndex: 9999,
-            backgroundColor: '#fff'
-          } : {}}
-        >
           <div 
-            className="demo-map-modal-content" 
-            onClick={(e) => e.stopPropagation()}
+            className={`demo-map-modal-overlay ${isFullscreen ? 'fullscreen-mode' : ''}`} 
+            onClick={() => !isFullscreen && setShowDemoMapModal(false)}
             style={isFullscreen ? {
-              width: '100%',
-              height: '100%',
-              maxWidth: '100%',
-              maxHeight: '100%',
-              margin: 0,
-              borderRadius: 0
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100vw',
+              height: '100vh',
+              zIndex: 9999,
+              backgroundColor: '#fff'
             } : {}}
           >
-            <div className="demo-map-header">
-              <div className="demo-map-title">
-                <h2>{(() => {
-                  const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
-                  return unit ? unit.name : 'Warehouse Unit';
-                })()}</h2>
-                <div className="demo-map-status">
-                  {(() => {
+            <div 
+              className="demo-map-modal-content" 
+              onClick={(e) => e.stopPropagation()}
+              style={isFullscreen ? {
+                width: '100%',
+                height: '100%',
+                maxWidth: '100%',
+                maxHeight: '100%',
+                margin: 0,
+                borderRadius: 0
+              } : {}}
+            >
+              <div className="demo-map-header">
+                <div className="demo-map-title">
+                  <h2>{(() => {
                     const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
-                    const status = unit ? unit.status : 'UNKNOWN';
-                    return (
-                      <span className={`status-badge ${status.toLowerCase()}`}>{status}</span>
-                    );
-                  })()}
+                    return unit ? unit.name : 'Warehouse Unit';
+                  })()}</h2>
+                  <div className="demo-map-status">
+                    {(() => {
+                      const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
+                      const status = unit ? unit.status : 'UNKNOWN';
+                      return (
+                        <span className={`status-badge ${status.toLowerCase()}`}>{status}</span>
+                      );
+                    })()}
+                  </div>
                 </div>
-              </div>
-              
-              {/* Enhanced Dropdown Search Filters - Moved to Header */}
-              <div className="demo-map-search-inline">
-                <div className="search-dropdown-filters">
-                  <div className="dropdown-filter">
-                    <select 
-                      value={selectedLocationTag} 
-                      onChange={handleLocationTagChange}
-                      className="search-dropdown"
-                    >
-                      <option value="">All Locations</option>
-                      {availableLocationTags.map(tag => (
-                        <option key={tag} value={tag}>{tag}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div className="dropdown-filter">
-                    <select 
-                      value={selectedSku} 
-                      onChange={handleSkuChange}
-                      className="search-dropdown"
-                    >
-                      <option value="">All SKUs</option>
-                      {availableSkus.map(sku => (
-                        <option key={sku} value={sku}>{sku}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div className="dropdown-filter">
-                    <select 
-                      value={selectedAsset} 
-                      onChange={handleAssetChange}
-                      className="search-dropdown"
-                    >
-                      <option value="">All Assets</option>
-                      {availableAssets.map(asset => (
-                        <option key={asset} value={asset}>{asset}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  {/* Clear button only shows when filters are active */}
-                  {(selectedLocationTag || selectedSku || selectedAsset) && (
+                
+                {/* Enhanced Dropdown Search Filters - Moved to Header */}
+                <div className="demo-map-search-inline">
+                  <div className="search-dropdown-filters">
                     <div className="dropdown-filter">
-                      <button 
-                        className="search-clear-btn-dropdown" 
-                        onClick={clearDropdownSearch}
-                        title="Clear All"
+                      <select 
+                        value={selectedLocationTag} 
+                        onChange={handleLocationTagChange}
+                        className="search-dropdown"
                       >
-                      </button>
+                        <option value="">All Locations</option>
+                        {availableLocationTags.map(tag => (
+                          <option key={tag} value={tag}>{tag}</option>
+                        ))}
+                      </select>
                     </div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="demo-map-controls">
-                {isFullscreen ? (
-                  <button 
-                    className="demo-map-fullscreen-btn" 
-                    onClick={handleExitFullscreen}
-                    title="Exit fullscreen"
-                  >
-                    ⛶
-                  </button>
-                ) : (
-                  <button 
-                    className="demo-map-fullscreen-btn" 
-                    disabled
-                    style={{ opacity: 0.5, cursor: 'not-allowed' }}
-                    title="Fullscreen (temporarily disabled)"
-                  >
-                    ⛶
-                  </button>
-                )}
-                {!isFullscreen && (
-                  <button className="demo-map-close-btn" onClick={() => setShowDemoMapModal(false)}>×</button>
-                )}
-              </div>
-            </div>
-            
-            {/* Search Results - Moved outside header */}
-            <div className="demo-map-search-results">
-              
-              {/* Search Results */}
-              {searchResults.length > 0 && (
-                <div className="search-results">
-                  <div className="search-results-header">
-                    <span>Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="search-results-list">
-                    {searchResults.slice(0, 5).map((result, index) => (
-                      <div key={index} className="search-result-item">
-                        <div className="search-result-icon">📍</div>
-                        <div className="search-result-content">
-                          <div className="search-result-title">{result.title}</div>
-                          <div className="search-result-subtitle">{result.subtitle}</div>
-                        </div>
-                      </div>
-                    ))}
-                    {searchResults.length > 5 && (
-                      <div className="search-result-more">
-                        +{searchResults.length - 5} more results
+                    
+                    <div className="dropdown-filter">
+                      <select 
+                        value={selectedSku} 
+                        onChange={handleSkuChange}
+                        className="search-dropdown"
+                      >
+                        <option value="">All SKUs</option>
+                        {availableSkus.map(sku => (
+                          <option key={sku} value={sku}>{sku}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="dropdown-filter">
+                      <select 
+                        value={selectedAsset} 
+                        onChange={handleAssetChange}
+                        className="search-dropdown"
+                      >
+                        <option value="">All Assets</option>
+                        {availableAssets.map(asset => (
+                          <option key={asset} value={asset}>{asset}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    {/* Clear button only shows when filters are active */}
+                    {(selectedLocationTag || selectedSku || selectedAsset) && (
+                      <div className="dropdown-filter">
+                        <button 
+                          className="search-clear-btn-dropdown" 
+                          onClick={clearDropdownSearch}
+                          title="Clear All"
+                        >
+                        </button>
                       </div>
                     )}
                   </div>
                 </div>
-              )}
-            </div>
-            
-            <div className={`demo-map-body ${isDemoUnit ? '' : 'demo-map-body-single'}`} style={{ display: 'flex', flexDirection: 'row', gap: '20px', alignItems: 'stretch' }}>
-              <div className="demo-map-canvas" style={{ flex: 1 }}>
-                {(() => {
-                  const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
-                  
-                  // If it's a custom layout, render the actual layout
-                  console.log('Debug - Unit data:', unit);
-                  console.log('Debug - Is custom layout:', unit?.isCustomLayout);
-                  console.log('Debug - Layout data:', unit?.layoutData);
-                  
-                  if (unit && unit.isCustomLayout && unit.layoutData && Array.isArray(unit.layoutData.items)) {
-                    const layoutItems = unit.layoutData.items;
-                    if (layoutItems.length === 0) {
+                
+                <div className="demo-map-controls">
+                  {isFullscreen ? (
+                    <button 
+                      className="demo-map-fullscreen-btn" 
+                      onClick={handleExitFullscreen}
+                      title="Exit fullscreen"
+                    >
+                      ⛶
+                    </button>
+                  ) : (
+                    <button 
+                      className="demo-map-fullscreen-btn" 
+                      disabled
+                      style={{ opacity: 0.5, cursor: 'not-allowed' }}
+                      title="Fullscreen (temporarily disabled)"
+                    >
+                      ⛶
+                    </button>
+                  )}
+                  {!isFullscreen && (
+                    <button className="demo-map-close-btn" onClick={() => setShowDemoMapModal(false)}>×</button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Search Results - Moved outside header */}
+              <div className="demo-map-search-results">
+                
+                {/* Search Results */}
+                {searchResults.length > 0 && (
+                  <div className="search-results">
+                    <div className="search-results-header">
+                      <span>Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div className="search-results-list">
+                      {searchResults.slice(0, 5).map((result, index) => (
+                        <div key={index} className="search-result-item">
+                          <div className="search-result-icon">📍</div>
+                          <div className="search-result-content">
+                            <div className="search-result-title">{result.title}</div>
+                            <div className="search-result-subtitle">{result.subtitle}</div>
+                          </div>
+                        </div>
+                      ))}
+                      {searchResults.length > 5 && (
+                        <div className="search-result-more">
+                          +{searchResults.length - 5} more results
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className={`demo-map-body ${isDemoUnit ? '' : 'demo-map-body-single'}`} style={{ display: 'flex', flexDirection: 'row', gap: '20px', alignItems: 'stretch' }}>
+                <div className="demo-map-canvas" style={{ flex: 1 }}>
+                  {(() => {
+                    const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
+                    
+                    // If it's a custom layout, render the actual layout
+                    console.log('Debug - Unit data:', unit);
+                    console.log('Debug - Is custom layout:', unit?.isCustomLayout);
+                    console.log('Debug - Layout data:', unit?.layoutData);
+                    
+                    if (unit && unit.isCustomLayout && unit.layoutData && Array.isArray(unit.layoutData.items)) {
+                      const layoutItems = unit.layoutData.items;
+                      if (layoutItems.length === 0) {
+                        return (
+                          <div
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              backgroundColor: '#f8f9fa',
+                              border: '1px solid #e0e0e0',
+                              borderRadius: '12px'
+                            }}
+                          />
+                        );
+                      }
+
                       return (
-                        <div
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            backgroundColor: '#f8f9fa',
-                            border: '1px solid #e0e0e0',
-                            borderRadius: '12px'
+                        <SavedLayoutRenderer
+                          items={layoutItems}
+                          metadata={{
+                            name: unit.layoutData.name || unit.name,
+                            timestamp: unit.layoutData.timestamp
+                          }}
+                          width="100%"
+                          height="100%"
+                          background="transparent"
+                          showLabels={false}
+                          showMetadata={false}
+                          highlightedKeys={filteredItemKeys}
+                          filteredKeys={filteredItemKeys}
+                          highlightedCompartmentsMap={highlightedCompartmentsMap}
+                          padding={60}
+                          allowUpscale={false}
+                          fitMode="contain"
+                          stageBackground="transparent"
+                          stageBorder="none"
+                          stageShadow="none"
+                          stageBorderRadius="0px"
+                          onItemClick={(item, index) => {
+                            console.log('WarehouseMapView - Item clicked:', item);
+                            console.log('WarehouseMapView - Item index:', index);
+                            setSelectedItem(item);
+                            setShowLocationDetails(true);
                           }}
                         />
                       );
                     }
 
+                    // For default units, show demo map
+                    const demoData = demoMapsData[selectedUnitForDemo];
+                    if (!demoData) {
+                      return (
+                        <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
+                          <h3>No map data available</h3>
+                          <p>This warehouse unit doesn't have map data configured.</p>
+                          <p><strong>Unit ID:</strong> {selectedUnitForDemo}</p>
+                          <p><strong>Unit Type:</strong> {unit?.isCustomLayout ? 'Custom Layout' : 'Default Unit'}</p>
+                        </div>
+                      );
+                    }
+                    
                     return (
-                      <SavedLayoutRenderer
-                        items={layoutItems}
-                        metadata={{
-                          name: unit.layoutData.name || unit.name,
-                          timestamp: unit.layoutData.timestamp
-                        }}
-                        width="100%"
-                        height="100%"
-                        background="transparent"
-                        showLabels={false}
-                        showMetadata={false}
-                        highlightedKeys={filteredItemKeys}
-                        filteredKeys={filteredItemKeys}
-                        highlightedCompartmentsMap={highlightedCompartmentsMap}
-                        padding={60}
-                        allowUpscale={false}
-                        fitMode="contain"
-                        stageBackground="transparent"
-                        stageBorder="none"
-                        stageShadow="none"
-                        stageBorderRadius="0px"
-                        onItemClick={(item, index) => {
-                          console.log('WarehouseMapView - Item clicked:', item);
-                          console.log('WarehouseMapView - Item index:', index);
-                          setSelectedItem(item);
-                          setShowLocationDetails(true);
-                        }}
-                      />
-                    );
-                  }
-
-                  // For default units, show demo map
-                  const demoData = demoMapsData[selectedUnitForDemo];
-                  if (!demoData) {
-                    return (
-                      <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
-                        <h3>No map data available</h3>
-                        <p>This warehouse unit doesn't have map data configured.</p>
-                        <p><strong>Unit ID:</strong> {selectedUnitForDemo}</p>
-                        <p><strong>Unit Type:</strong> {unit?.isCustomLayout ? 'Custom Layout' : 'Default Unit'}</p>
-                      </div>
-                    );
-                  }
-                  
-                  return (
-                    <svg width="700" height="320" viewBox="0 0 700 320" className="warehouse-svg">
-                      {/* Background */}
-                      <rect width="700" height="320" fill="#ffffff" stroke="#dee2e6" strokeWidth="2" rx="8"/>
-                      
-                      {/* Header with location info */}
-                      <rect x="10" y="10" width="680" height="25" fill="#f8f9fa" stroke="#dee2e6" strokeWidth="1"/>
-                      <text x="20" y="27" fontSize="14" fontWeight="bold" fill="#333">
-                        {demoData.name}
-                      </text>
-                      {demoData.location && (
-                        <text x="600" y="27" fontSize="12" fill="#666">
-                          Location: {demoData.location}
+                      <svg width="700" height="320" viewBox="0 0 700 320" className="warehouse-svg">
+                        {/* Background */}
+                        <rect width="700" height="320" fill="#ffffff" stroke="#dee2e6" strokeWidth="2" rx="8"/>
+                        
+                        {/* Header with location info */}
+                        <rect x="10" y="10" width="680" height="25" fill="#f8f9fa" stroke="#dee2e6" strokeWidth="1"/>
+                        <text x="20" y="27" fontSize="14" fontWeight="bold" fill="#333">
+                          {demoData.name}
                         </text>
-                      )}
-                      
-                      {/* Enhanced demo zones with operational data */}
-                      {demoData.zones.map((zone, index) => {
-                        // Generate operational data for demo zones
-                        const generateDemoOpData = (zone, index) => {
-                          if (zone.type === 'storage' || zone.type === 'overflow') {
-                            return {
-                              type: 'storage',
-                              unitId: `STG-${String(index + 1).padStart(3, '0')}`,
-                              location: {
-                                zone: ['A', 'B', 'C', 'D'][index % 4],
-                                aisle: Math.floor(index / 4) + 1,
-                                position: (index % 10) + 1
-                              },
-                              capacity: zone.capacity || 50,
-                              occupied: zone.items || Math.floor(Math.random() * 40) + 10,
-                              utilization: Math.round(((zone.items || 30) / (zone.capacity || 50)) * 100),
-                              status: 'operational'
-                            };
-                          } else {
-                            return {
-                              type: 'zone',
-                              zoneId: zone.id,
-                              throughput: Math.floor(Math.random() * 500) + 100,
-                              activeWorkers: Math.floor(Math.random() * 5) + 1,
-                              efficiency: (85 + Math.random() * 12).toFixed(1) + '%',
-                              status: 'operational'
-                            };
-                          }
-                        };
-
-                        const opData = generateDemoOpData(zone, index);
-                        const isInteractive = opData && (opData.type === 'storage' || opData.type === 'zone');
-
-                        const getStatusColor = (status) => {
-                          return status === 'operational' ? '#28a745' : '#ffc107';
-                        };
-
-                        const getUtilizationColor = (utilization) => {
-                          if (utilization >= 90) return '#dc3545';
-                          if (utilization >= 75) return '#ffc107';
-                          if (utilization >= 50) return '#28a745';
-                          return '#17a2b8';
-                        };
-
-                        return (
-                          <g key={zone.id}>
-                            <rect
-                              x={zone.x}
-                              y={zone.y}
-                              width={zone.width}
-                              height={zone.height}
-                              fill={zone.color}
-                              fillOpacity="0.8"
-                              stroke="#333"
-                              strokeWidth="2"
-                              rx="4"
-                              style={{ cursor: isInteractive ? 'pointer' : 'default' }}
-                            />
-                            
-                            {/* Operational status indicator */}
-                            <circle
-                              cx={zone.x + zone.width - 8}
-                              cy={zone.y + 8}
-                              r="4"
-                              fill={getStatusColor(opData.status)}
-                              stroke="white"
-                              strokeWidth="1"
-                            />
-                            
-                            {/* Utilization bar for storage zones */}
-                            {opData.type === 'storage' && zone.width > 40 && (
-                              <g>
-                                <rect
-                                  x={zone.x + 5}
-                                  y={zone.y + zone.height - 12}
-                                  width={zone.width - 10}
-                                  height="4"
-                                  fill="#e0e0e0"
-                                  rx="2"
-                                />
-                                <rect
-                                  x={zone.x + 5}
-                                  y={zone.y + zone.height - 12}
-                                  width={(zone.width - 10) * (opData.utilization / 100)}
-                                  height="4"
-                                  fill={getUtilizationColor(opData.utilization)}
-                                  rx="2"
-                                />
-                              </g>
-                            )}
-                            
-                            {/* Storage unit metrics */}
-                            {opData.type === 'storage' && zone.width > 60 && zone.height > 40 && (
-                              <g>
-                                {/* Unit ID */}
-                                <text
-                                  x={zone.x + 5}
-                                  y={zone.y + 15}
-                                  fontSize="9"
-                                  fill="#333"
-                                  fontWeight="bold"
-                                >
-                                  {opData.unitId}
-                                </text>
-                                
-                                {/* Capacity info */}
-                                <text
-                                  x={zone.x + zone.width / 2}
-                                  y={zone.y + zone.height / 2 + 10}
-                                  textAnchor="middle"
-                                  fontSize="10"
-                                  fill="#666"
-                                  fontWeight="bold"
-                                >
-                                  {opData.occupied}/{opData.capacity}
-                                </text>
-                                
-                                {/* Location info */}
-                                <text
-                                  x={zone.x + zone.width / 2}
-                                  y={zone.y + zone.height / 2 + 23}
-                                  textAnchor="middle"
-                                  fontSize="8"
-                                  fill="#888"
-                                >
-                                  {opData.location.zone}-{opData.location.aisle}-{opData.location.position}
-                                </text>
-                              </g>
-                            )}
-
-                            {/* Zone metrics for operational zones */}
-                            {opData.type === 'zone' && zone.width > 80 && zone.height > 50 && (
-                              <g>
-                                {/* Zone ID */}
-                                <text
-                                  x={zone.x + 8}
-                                  y={zone.y + 18}
-                                  fontSize="11"
-                                  fill="#333"
-                                  fontWeight="bold"
-                                >
-                                  {zone.id}
-                                </text>
-                                
-                                {/* Throughput */}
-                                <text
-                                  x={zone.x + 8}
-                                  y={zone.y + 32}
-                                  fontSize="9"
-                                  fill="#666"
-                                >
-                                  {opData.throughput} items/hr
-                                </text>
-                                
-                                {/* Workers */}
-                                <text
-                                  x={zone.x + 8}
-                                  y={zone.y + 45}
-                                  fontSize="9"
-                                  fill="#666"
-                                >
-                                  👥 {opData.activeWorkers}
-                                </text>
-                                
-                                {/* Efficiency */}
-                                <text
-                                  x={zone.x + zone.width - 8}
-                                  y={zone.y + 18}
-                                  textAnchor="end"
-                                  fontSize="9"
-                                  fill={parseFloat(opData.efficiency) > 90 ? "#28a745" : "#ffc107"}
-                                  fontWeight="bold"
-                                >
-                                  {opData.efficiency}
-                                </text>
-                              </g>
-                            )}
-                            
-                            {/* Fixed info icon for interactive zones */}
-                            {isInteractive && (
-                              <g>
-                                <circle
-                                  cx={zone.x + zone.width - 12}
-                                  cy={zone.y + 12}
-                                  r="8"
-                                  fill="rgba(0, 123, 255, 0.9)"
-                                  stroke="white"
-                                  strokeWidth="2"
-                                  style={{ cursor: 'pointer' }}
-                                />
-                                <text
-                                  x={zone.x + zone.width - 12}
-                                  y={zone.y + 12}
-                                  textAnchor="middle"
-                                  dominantBaseline="middle"
-                                  fontSize="10"
-                                  fill="white"
-                                  fontWeight="bold"
-                                >
-                                  ℹ
-                                </text>
-                              </g>
-                            )}
-                            
-                            {/* Unified Demo Zone Label - Below Every Zone */}
-                            {(() => {
-                              // Generate smart label for demo zones
-                              const getDemoZoneLabel = () => {
-                                if (zone.label && zone.label.trim()) return zone.label.trim();
-                                if (zone.name && zone.name.trim()) return zone.name.trim();
-                                if (zone.id && zone.id.trim()) return zone.id.trim();
-                                
-                                // Auto-generate based on type
-                                const typeLabels = {
-                                  'storage': 'ZONE',
-                                  'receiving': 'RCV',
-                                  'dispatch': 'DSP',
-                                  'office': 'OFF',
-                                  'overflow': 'OVF'
-                                };
-                                
-                                const prefix = typeLabels[zone.type] || 'ZONE';
-                                return `${prefix}-${String(index + 1).padStart(2, '0')}`;
+                        {demoData.location && (
+                          <text x="600" y="27" fontSize="12" fill="#666">
+                            Location: {demoData.location}
+                          </text>
+                        )}
+                        
+                        {/* Enhanced demo zones with operational data */}
+                        {demoData.zones.map((zone, index) => {
+                          // Generate operational data for demo zones
+                          const generateDemoOpData = (zone, index) => {
+                            if (zone.type === 'storage' || zone.type === 'overflow') {
+                              return {
+                                type: 'storage',
+                                unitId: `STG-${String(index + 1).padStart(3, '0')}`,
+                                location: {
+                                  zone: ['A', 'B', 'C', 'D'][index % 4],
+                                  aisle: Math.floor(index / 4) + 1,
+                                  position: (index % 10) + 1
+                                },
+                                capacity: zone.capacity || 50,
+                                occupied: zone.items || Math.floor(Math.random() * 40) + 10,
+                                utilization: Math.round(((zone.items || 30) / (zone.capacity || 50)) * 100),
+                                status: 'operational'
                               };
+                            } else {
+                              return {
+                                type: 'zone',
+                                zoneId: zone.id,
+                                throughput: Math.floor(Math.random() * 500) + 100,
+                                activeWorkers: Math.floor(Math.random() * 5) + 1,
+                                efficiency: (85 + Math.random() * 12).toFixed(1) + '%',
+                                status: 'operational'
+                              };
+                            }
+                          };
 
-                              const label = getDemoZoneLabel();
-                              if (!label) return null;
+                          const opData = generateDemoOpData(zone, index);
+                          const isInteractive = opData && (opData.type === 'storage' || opData.type === 'zone');
 
-                              // Calculate label styling for demo zones
-                              const fontSize = Math.min(Math.max(zone.width / 12, 9), 14);
-                              let labelColor = '#2c3e50';
-                              let bgColor = 'rgba(52, 152, 219, 0.1)';
-                              let borderColor = '#3498db';
+                          const getStatusColor = (status) => {
+                            return status === 'operational' ? '#28a745' : '#ffc107';
+                          };
+
+                          const getUtilizationColor = (utilization) => {
+                            if (utilization >= 90) return '#dc3545';
+                            if (utilization >= 75) return '#ffc107';
+                            if (utilization >= 50) return '#28a745';
+                            return '#17a2b8';
+                          };
+
+                          return (
+                            <g key={zone.id}>
+                              <rect
+                                x={zone.x}
+                                y={zone.y}
+                                width={zone.width}
+                                height={zone.height}
+                                fill={zone.color}
+                                fillOpacity="0.8"
+                                stroke="#333"
+                                strokeWidth="2"
+                                rx="4"
+                                style={{ cursor: isInteractive ? 'pointer' : 'default' }}
+                              />
                               
-                              // Different colors for different zone types
-                              if (zone.type === 'receiving') {
-                                labelColor = '#e67e22';
-                                bgColor = 'rgba(230, 126, 34, 0.1)';
-                                borderColor = '#f39c12';
-                              } else if (zone.type === 'dispatch') {
-                                labelColor = '#8e44ad';
-                                bgColor = 'rgba(142, 68, 173, 0.1)';
-                                borderColor = '#9b59b6';
-                              } else if (zone.type === 'office') {
-                                labelColor = '#27ae60';
-                                bgColor = 'rgba(39, 174, 96, 0.1)';
-                                borderColor = '#2ecc71';
-                              }
-
-                              return (
+                              {/* Operational status indicator */}
+                              <circle
+                                cx={zone.x + zone.width - 8}
+                                cy={zone.y + 8}
+                                r="4"
+                                fill={getStatusColor(opData.status)}
+                                stroke="white"
+                                strokeWidth="1"
+                              />
+                              
+                              {/* Utilization bar for storage zones */}
+                              {opData.type === 'storage' && zone.width > 40 && (
                                 <g>
-                                  {/* Label background */}
                                   <rect
-                                    x={zone.x + zone.width / 2 - Math.max(label.length * fontSize * 0.3, 20)}
-                                    y={zone.y + zone.height + 5}
-                                    width={Math.max(label.length * fontSize * 0.6, 40)}
-                                    height={fontSize + 6}
-                                    fill={bgColor}
-                                    stroke={borderColor}
-                                    strokeWidth="1"
-                                    rx="3"
+                                    x={zone.x + 5}
+                                    y={zone.y + zone.height - 12}
+                                    width={zone.width - 10}
+                                    height="4"
+                                    fill="#e0e0e0"
+                                    rx="2"
                                   />
-                                  {/* Label text */}
+                                  <rect
+                                    x={zone.x + 5}
+                                    y={zone.y + zone.height - 12}
+                                    width={(zone.width - 10) * (opData.utilization / 100)}
+                                    height="4"
+                                    fill={getUtilizationColor(opData.utilization)}
+                                    rx="2"
+                                  />
+                                </g>
+                              )}
+                              
+                              {/* Storage unit metrics */}
+                              {opData.type === 'storage' && zone.width > 60 && zone.height > 40 && (
+                                <g>
+                                  {/* Unit ID */}
+                                  <text
+                                    x={zone.x + 5}
+                                    y={zone.y + 15}
+                                    fontSize="9"
+                                    fill="#333"
+                                    fontWeight="bold"
+                                  >
+                                    {opData.unitId}
+                                  </text>
+                                  
+                                  {/* Capacity info */}
                                   <text
                                     x={zone.x + zone.width / 2}
-                                    y={zone.y + zone.height + fontSize + 8}
+                                    y={zone.y + zone.height / 2 + 10}
                                     textAnchor="middle"
-                                    fontSize={fontSize}
-                                    fontWeight="600"
-                                    fill={labelColor}
+                                    fontSize="10"
+                                    fill="#666"
+                                    fontWeight="bold"
                                   >
-                                    {label}
+                                    {opData.occupied}/{opData.capacity}
+                                  </text>
+                                  
+                                  {/* Location info */}
+                                  <text
+                                    x={zone.x + zone.width / 2}
+                                    y={zone.y + zone.height / 2 + 23}
+                                    textAnchor="middle"
+                                    fontSize="8"
+                                    fill="#888"
+                                  >
+                                    {opData.location.zone}-{opData.location.aisle}-{opData.location.position}
                                   </text>
                                 </g>
-                              );
-                            })()}
-                          </g>
-                        );
-                      })}
-                    </svg>
-                  );
-                })()}
-              </div>
-              
-              {/* Zone Information Panel - Always visible on the right */}
-              <div className="demo-map-sidebar" style={{ width: '300px', flexShrink: 0, overflowY: 'auto', height: '100%' }}>
-                {(() => {
-                  const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
-                  const demoData = demoMapsData[selectedUnitForDemo];
-                  
-                  // Show zone info for demo units
-                  if (unit && !unit.isCustomLayout && demoData) {
-                    return (
-                      <>
-                        <div className="demo-map-info">
-                          <h3>Zone Information</h3>
-                          <div className="zone-list">
-                            {demoData.zones.map((zone) => (
-                              <div key={zone.id} className="zone-info-item">
-                                <div className="zone-color" style={{ backgroundColor: zone.color }}></div>
-                                <div className="zone-details">
-                                  <div className="zone-name">{zone.name}</div>
-                                  <div className="zone-capacity">
-                                    {zone.items}/{zone.capacity} items
-                                    <div className="capacity-bar">
-                                      <div 
-                                        className="capacity-fill" 
-                                        style={{ 
-                                          width: `${zone.capacity > 0 ? (zone.items / zone.capacity) * 100 : 0}%`,
-                                          backgroundColor: zone.color 
-                                        }}
-                                      ></div>
+                              )}
+
+                              {/* Zone metrics for operational zones */}
+                              {opData.type === 'zone' && zone.width > 80 && zone.height > 50 && (
+                                <g>
+                                  {/* Zone ID */}
+                                  <text
+                                    x={zone.x + 8}
+                                    y={zone.y + 18}
+                                    fontSize="11"
+                                    fill="#333"
+                                    fontWeight="bold"
+                                  >
+                                    {zone.id}
+                                  </text>
+                                  
+                                  {/* Throughput */}
+                                  <text
+                                    x={zone.x + 8}
+                                    y={zone.y + 32}
+                                    fontSize="9"
+                                    fill="#666"
+                                  >
+                                    {opData.throughput} items/hr
+                                  </text>
+                                  
+                                  {/* Workers */}
+                                  <text
+                                    x={zone.x + 8}
+                                    y={zone.y + 45}
+                                    fontSize="9"
+                                    fill="#666"
+                                  >
+                                    👥 {opData.activeWorkers}
+                                  </text>
+                                  
+                                  {/* Efficiency */}
+                                  <text
+                                    x={zone.x + zone.width - 8}
+                                    y={zone.y + 18}
+                                    textAnchor="end"
+                                    fontSize="9"
+                                    fill={parseFloat(opData.efficiency) > 90 ? "#28a745" : "#ffc107"}
+                                    fontWeight="bold"
+                                  >
+                                    {opData.efficiency}
+                                  </text>
+                                </g>
+                              )}
+                              
+                              {/* Fixed info icon for interactive zones */}
+                              {isInteractive && (
+                                <g>
+                                  <circle
+                                    cx={zone.x + zone.width - 12}
+                                    cy={zone.y + 12}
+                                    r="8"
+                                    fill="rgba(0, 123, 255, 0.9)"
+                                    stroke="white"
+                                    strokeWidth="2"
+                                    style={{ cursor: 'pointer' }}
+                                  />
+                                  <text
+                                    x={zone.x + zone.width - 12}
+                                    y={zone.y + 12}
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                    fontSize="10"
+                                    fill="white"
+                                    fontWeight="bold"
+                                  >
+                                    ℹ
+                                  </text>
+                                </g>
+                              )}
+                              
+                              {/* Unified Demo Zone Label - Below Every Zone */}
+                              {(() => {
+                                // Generate smart label for demo zones
+                                const getDemoZoneLabel = () => {
+                                  if (zone.label && zone.label.trim()) return zone.label.trim();
+                                  if (zone.name && zone.name.trim()) return zone.name.trim();
+                                  if (zone.id && zone.id.trim()) return zone.id.trim();
+                                  
+                                  // Auto-generate based on type
+                                  const typeLabels = {
+                                    'storage': 'ZONE',
+                                    'receiving': 'RCV',
+                                    'dispatch': 'DSP',
+                                    'office': 'OFF',
+                                    'overflow': 'OVF'
+                                  };
+                                  
+                                  const prefix = typeLabels[zone.type] || 'ZONE';
+                                  return `${prefix}-${String(index + 1).padStart(2, '0')}`;
+                                };
+
+                                const label = getDemoZoneLabel();
+                                if (!label) return null;
+
+                                // Calculate label styling for demo zones
+                                const fontSize = Math.min(Math.max(zone.width / 12, 9), 14);
+                                let labelColor = '#2c3e50';
+                                let bgColor = 'rgba(52, 152, 219, 0.1)';
+                                let borderColor = '#3498db';
+                                
+                                // Different colors for different zone types
+                                if (zone.type === 'receiving') {
+                                  labelColor = '#e67e22';
+                                  bgColor = 'rgba(230, 126, 34, 0.1)';
+                                  borderColor = '#f39c12';
+                                } else if (zone.type === 'dispatch') {
+                                  labelColor = '#8e44ad';
+                                  bgColor = 'rgba(142, 68, 173, 0.1)';
+                                  borderColor = '#9b59b6';
+                                } else if (zone.type === 'office') {
+                                  labelColor = '#27ae60';
+                                  bgColor = 'rgba(39, 174, 96, 0.1)';
+                                  borderColor = '#2ecc71';
+                                }
+
+                                return (
+                                  <g>
+                                    {/* Label background */}
+                                    <rect
+                                      x={zone.x + zone.width / 2 - Math.max(label.length * fontSize * 0.3, 20)}
+                                      y={zone.y + zone.height + 5}
+                                      width={Math.max(label.length * fontSize * 0.6, 40)}
+                                      height={fontSize + 6}
+                                      fill={bgColor}
+                                      stroke={borderColor}
+                                      strokeWidth="1"
+                                      rx="3"
+                                    />
+                                    {/* Label text */}
+                                    <text
+                                      x={zone.x + zone.width / 2}
+                                      y={zone.y + zone.height + fontSize + 8}
+                                      textAnchor="middle"
+                                      fontSize={fontSize}
+                                      fontWeight="600"
+                                      fill={labelColor}
+                                    >
+                                      {label}
+                                    </text>
+                                  </g>
+                                );
+                              })()}
+                            </g>
+                          );
+                        })}
+                      </svg>
+                    );
+                  })()}
+                </div>
+                
+                {/* Zone Information Panel - Always visible on the right */}
+                <div className="demo-map-sidebar" style={{ width: '300px', flexShrink: 0, overflowY: 'auto', height: '100%' }}>
+                  {(() => {
+                    const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
+                    const demoData = demoMapsData[selectedUnitForDemo];
+                    
+                    // Show zone info for demo units
+                    if (unit && !unit.isCustomLayout && demoData) {
+                      return (
+                        <>
+                          <div className="demo-map-info">
+                            <h3>Zone Information</h3>
+                            <div className="zone-list">
+                              {demoData.zones.map((zone) => (
+                                <div key={zone.id} className="zone-info-item">
+                                  <div className="zone-color" style={{ backgroundColor: zone.color }}></div>
+                                  <div className="zone-details">
+                                    <div className="zone-name">{zone.name}</div>
+                                    <div className="zone-capacity">
+                                      {zone.items}/{zone.capacity} items
+                                      <div className="capacity-bar">
+                                        <div 
+                                          className="capacity-fill" 
+                                          style={{ 
+                                            width: `${zone.capacity > 0 ? (zone.items / zone.capacity) * 100 : 0}%`,
+                                            backgroundColor: zone.color 
+                                          }}
+                                        ></div>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                        
-                        <div className="demo-map-equipment">
-                          <h3>Equipment Status</h3>
-                          <div className="equipment-list">
-                            {demoData.equipment.map((equipment) => (
-                              <div key={equipment.id} className="equipment-item">
-                                <div className={`equipment-status ${equipment.status}`}></div>
-                                <div className="equipment-info">
-                                  <div className="equipment-name">{equipment.name}</div>
-                                  <div className="equipment-details">
-                                    Status: {equipment.status}
-                                    {equipment.temp && <span> | Temp: {equipment.temp}</span>}
+                          
+                          <div className="demo-map-equipment">
+                            <h3>Equipment Status</h3>
+                            <div className="equipment-list">
+                              {demoData.equipment.map((equipment) => (
+                                <div key={equipment.id} className="equipment-item">
+                                  <div className={`equipment-status ${equipment.status}`}></div>
+                                  <div className="equipment-info">
+                                    <div className="equipment-name">{equipment.name}</div>
+                                    <div className="equipment-details">
+                                      Status: {equipment.status}
+                                      {equipment.temp && <span> | Temp: {equipment.temp}</span>}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
+                        </>
+                      );
+                    }
+                    
+                    // Show Location Details Panel if an item is selected
+                    if (showLocationDetails && selectedItem) {
+                      return (
+                        <div className="demo-map-info location-details-container">
+                          <LocationDetailsPanel
+                            selectedItem={selectedItem}
+                            onClose={() => {
+                              setShowLocationDetails(false);
+                              setSelectedItem(null);
+                            }}
+                            isEmbedded={true}
+                          />
                         </div>
-                      </>
-                    );
-                  }
-                  
-                  // Show Location Details Panel if an item is selected
-                  if (showLocationDetails && selectedItem) {
-                    return (
-                      <div className="demo-map-info location-details-container">
-                        <LocationDetailsPanel
-                          selectedItem={selectedItem}
-                          onClose={() => {
-                            setShowLocationDetails(false);
-                            setSelectedItem(null);
-                          }}
-                          isEmbedded={true}
-                        />
+                      );
+                    }
+                    
+                    // Don't show Layout Components panel - only show when item is clicked
+                    return null;
+                  })()}
+                </div>
+              </div>
+              
+              {isDemoUnit && (
+                <div className="demo-map-footer">
+                  {shouldShowDemoLegend && (
+                    <div className="demo-map-legend">
+                      <div className="legend-item">
+                        <div className="legend-color active"></div>
+                        <span>Active Equipment</span>
                       </div>
-                    );
-                  }
-                  
-                  // Don't show Layout Components panel - only show when item is clicked
-                  return null;
-                })()}
-              </div>
+                      <div className="legend-item">
+                        <div className="legend-color offline"></div>
+                        <span>Offline Equipment</span>
+                      </div>
+                      <div className="legend-item">
+                        <div className="legend-color zone"></div>
+                        <span>Storage Zones</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            
-            {isDemoUnit && (
-              <div className="demo-map-footer">
-                {shouldShowDemoLegend && (
-                  <div className="demo-map-legend">
-                    <div className="legend-item">
-                      <div className="legend-color active"></div>
-                      <span>Active Equipment</span>
-                    </div>
-                    <div className="legend-item">
-                      <div className="legend-color offline"></div>
-                      <span>Offline Equipment</span>
-                    </div>
-                    <div className="legend-item">
-                      <div className="legend-color zone"></div>
-                      <span>Storage Zones</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

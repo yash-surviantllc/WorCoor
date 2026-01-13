@@ -193,7 +193,7 @@ const deriveItemMetrics = (item, index, typeIndexMap) => {
   };
 };
 
-export const summarizeStorageComponents = (items = []) => {
+export const summarizeStorageComponents = (items: any[] = []) => {
   const summaries = [];
   const typeIndexMap = {};
 

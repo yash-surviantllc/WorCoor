@@ -48,6 +48,26 @@ const SavedLayoutRenderer = ({
   showMetadata = true,
   zoomLevel = 1,
   onItemClick = null
+}: {
+  items: any[];
+  metadata?: any;
+  width?: string | number;
+  height?: string | number;
+  background?: string;
+  showLabels?: boolean;
+  highlightedKeys?: (string | number)[];
+  filteredKeys?: (string | number)[];
+  highlightedCompartmentsMap?: Record<string, any>;
+  padding?: number;
+  allowUpscale?: boolean;
+  fitMode?: 'contain' | 'cover';
+  stageBackground?: string;
+  stageBorder?: string;
+  stageShadow?: string;
+  stageBorderRadius?: string;
+  showMetadata?: boolean;
+  zoomLevel?: number;
+  onItemClick?: ((item: any, index: number) => void) | null;
 }) => {
   const containerRef = useRef(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });

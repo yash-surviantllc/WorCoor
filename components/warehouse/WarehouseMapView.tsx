@@ -1190,47 +1190,42 @@ const WarehouseMapView = ({ facilityData }) => {
 
   return (
     <div className="warehouse-dashboard">
-      {/* Clean Header */}
-      <div className="dashboard-header">
-        <div className="header-left">
-          <div className="breadcrumb-nav">
-            <button 
-              className={`breadcrumb-item ${currentSection === 'dashboard' ? 'active' : ''}`}
-              onClick={() => setCurrentSection('dashboard')}
-            >
-              Dashboard
-            </button>
+      {/* Modern Header */}
+      <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200">
+        <div className="flex items-center space-x-8">
+          {/* Breadcrumb - Dashboard removed */}
+          <nav className="flex items-center space-x-2 text-sm">
             {selectedUnit && (
               <>
-                <span className="breadcrumb-separator">›</span>
-                <button 
-                  className={`breadcrumb-item ${currentSection === 'live-view' ? 'active' : ''}`}
+                <button
                   onClick={() => setCurrentSection('live-view')}
+                  className={`px-3 py-1.5 rounded-md transition-colors ${
+                    currentSection === 'live-view' 
+                      ? 'bg-blue-50 text-blue-600 font-medium' 
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
                 >
                   {warehouseUnits.find(u => u.id === selectedUnit)?.name || 'Unit'} - Live View
                 </button>
               </>
             )}
+            
             {currentSection === 'layout-builder' && selectedUnit && (
               <>
-                <span className="breadcrumb-separator">›</span>
-                <span className="breadcrumb-item active">
+                <span className="text-gray-400">/</span>
+                <span className="px-3 py-1.5 text-gray-600 font-medium">
                   Layout Builder
                 </span>
               </>
             )}
-          </div>
-          <div className="page-title">
-            <h1>Warehouse Layouts</h1>
-            <span className="live-badge">LIVE</span>
-          </div>
-          <p className="page-subtitle">Interactive facility layout and asset management</p>
-        </div>
-        <div className="header-right">
-          <div className="header-actions">
-            {/* Layout Builder and Export buttons removed */}
+          </nav>
+          
+          {/* Page Title */}
+          <div className="flex items-center">
+            <h1 className="text-xl font-semibold text-gray-900">Warehouse Layouts</h1>
           </div>
         </div>
+        
       </div>
 
       {/* Main Content Grid */}
@@ -1455,7 +1450,7 @@ const WarehouseMapView = ({ facilityData }) => {
           <div className={`warehouse-scroll-container ${isExpanded ? 'expanded' : ''}`}>
             <div className={`warehouse-grid-horizontal ${isExpanded ? 'expanded-grid' : ''}`}>
               {filteredUnits.map((unit) => (
-                <div key={unit.id} className="warehouse-unit-card">
+                <div key={unit.id} className="unit-card">
                   <div className="unit-header">
                     <div className="unit-status">
                       <span className={`status-indicator ${unit.status.toLowerCase()}`}>

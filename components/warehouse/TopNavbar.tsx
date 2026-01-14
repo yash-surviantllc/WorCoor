@@ -2,7 +2,62 @@
 
 import React, { useState } from 'react';
 
-const TopNavbar = ({
+// TypeScript interfaces
+interface OrgUnit {
+  id: string;
+  name: string;
+}
+
+interface TopNavbarProps {
+  // Layout Info
+  layoutName?: string;
+  selectedOrgUnit?: OrgUnit | null;
+  onOrgUnitSelect?: (selection: { orgUnit: OrgUnit; status: { id: string; name: string } }) => void;
+  selectedOrgMap?: any;
+  onOrgMapSelect?: (map: any) => void;
+  
+  // Facility Management
+  onFacilityManager?: () => void;
+  onMeasurementTools?: () => void;
+  
+  // File Operations
+  onSave?: () => void;
+  onLoad?: () => void;
+  onClear?: () => void;
+  onImportCAD?: () => void;
+  onExportLayout?: (format: string) => void;
+  
+  // View Controls
+  zoomLevel?: number;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onZoomReset?: () => void;
+  onZoomFit?: () => void;
+  
+  // Grid & Snap
+  gridVisible?: boolean;
+  onToggleGrid?: () => void;
+  snapEnabled?: boolean;
+  onToggleSnap?: () => void;
+  
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  
+  // Search & Dashboard
+  onSearch?: () => void;
+  onToggleDashboard?: () => void;
+  onNavigateToDashboard?: () => void;
+  
+  // Boundary
+  onAutoGenerateBoundary?: () => void;
+  
+  // Status
+  itemCount?: number;
+}
+
+const TopNavbar: React.FC<TopNavbarProps> = ({
   // Layout Info
   layoutName,
   selectedOrgUnit,
@@ -50,7 +105,7 @@ const TopNavbar = ({
   // Status
   itemCount
 }) => {
-  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   // Flat org unit list shown in dropdown (per latest requirements)
   const orgUnitOptions = [
@@ -60,7 +115,7 @@ const TopNavbar = ({
     { id: 'main-office', name: 'Main Office' }
   ];
 
-  const toggleDropdown = (dropdown) => {
+  const toggleDropdown = (dropdown: string | null) => {
     setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
   };
 
@@ -68,7 +123,7 @@ const TopNavbar = ({
     setActiveDropdown(null);
   };
 
-  const handleOrgUnitSelectInternal = (option) => {
+  const handleOrgUnitSelectInternal = (option: OrgUnit) => {
     if (onOrgUnitSelect) {
       // Properly structure the selection object with orgUnit property
       onOrgUnitSelect({ 
@@ -102,7 +157,6 @@ const TopNavbar = ({
           style={{ cursor: 'pointer' }}
           title="Go to Home Screen"
         >
-          <div className="brand-icon">🏭</div>
           <div className="brand-text">
             <div className="brand-title">Layout Builder</div>
           </div>
@@ -159,25 +213,25 @@ const TopNavbar = ({
             </button>
             {activeDropdown === 'file' && (
               <div className="action-dropdown">
-                <button onClick={onSave} className="action-option">
+                <button onClick={() => onSave?.()} className="action-option">
                   <span className="option-icon">💾</span>
                   <span>Save Layout</span>
                 </button>
                 <div className="dropdown-separator"></div>
-                <button onClick={() => onExportLayout('png')} className="action-option">
+                <button onClick={() => onExportLayout?.('png')} className="action-option">
                   <span className="option-icon">🖼️</span>
                   <span>Export PNG</span>
                 </button>
-                <button onClick={() => onExportLayout('svg')} className="action-option">
+                <button onClick={() => onExportLayout?.('svg')} className="action-option">
                   <span className="option-icon">🎨</span>
                   <span>Export SVG</span>
                 </button>
-                <button onClick={() => onExportLayout('pdf')} className="action-option">
+                <button onClick={() => onExportLayout?.('pdf')} className="action-option">
                   <span className="option-icon">📋</span>
                   <span>Export PDF</span>
                 </button>
                 <div className="dropdown-separator"></div>
-                <button onClick={onClear} className="action-option danger">
+                <button onClick={() => onClear?.()} className="action-option danger">
                   <span className="option-icon">🗑️</span>
                   <span>Clear All</span>
                 </button>
@@ -196,25 +250,25 @@ const TopNavbar = ({
             {activeDropdown === 'view' && (
               <div className="action-dropdown">
                 <button 
-                  onClick={onToggleGrid}
+                  onClick={() => onToggleGrid?.()}
                   className={`action-option ${gridVisible ? 'active' : ''}`}
                 >
                   <span className="option-icon">⚏</span>
                   <span>{gridVisible ? 'Hide' : 'Show'} Grid</span>
                 </button>
                 <button 
-                  onClick={onToggleSnap}
+                  onClick={() => onToggleSnap?.()}
                   className={`action-option ${snapEnabled ? 'active' : ''}`}
                 >
                   <span className="option-icon">🎯</span>
                   <span>{snapEnabled ? 'Disable' : 'Enable'} Snap</span>
                 </button>
                 <div className="dropdown-separator"></div>
-                <button onClick={() => { onZoomReset(); closeDropdowns(); }} className="action-option">
+                <button onClick={() => { onZoomReset?.(); closeDropdowns(); }} className="action-option">
                   <span className="option-icon">🎯</span>
                   <span>Reset to Center</span>
                 </button>
-                <button onClick={() => { onZoomFit(); closeDropdowns(); }} className="action-option">
+                <button onClick={() => { onZoomFit?.(); closeDropdowns(); }} className="action-option">
                   <span className="option-icon">🔲</span>
                   <span>Fit to View</span>
                 </button>

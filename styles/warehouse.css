@@ -846,7 +846,7 @@ code {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #ffffff;
+  background: linear-gradient(to-b, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
   font-family: var(--font-family-primary);
   overflow: hidden !important;
   position: fixed !important;
@@ -2290,16 +2290,16 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
   left: 0;
   right: 0;
   height: 64px;
-  background: rgba(255, 255, 255, 0.95);
+  background: linear-gradient(to-b, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
   backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  color: #1f2937;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
   z-index: 2000;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
 /* Left Section - Brand & Selectors */
@@ -2329,14 +2329,14 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
 .brand-title {
   font-size: 18px;
   font-weight: 700;
-  color: #1f2937;
+  color: #ffffff;
   line-height: 1;
 }
 
 .brand-subtitle {
   font-size: 12px;
   font-weight: 500;
-  color: #6b7280;
+  color: #94a3b8;
   line-height: 1;
 }
 
@@ -2351,8 +2351,8 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
 }
 
 .modern-selector {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 8px;
   padding: 8px 12px;
   display: flex;
@@ -2366,16 +2366,16 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
 }
 
 .modern-selector:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(59, 130, 246, 0.5);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
 }
 
 .selector-label {
   font-size: 10px;
   font-weight: 600;
-  color: #64748b;
+  color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -2383,7 +2383,7 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
 .selector-value {
   font-size: 13px;
   font-weight: 600;
-  color: #1e293b;
+  color: #ffffff;
   line-height: 1.2;
 }
 
@@ -2393,7 +2393,7 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
   top: 50%;
   transform: translateY(-50%);
   font-size: 10px;
-  color: #64748b;
+  color: #94a3b8;
   transition: transform 0.2s ease;
 }
 
@@ -2406,10 +2406,10 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
   top: 100%;
   left: 0;
   right: 0;
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: rgba(30, 41, 59, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
   z-index: 1000;
   margin-top: 4px;
   overflow: hidden;
@@ -2438,7 +2438,7 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .dropdown-option:last-child {
@@ -2446,23 +2446,23 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
 }
 
 .dropdown-option:hover {
-  background: #f8fafc;
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .dropdown-option.selected {
-  background: #eff6ff;
+  background: rgba(59, 130, 246, 0.2);
   border-left: 3px solid #3b82f6;
 }
 
 .option-text {
   font-size: 13px;
   font-weight: 600;
-  color: #1e293b;
+  color: #ffffff;
 }
 
 .option-meta {
   font-size: 11px;
-  color: #64748b;
+  color: #94a3b8;
 }
 
 /* Center Section - Actions */
@@ -2482,8 +2482,8 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
 }
 
 .action-btn {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border: 1.5px solid #e2e8f0;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border: 1.5px solid rgba(148, 163, 184, 0.3);
   border-radius: 10px;
   padding: 12px 20px;
   display: flex;
@@ -2494,9 +2494,9 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 14px;
   font-weight: 600;
-  color: #1e293b;
+  color: #ffffff;
   min-height: 44px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   position: relative;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;
@@ -2509,16 +2509,16 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
   opacity: 0;
   transition: opacity 0.25s ease;
 }
 
 .action-btn:hover {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-color: #6366f1;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 1) 100%);
+  border-color: rgba(59, 130, 246, 0.5);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15), 0 2px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15), 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .action-btn:hover::before {
@@ -2564,10 +2564,10 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
   position: absolute;
   top: 100%;
   left: 0;
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: rgba(30, 41, 59, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
   z-index: 1000;
   margin-top: 4px;
   min-width: 180px;
@@ -2587,24 +2587,24 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #374151;
+  color: #ffffff;
 }
 
 .action-option:hover {
-  background: #f8fafc;
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .action-option.active {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
 }
 
 .action-option.danger {
-  color: #dc2626;
+  color: #ef4444;
 }
 
 .action-option.danger:hover {
-  background: #fef2f2;
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .option-icon {
@@ -2613,8 +2613,56 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
 
 .dropdown-separator {
   height: 1px;
-  background: #f1f5f9;
+  background: rgba(148, 163, 184, 0.2);
   margin: 4px 0;
+}
+
+/* Dropdown Group Styles */
+.dropdown-group {
+  width: 100%;
+}
+
+.dropdown-group.single-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-group-header {
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.8);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dropdown-group-options {
+  display: flex;
+  flex-direction: column;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.dropdown-group-options::-webkit-scrollbar {
+  width: 4px;
+}
+
+.dropdown-group-options::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.dropdown-group-options::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 2px;
+}
+
+.dropdown-group-options::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
 }
 
 /* Right Section - Controls & Status */
@@ -2632,13 +2680,13 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
 
 .control-btn {
   background: transparent;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 6px;
   padding: 8px 10px;
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 16px;
-  color: #374151;
+  color: #94a3b8;
   width: 36px;
   height: 36px;
   display: flex;
@@ -2647,10 +2695,11 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
 }
 
 .control-btn:hover:not(.disabled) {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(59, 130, 246, 0.5);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  color: #ffffff;
 }
 
 .control-btn.disabled {
@@ -2664,8 +2713,8 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
 }
 
 .status-badge {
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 6px;
   padding: 6px 10px;
   display: flex;
@@ -2676,13 +2725,13 @@ div.warehouse-item[data-type="vertical_sku_holder"]:hover {
 .status-count {
   font-size: 14px;
   font-weight: 700;
-  color: #1e293b;
+  color: #ffffff;
 }
 
 .status-label {
   font-size: 11px;
   font-weight: 500;
-  color: #64748b;
+  color: #94a3b8;
 }
 
 /* Responsive Design for Modern Navbar */
@@ -5326,11 +5375,24 @@ input:checked + .toggle-slider:before {
 }
 
 /* Modern Navbar Styles */
+.modern-navbar,
+.warehouse-dashboard .modern-navbar,
+.warehouse-dashboard .flex.items-center.justify-between.modern-navbar {
+  background: linear-gradient(to-b, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%) !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2) !important;
+  color: #ffffff !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  z-index: 2000;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Override any conflicting styles */
 .warehouse-dashboard .flex.items-center.justify-between {
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  z-index: 30;
-  position: relative;
+  background: linear-gradient(to-b, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%) !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3) !important;
 }
 
 /* Breadcrumb Navigation */

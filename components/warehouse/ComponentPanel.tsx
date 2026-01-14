@@ -260,20 +260,17 @@ const ComponentPanel = () => {
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-slate-700/50 h-20 bg-slate-900/50">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-            <span className="text-white text-lg">🏭</span>
-          </div>
           <h3 className="text-xl font-bold text-white">Components</h3>
         </div>
       </div>
       
       {/* Categories Container */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-900/30">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800">
         {WAREHOUSE_COMPONENTS.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="text-4xl mb-4 opacity-50">📦</div>
-            <div className="text-white font-medium mb-2">No components available</div>
-            <div className="text-slate-400 text-sm">Components will be added step by step</div>
+            <div className="text-4xl mb-4 opacity-30">📦</div>
+            <div className="text-slate-400 font-medium mb-2">No components available</div>
+            <div className="text-slate-500 text-sm">Components will be added step by step</div>
           </div>
         ) : (
           WAREHOUSE_COMPONENTS.map((category, index) => (

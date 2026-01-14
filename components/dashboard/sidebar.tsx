@@ -172,7 +172,7 @@ export function DashboardSidebar({ isOpen, toggle }: SidebarProps) {
     },
     {
       title: "Asset Management",
-      href: "/dashboard/asset-management",
+      href: "/dashboard/reference-data/asset-management",
       icon: Package,
       parent: "Reference Data Management",
     },

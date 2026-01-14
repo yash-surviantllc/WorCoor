@@ -1,80 +1,75 @@
-'use client';
-
 import React, { useState, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { v4 as uuidv4 } from 'uuid';
-import ComponentPanel from '@/components/warehouse/ComponentPanel';
-import WarehouseCanvas from '@/components/warehouse/WarehouseCanvas';
-import PropertiesPanel from '@/components/warehouse/PropertiesPanel';
-import Toolbar from '@/components/warehouse/Toolbar';
-import TopNavbar from '@/components/warehouse/TopNavbar';
-import ContextMenu from '@/components/warehouse/ContextMenu';
-import StackManager from '@/components/warehouse/StackManager';
-import InfoPopup from '@/components/warehouse/InfoPopup';
-import SearchPanel from '@/components/warehouse/SearchPanel';
-import MainDashboard from '@/components/dashboard/MainDashboard';
-import FacilityManager from '@/components/warehouse/FacilityManager';
-import MeasurementTools from '@/components/warehouse/MeasurementTools';
-import ZoneContextMenu from '@/components/warehouse/ZoneContextMenu';
-import WarehouseDesigner from '@/components/warehouse/WarehouseDesigner';
-import FullscreenMap from '@/components/warehouse/FullscreenMap';
-import SkuIdSelector from '@/components/warehouse/SkuIdSelector';
-import MultiLocationSelector from '@/components/warehouse/MultiLocationSelector';
-import OrgUnitSelector from '@/components/warehouse/OrgUnitSelector';
-import { STACK_MODES, STACKABLE_COMPONENTS, OCCUPANCY_STATUS, STORAGE_ORIENTATION, COMPONENT_TYPES } from '@/lib/warehouse/constants/warehouseComponents';
-import { getComponentColor, forceRefreshStorageUnitColors } from '@/lib/warehouse/utils/componentColors';
-import { generateStorageUnitLabel, generateStorageComponentLabel, applyEnhancedLabeling } from '@/lib/warehouse/utils/componentLabeling';
-import { generateLocationCode, generateMockInventoryData } from '@/lib/warehouse/utils/locationUtils';
-import { simulateDataRefresh, DataCache } from '@/lib/warehouse/utils/dataRefresh';
-import { facilityHierarchy } from '@/lib/warehouse/utils/facilityHierarchy';
-import { measurementSystem, gridSystem } from '@/lib/warehouse/utils/measurementTools';
-import { shapeCreator } from '@/lib/warehouse/utils/shapeCreator';
-import { layoutExporter } from '@/lib/warehouse/utils/exportUtils';
-import { LayoutCropper } from '@/lib/warehouse/utils/layoutCropper';
+import ComponentPanel from './components/ComponentPanel';
+import WarehouseCanvas from './components/WarehouseCanvas';
+import PropertiesPanel from './components/PropertiesPanel';
+import Toolbar from './components/Toolbar';
+import TopNavbar from './components/TopNavbar';
+import ContextMenu from './components/ContextMenu';
+import StackManager from './components/StackManager';
+import InfoPopup from './components/InfoPopup';
+import SearchPanel from '../components/warehouse/tools/SearchPanel';
+import MainDashboard from '../components/dashboard/MainDashboard';
+import FacilityManager from './components/FacilityManager';
+import MeasurementTools from '../components/warehouse/tools/MeasurementTools';
+import ZoneContextMenu from './components/ZoneContextMenu';
+import WarehouseDesigner from './components/WarehouseDesigner';
+import FullscreenMap from '../components/warehouse/views/FullscreenView';
+import SkuIdSelector from '../components/warehouse/forms/SkuIdSelector';
+import MultiLocationSelector from '../components/warehouse/forms/MultiLocationSelector';
+import OrgUnitSelector from './components/OrgUnitSelector';
+import { STACK_MODES, STACKABLE_COMPONENTS, OCCUPANCY_STATUS, STORAGE_ORIENTATION, COMPONENT_TYPES } from '../lib/warehouse/constants/warehouseComponents';
+import { getComponentColor, forceRefreshStorageUnitColors } from '../lib/warehouse/utils/componentColors';
+import { generateStorageUnitLabel, generateStorageComponentLabel, applyEnhancedLabeling } from '../lib/warehouse/utils/componentLabeling';
+import { generateLocationCode, generateMockInventoryData } from '../lib/warehouse/utils/locationUtils';
+import { simulateDataRefresh, DataCache } from '../lib/warehouse/utils/dataRefresh';
+import { facilityHierarchy } from '../lib/warehouse/utils/facilityHierarchy';
+import { measurementSystem, gridSystem } from '../lib/warehouse/utils/measurementTools';
+import { shapeCreator } from '../lib/warehouse/utils/shapeCreator';
+import { layoutExporter } from '../lib/warehouse/utils/exportUtils';
+import { LayoutCropper } from '../lib/warehouse/utils/layoutCropper';
 import { 
   constrainToBoundary, 
   autoAdjustFloorPlan, 
   validateItemPlacement,
   validateItemResize,
   getFloorPlan 
-} from '@/lib/warehouse/utils/boundaryManager';
-import showMessage from '@/lib/warehouse/utils/showMessage';
-
+} from '../lib/warehouse/utils/boundaryManager';
+import showMessage from '../lib/warehouse/utils/showMessage';
 function App() {
-  const router = useRouter();
-  const [warehouseItems, setWarehouseItems] = useState<any[]>([]);
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [stackMode, setStackMode] = useState<string>(STACK_MODES.HORIZONTAL);
-  const [contextMenu, setContextMenu] = useState<any>({ visible: false, x: 0, y: 0, item: null });
-  const [stackManager, setStackManager] = useState<any>({ visible: false, item: null });
-  const [infoPopup, setInfoPopup] = useState<any>({ visible: false, x: 0, y: 0, item: null });
-  const [zoneContextMenu, setZoneContextMenu] = useState<any>({ visible: false, x: 0, y: 0, zone: null });
-  const [searchPanelVisible, setSearchPanel] = useState<boolean>(false);
+  const [warehouseItems, setWarehouseItems] = useState([]);
+  const [selectedItemId, setSelectedItemId] = useState(null);
+  const [stackMode, setStackMode] = useState(STACK_MODES.DISABLED);
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, item: null });
+  const [stackManager, setStackManager] = useState({ visible: false, item: null });
+  const [infoPopup, setInfoPopup] = useState({ visible: false, x: 0, y: 0, item: null });
+  const [zoneContextMenu, setZoneContextMenu] = useState({ visible: false, x: 0, y: 0, zone: null });
+  const [searchPanelVisible, setSearchPanel] = useState(false);
   const [dataCache] = useState(() => new DataCache(30000)); // 30 second refresh
-  const [lastRefresh, setLastRefresh] = useState<number>(Date.now());
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
-  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [centerCanvasTrigger, setCenterCanvasTrigger] = useState<number>(0);
+  const [lastRefresh, setLastRefresh] = useState(Date.now());
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [centerCanvasTrigger, setCenterCanvasTrigger] = useState(0);
   
   // New state for enhanced features
-  const [facilityManagerVisible, setFacilityManagerVisible] = useState<boolean>(false);
-  const [measurementToolsVisible, setMeasurementToolsVisible] = useState<boolean>(false);
-  const [selectedFacility, setSelectedFacility] = useState<any>(null);
-  const [showMainDashboard, setShowMainDashboard] = useState<boolean>(false);
-  const [gridVisible, setGridVisible] = useState<boolean>(true);
-  const [snapEnabled, setSnapEnabled] = useState<boolean>(true);
-  const [undoStack, setUndoStack] = useState<any[]>([]);
-  const [redoStack, setRedoStack] = useState<any[]>([]);
-  const [layoutName, setLayoutName] = useState<string>('Warehouse Management System');
-  const [layoutNameSet, setLayoutNameSet] = useState<boolean>(false);
-  const [selectedOrgUnit, setSelectedOrgUnit] = useState<any>(null);
-  const [selectedOrgMap, setSelectedOrgMap] = useState<any>(null);
-  const [skuIdSelectorVisible, setSkuIdSelectorVisible] = useState<boolean>(false);
-  const [multiLocationSelectorVisible, setMultiLocationSelectorVisible] = useState<boolean>(false);
-  const [pendingSkuRequest, setPendingSkuRequest] = useState<any>(null);
-  const [mapTypeSelectorVisible, setMapTypeSelectorVisible] = useState<boolean>(false);
+  const [facilityManagerVisible, setFacilityManagerVisible] = useState(false);
+  const [measurementToolsVisible, setMeasurementToolsVisible] = useState(false);
+  const [selectedFacility, setSelectedFacility] = useState(null);
+  const [showMainDashboard, setShowMainDashboard] = useState(true);
+  const [gridVisible, setGridVisible] = useState(true);
+  const [snapEnabled, setSnapEnabled] = useState(true);
+  const [undoStack, setUndoStack] = useState([]);
+  const [redoStack, setRedoStack] = useState([]);
+  const [layoutName, setLayoutName] = useState('Warehouse Management System');
+  const [layoutNameSet, setLayoutNameSet] = useState(false);
+  const [selectedOrgUnit, setSelectedOrgUnit] = useState(null);
+  const [selectedOrgMap, setSelectedOrgMap] = useState(null);
+  const [skuIdSelectorVisible, setSkuIdSelectorVisible] = useState(false);
+  const [multiLocationSelectorVisible, setMultiLocationSelectorVisible] = useState(false);
+  const [pendingSkuRequest, setPendingSkuRequest] = useState(null);
+  const [mapTypeSelectorVisible, setMapTypeSelectorVisible] = useState(false);
 
   const selectedItem = warehouseItems.find(item => item.id === selectedItemId);
 
@@ -214,11 +209,9 @@ function App() {
     const isSpareUnit = newItem.type === COMPONENT_TYPES.SPARE_UNIT;
     // If no org unit is selected, user needs to select one from the navbar dropdown first
     if (!selectedOrgUnit) {
-      console.log('No org unit selected, showing warning popup');
       showMessage.warning('Please select an organizational unit from the dropdown in the top navigation bar before adding components.');
       return;
     }
-    console.log('Org unit selected:', selectedOrgUnit);
     
     saveToUndoStack(warehouseItems);
     
@@ -1146,8 +1139,8 @@ function App() {
   }, []);
 
   const handleNavigateToDashboard = useCallback(() => {
-    router.push('/dashboard/warehouse-management');
-  }, [router]);
+    setShowMainDashboard(true);
+  }, []);
 
   // Check if we're in fullscreen map mode
   const isFullscreenMap = window.location.hash.startsWith('#fullscreen-map=');

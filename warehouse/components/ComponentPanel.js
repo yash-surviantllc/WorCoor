@@ -1,48 +1,9 @@
-'use client';
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useDrag } from 'react-dnd';
-import { DRAG_TYPES, WAREHOUSE_COMPONENTS } from '@/lib/warehouse/constants/warehouseComponents';
+import { DRAG_TYPES, WAREHOUSE_COMPONENTS } from '../../lib/warehouse/constants/warehouseComponents';
 
-interface ComponentItem {
-  type: string;
-  name: string;
-  icon: string;
-  color: string;
-  defaultSize?: { width: number; height: number };
-  description: string;
-  drawingTool?: boolean;
-  priority?: 'high' | 'medium' | 'low' | string;
-  isBoundary?: boolean;
-  isHollow?: boolean;
-  borderWidth?: number;
-  borderColor?: string;
-  gridStep?: number;
-  [key: string]: any; // Allow additional properties
-}
-
-interface DraggableComponentProps {
-  component: ComponentItem;
-}
-
-interface ComponentCategoryData {
-  category: string;
-  icon?: string;
-  priority?: string;
-  expanded?: boolean;
-  components: ComponentItem[];
-  [key: string]: any; // Allow additional properties
-}
-
-interface ComponentCategoryProps {
-  category: ComponentCategoryData;
-  isExpanded: boolean;
-  onToggle: () => void;
-}
-
-const DraggableComponent: React.FC<DraggableComponentProps> = ({ component }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [{ isDragging }, drag, preview] = useDrag({
+const DraggableComponent = ({ component }) => {
+  const [{ isDragging }, drag] = useDrag({
     type: DRAG_TYPES.COMPONENT,
     item: {
       ...component,
@@ -56,7 +17,7 @@ const DraggableComponent: React.FC<DraggableComponentProps> = ({ component }) =>
       drawingTool: component.drawingTool || false,
       priority: component.priority || 'medium'
     },
-    collect: (monitor: any) => ({
+    collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
     canDrag: () => true,
@@ -69,33 +30,15 @@ const DraggableComponent: React.FC<DraggableComponentProps> = ({ component }) =>
     }
   });
 
-  // Connect the drag source to the ref
-  useEffect(() => {
-    if (ref.current) {
-      drag(ref.current);
-    }
-  }, [drag]);
-
-  // Create custom drag preview with label
-  useEffect(() => {
-    const img = new Image();
-    img.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='; // 1x1 transparent gif
-    img.onload = () => preview(img);
-  }, [preview]);
-
   return (
     <div
-      ref={ref}
+      ref={drag}
       className={`component-item ${isDragging ? 'dragging' : ''} ${component.drawingTool ? 'drawing-tool' : ''}`}
       data-priority={component.priority || 'medium'}
       data-type={component.type}
       style={{
         backgroundColor: component.color,
-        opacity: isDragging ? 0.7 : 1,
-        border: '1px solid rgba(255,255,255,0.2)',
-        borderRadius: '8px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-        cursor: 'grab'
+        opacity: isDragging ? 0.7 : 1
       }}
       title={`${component.description}${component.priority ? ` (${component.priority} priority)` : ''}\nDrag to canvas to add`}
     >
@@ -105,7 +48,7 @@ const DraggableComponent: React.FC<DraggableComponentProps> = ({ component }) =>
         fontSize: '11px',
         textAlign: 'center',
         lineHeight: '1.3',
-        textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+        textShadow: '0 1px 2px rgba(0,0,0,0.5)',
         padding: '6px 4px',
         wordWrap: 'break-word',
         overflow: 'hidden',
@@ -122,13 +65,12 @@ const DraggableComponent: React.FC<DraggableComponentProps> = ({ component }) =>
         bottom: '2px',
         left: '50%',
         transform: 'translateX(-50%)',
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        color: '#fff',
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        color: '#333',
         padding: '2px 6px',
-        borderRadius: '4px',
-        fontSize: '9px',
-        fontWeight: '500',
-        border: '1px solid rgba(255,255,255,0.2)'
+        borderRadius: '3px',
+        fontSize: '10px',
+        fontWeight: '500'
       }}>
         {component.drawingTool ? '🎨' : `${component.defaultSize?.width || 50}×${component.defaultSize?.height || 50}`}
       </div>
@@ -145,21 +87,18 @@ const DraggableComponent: React.FC<DraggableComponentProps> = ({ component }) =>
           fontSize: '0.6rem',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 0 4px rgba(255,23,68,0.5)'
+          justifyContent: 'center'
         }}></div>
       )}
     </div>
   );
 };
 
-const ComponentCategory: React.FC<ComponentCategoryProps> = ({ category, isExpanded, onToggle }) => {
+const ComponentCategory = ({ category, isExpanded, onToggle }) => {
   // Sort components by priority (high -> medium -> low)
-  const sortedItems = [...(category.components || [])].sort((a: ComponentItem, b: ComponentItem) => {
-    const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
-    const aPriority = priorityOrder[a.priority as string] || 1;
-    const bPriority = priorityOrder[b.priority as string] || 1;
-    return aPriority - bPriority;
+  const sortedItems = [...(category.components || [])].sort((a, b) => {
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    return (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1);
   });
 
   return (
@@ -179,28 +118,28 @@ const ComponentCategory: React.FC<ComponentCategoryProps> = ({ category, isExpan
           display: 'flex',
           gap: '2px'
         }}>
-          {(category.components || []).filter((item: ComponentItem) => item.priority === 'high').length > 0 && (
+          {(category.components || []).filter(item => item.priority === 'high').length > 0 && (
             <div style={{
               width: '6px',
               height: '6px',
               borderRadius: '50%',
-              background: '#ff1744'
+              background: 'var(--error-500)'
             }} title="High priority items"></div>
           )}
-          {(category.components || []).filter((item: ComponentItem) => item.priority === 'medium').length > 0 && (
+          {(category.components || []).filter(item => item.priority === 'medium').length > 0 && (
             <div style={{
               width: '6px',
               height: '6px',
               borderRadius: '50%',
-              background: '#ff9800'
+              background: 'var(--warning-500)'
             }} title="Medium priority items"></div>
           )}
-          {(category.components || []).filter((item: ComponentItem) => item.priority === 'low').length > 0 && (
+          {(category.components || []).filter(item => item.priority === 'low').length > 0 && (
             <div style={{
               width: '6px',
               height: '6px',
               borderRadius: '50%',
-              background: '#4caf50'
+              background: 'var(--success-500)'
             }} title="Low priority items"></div>
           )}
         </div>
@@ -217,7 +156,7 @@ const ComponentCategory: React.FC<ComponentCategoryProps> = ({ category, isExpan
 };
 
 const ComponentPanel = () => {
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
+  const [expandedCategories, setExpandedCategories] = useState({
     'Storage & Inventory': false,
     'Operations': false,
     'Facilities': false,
@@ -231,8 +170,11 @@ const ComponentPanel = () => {
     'Zone Types': true,
     'Unit Types': true
   });
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredComponents, setFilteredComponents] = useState(WAREHOUSE_COMPONENTS);
 
-  const toggleCategory = (categoryName: string) => {
+  const toggleCategory = (categoryName) => {
     setExpandedCategories(prev => ({
       ...prev,
       [categoryName]: !prev[categoryName]
@@ -240,43 +182,80 @@ const ComponentPanel = () => {
   };
 
   const expandAll = () => {
-    const allExpanded: Record<string, boolean> = {};
-    WAREHOUSE_COMPONENTS.forEach((cat: any) => {
+    const allExpanded = {};
+    WAREHOUSE_COMPONENTS.forEach(cat => {
       allExpanded[cat.category] = true;
     });
     setExpandedCategories(allExpanded);
   };
 
   const collapseAll = () => {
-    const allCollapsed: Record<string, boolean> = {};
-    WAREHOUSE_COMPONENTS.forEach((cat: any) => {
+    const allCollapsed = {};
+    WAREHOUSE_COMPONENTS.forEach(cat => {
       allCollapsed[cat.category] = false;
     });
     setExpandedCategories(allCollapsed);
   };
+  
+  // Filter components based on search term
+  const handleSearch = (term) => {
+    setSearchTerm(term);
+    if (!term.trim()) {
+      setFilteredComponents(WAREHOUSE_COMPONENTS);
+      return;
+    }
+    
+    const filtered = WAREHOUSE_COMPONENTS.map(category => ({
+      ...category,
+      components: category.components ? category.components.filter(item => 
+        item.name.toLowerCase().includes(term.toLowerCase()) ||
+        item.description.toLowerCase().includes(term.toLowerCase()) ||
+        item.type.toLowerCase().includes(term.toLowerCase())
+      ) : []
+    })).filter(category => category.components && category.components.length > 0);
+    
+    setFilteredComponents(filtered);
+    
+    // Auto-expand categories with search results
+    if (term.trim()) {
+      const expandedForSearch = {};
+      filtered.forEach(cat => {
+        expandedForSearch[cat.category] = true;
+      });
+      setExpandedCategories(expandedForSearch);
+    }
+  };
 
   return (
     <div className="component-panel animate-slide-right">
-      {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-slate-700/50 h-20 bg-slate-900/50">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-            <span className="text-white text-lg">🏭</span>
-          </div>
-          <h3 className="text-xl font-bold text-white">Components</h3>
+      <div className="panel-header">
+        <h3>🏭 Components</h3>
+        <div className="search-container">
+          <input
+            type="text"
+            placeholder="🔍 Search components..."
+            value={searchTerm}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="component-search"
+          />
         </div>
       </div>
       
-      {/* Categories Container */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {WAREHOUSE_COMPONENTS.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="text-4xl mb-4 opacity-50">📦</div>
-            <div className="text-white font-medium mb-2">No components available</div>
-            <div className="text-slate-400 text-sm">Components will be added step by step</div>
+      <div className="categories-container">
+        {filteredComponents.length === 0 && searchTerm ? (
+          <div className="no-results">
+            <div className="no-results-icon">🔍</div>
+            <div className="no-results-text">No components found</div>
+            <div className="no-results-hint">Try a different search term</div>
+          </div>
+        ) : filteredComponents.length === 0 ? (
+          <div className="no-results">
+            <div className="no-results-icon">📦</div>
+            <div className="no-results-text">No components available</div>
+            <div className="no-results-hint">Components will be added step by step</div>
           </div>
         ) : (
-          WAREHOUSE_COMPONENTS.map((category, index) => (
+          filteredComponents.map((category, index) => (
             <ComponentCategory
               key={index}
               category={category}
@@ -291,4 +270,3 @@ const ComponentPanel = () => {
 };
 
 export default ComponentPanel;
-

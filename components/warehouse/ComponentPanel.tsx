@@ -268,7 +268,7 @@ const ComponentPanel = () => {
       </div>
       
       {/* Categories Container */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-900/30">
         {WAREHOUSE_COMPONENTS.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="text-4xl mb-4 opacity-50">📦</div>

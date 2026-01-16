@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import WarehouseDesigner from '@/components/warehouse/WarehouseDesigner';
-import Dashboard from '@/components/warehouse/Dashboard';
 import LocationDetailsPanel from '@/components/warehouse/LocationDetailsPanel';
 import SavedLayoutRenderer, { getLayoutItemKey } from '@/components/warehouse/SavedLayoutRenderer';
 import summarizeStorageComponents from '@/lib/warehouse/utils/layoutComponentSummary';
@@ -1267,44 +1266,6 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData }) => 
 
   return (
     <div className="warehouse-dashboard">
-      {/* Modern Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200">
-        <div className="flex items-center space-x-8">
-          {/* Breadcrumb - Dashboard removed */}
-          <nav className="flex items-center space-x-2 text-sm">
-            {selectedUnit && (
-              <>
-                <button
-                  onClick={() => setCurrentSection('live-view')}
-                  className={`px-3 py-1.5 rounded-md transition-colors ${
-                    currentSection === 'live-view' 
-                      ? 'bg-blue-50 text-blue-600 font-medium' 
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  {warehouseUnits.find(u => u.id === selectedUnit)?.name || 'Unit'} - Live View
-                </button>
-              </>
-            )}
-            
-            {currentSection === 'layout-builder' && selectedUnit && (
-              <>
-                <span className="text-gray-400">/</span>
-                <span className="px-3 py-1.5 text-gray-600 font-medium">
-                  Layout Builder
-                </span>
-              </>
-            )}
-          </nav>
-          
-          {/* Page Title */}
-          <div className="flex items-center">
-            <h1 className="text-xl font-semibold text-gray-900">Warehouse Layouts</h1>
-          </div>
-        </div>
-        
-      </div>
-
       {/* Main Content Grid */}
       <div className="dashboard-content">
         {currentSection === 'layout-builder' ? (
@@ -1575,8 +1536,9 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData }) => 
                         <>
                           <button 
                             className="action-btn edit-btn"
-                            disabled
-                            style={{ opacity: 0.5, cursor: 'not-allowed' }}
+                            onClick={() => {
+                              alert('Edit Layout feature coming soon!');
+                            }}
                           >
                             Edit Layout
                           </button>

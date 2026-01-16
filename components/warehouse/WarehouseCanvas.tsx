@@ -683,19 +683,31 @@ const WarehouseCanvas = ({
           width: '100%',
           height: '100%'
         }}>
-          {items.map((item) => (
-            <WarehouseItem
-              key={item.id}
-              item={item}
-              onSelect={onSelectItem}
-              isSelected={selectedItemId === item.id || selectedItems.includes(item.id)}
-              onUpdate={onUpdateItem}
-              onRightClick={onRightClick}
-              onInfoClick={onInfoClick}
-              stackMode={stackMode}
-              onRequestSkuId={onRequestSkuId}
-            />
-          ))}
+          {items.map((item, index) => {
+            console.log(`Rendering item ${index}:`, {
+              id: item.id,
+              type: item.type,
+              name: item.name,
+              x: item.x,
+              y: item.y,
+              width: item.width,
+              height: item.height,
+              color: item.color
+            });
+            return (
+              <WarehouseItem
+                key={item.id}
+                item={item}
+                onSelect={onSelectItem}
+                isSelected={selectedItemId === item.id || selectedItems.includes(item.id)}
+                onUpdate={onUpdateItem}
+                onRightClick={onRightClick}
+                onInfoClick={onInfoClick}
+                stackMode={stackMode}
+                onRequestSkuId={onRequestSkuId}
+              />
+            );
+          })}
         </div>
         
         {/* Selection box */}

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import WarehouseDesigner from '@/components/warehouse/WarehouseDesigner';
+import { useRouter } from 'next/navigation';
+import WarehouseLayoutBuilder from '@/components/warehouse/WarehouseLayoutBuilder';
 import LocationDetailsPanel from '@/components/warehouse/LocationDetailsPanel';
 import SavedLayoutRenderer, { getLayoutItemKey } from '@/components/warehouse/SavedLayoutRenderer';
 import summarizeStorageComponents from '@/lib/warehouse/utils/layoutComponentSummary';
@@ -80,6 +81,7 @@ interface WarehouseMapViewProps {
 }
 
 const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData }) => {
+  const router = useRouter();
   const [selectedZone, setSelectedZone] = useState<any>(null);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [selectedUnitForDemo, setSelectedUnitForDemo] = useState<string | null>(null);
@@ -1279,7 +1281,20 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData }) => 
                 ← Back to Dashboard
               </button>
             </div>
-            <WarehouseDesigner onBack={() => setCurrentSection('dashboard')} />
+            <WarehouseLayoutBuilder 
+              initialOrgUnit={(() => {
+                const unit = warehouseUnits.find(u => u.id === selectedUnit);
+                return unit ? {
+                  id: unit.id,
+                  name: unit.name,
+                  location: unit.subtitle.split(' - ')[0] || unit.subtitle
+                } : null;
+              })()}
+              initialLayout={(() => {
+                const unit = warehouseUnits.find(u => u.id === selectedUnit);
+                return unit && unit.isCustomLayout && unit.layoutData ? unit.layoutData : null;
+              })()}
+            />
           </div>
         ) : (
           <div>
@@ -1537,7 +1552,8 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData }) => 
                           <button 
                             className="action-btn edit-btn"
                             onClick={() => {
-                              alert('Edit Layout feature coming soon!');
+                              // Navigate to the new edit route with layout ID
+                              router.push(`/dashboard/warehouse-management/edit/${unit.id}`);
                             }}
                           >
                             Edit Layout

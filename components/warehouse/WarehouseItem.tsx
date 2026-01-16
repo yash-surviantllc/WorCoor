@@ -793,6 +793,17 @@ const WarehouseItem = ({
       onMouseMove={handleItemMouseMove}
       onMouseLeave={handleItemMouseLeave}
     >
+      {/* Debug: Show component info */}
+      {console.log('WarehouseItem rendering:', {
+        id: item.id,
+        type: item.type,
+        name: item.name,
+        position: { x: item.x, y: item.y },
+        dimensions: { width: item.width, height: item.height },
+        backgroundColor: item.type === 'storage_unit' ? storageUnitColor : item.color,
+        isHollow: item.isHollow,
+        showCompartments: item.showCompartments
+      })}
       {/* Shape rendering for shape components */}
       {item.isShape && renderShapeComponent(item)}
       

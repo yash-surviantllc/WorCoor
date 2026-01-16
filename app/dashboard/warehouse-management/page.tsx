@@ -4,8 +4,27 @@ import Link from 'next/link';
 import { Map, LayoutDashboard, Warehouse } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageTitle } from '@/components/page-title';
+import { useState, useEffect } from 'react';
 
 export default function WarehouseManagementPage() {
+  const [totalLayouts, setTotalLayouts] = useState(1);
+  const [activeWarehouses, setActiveWarehouses] = useState(0);
+
+  useEffect(() => {
+    // Only run on client side
+    if (typeof window !== 'undefined') {
+      try {
+        const savedLayouts = JSON.parse(localStorage.getItem('warehouseLayouts') || '[]');
+        setTotalLayouts(savedLayouts.length);
+        setActiveWarehouses(savedLayouts.filter((l: any) => l.operationalStatus === 'operational').length);
+      } catch (error) {
+        console.error('Error loading layouts:', error);
+        setTotalLayouts(0);
+        setActiveWarehouses(0);
+      }
+    }
+  }, []);
+
   return (
     <div className="flex flex-col gap-6">
       <PageTitle
@@ -76,9 +95,7 @@ export default function WarehouseManagementPage() {
               <div className="space-y-1">
                 <p className="text-sm font-medium text-blue-100">Total Layouts</p>
                 <p className="text-3xl font-bold text-white">
-                  {typeof window !== 'undefined' && localStorage.getItem('warehouseLayouts') 
-                    ? JSON.parse(localStorage.getItem('warehouseLayouts') || '[]').length 
-                    : 1}
+                  {totalLayouts}
                 </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
@@ -94,9 +111,7 @@ export default function WarehouseManagementPage() {
               <div className="space-y-1">
                 <p className="text-sm font-medium text-emerald-100">Active Warehouses</p>
                 <p className="text-3xl font-bold text-white">
-                  {typeof window !== 'undefined' && localStorage.getItem('warehouseLayouts')
-                    ? JSON.parse(localStorage.getItem('warehouseLayouts') || '[]').filter((l: any) => l.operationalStatus === 'operational').length
-                    : 0}
+                  {activeWarehouses}
                 </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">

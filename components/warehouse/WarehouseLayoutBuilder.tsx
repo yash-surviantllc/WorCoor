@@ -42,7 +42,25 @@ import {
 } from '@/lib/warehouse/utils/boundaryManager';
 import showMessage from '@/lib/warehouse/utils/showMessage';
 
-function App() {
+// TypeScript interfaces
+interface OrgUnit {
+  id: string;
+  name: string;
+  location: string;
+}
+
+interface LayoutData {
+  items: any[];
+  name?: string;
+  timestamp?: string;
+}
+
+interface AppProps {
+  initialOrgUnit?: OrgUnit | null;
+  initialLayout?: LayoutData | null;
+}
+
+function App({ initialOrgUnit = null, initialLayout = null }: AppProps) {
   const router = useRouter();
   const [warehouseItems, setWarehouseItems] = useState<any[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -69,7 +87,7 @@ function App() {
   const [redoStack, setRedoStack] = useState<any[]>([]);
   const [layoutName, setLayoutName] = useState<string>('Warehouse Management System');
   const [layoutNameSet, setLayoutNameSet] = useState<boolean>(false);
-  const [selectedOrgUnit, setSelectedOrgUnit] = useState<any>(null);
+  const [selectedOrgUnit, setSelectedOrgUnit] = useState<OrgUnit | null>(initialOrgUnit);
   const [selectedOrgMap, setSelectedOrgMap] = useState<any>(null);
   const [skuIdSelectorVisible, setSkuIdSelectorVisible] = useState<boolean>(false);
   const [multiLocationSelectorVisible, setMultiLocationSelectorVisible] = useState<boolean>(false);
@@ -78,10 +96,105 @@ function App() {
 
   const selectedItem = warehouseItems.find(item => item.id === selectedItemId);
 
+  // Handle org unit selection
+  const handleOrgUnitSelect = useCallback((selection: any) => {
+    const { orgUnit, status } = selection;
+    const layoutName = `${orgUnit.name} Layout`;
+    
+    setSelectedOrgUnit(orgUnit);
+    setSelectedOrgMap(null); // Reset map selection when org unit changes
+    setLayoutName(layoutName);
+    setLayoutNameSet(true);
+  }, []);
+
+  // Initialize org unit and layout when editing
+  useEffect(() => {
+    console.log('WarehouseLayoutBuilder - initialOrgUnit:', initialOrgUnit);
+    console.log('WarehouseLayoutBuilder - initialLayout:', initialLayout);
+    
+    if (initialOrgUnit) {
+      setSelectedOrgUnit(initialOrgUnit);
+      const layoutName = initialLayout?.name || `${initialOrgUnit.name} Layout`;
+      setLayoutName(layoutName);
+      setLayoutNameSet(true);
+    }
+    
+    if (initialLayout && initialLayout.items) {
+      console.log('Setting warehouse items from initialLayout:', initialLayout.items);
+      
+      // Auto-center components in the canvas
+      const items = initialLayout.items;
+      if (items.length > 0) {
+        // Calculate the bounding box of all components
+        const minX = Math.min(...items.map(item => item.x || 0));
+        const minY = Math.min(...items.map(item => item.y || 0));
+        const maxX = Math.max(...items.map(item => (item.x || 0) + (item.width || 0)));
+        const maxY = Math.max(...items.map(item => (item.y || 0) + (item.height || 0)));
+        
+        // Calculate the current layout dimensions
+        const layoutWidth = maxX - minX;
+        const layoutHeight = maxY - minY;
+        
+        // Calculate actual visible canvas dimensions (based on WarehouseCanvas fixed positioning)
+        // Canvas is positioned: top: 60px, left: 320px, right: 320px, bottom: 40px
+        const viewportWidth = window.innerWidth - 320 - 320; // Left + Right margins
+        const viewportHeight = window.innerHeight - 60 - 40; // Top + Bottom margins
+        
+        // Use reasonable defaults if viewport calculation fails
+        const canvasWidth = Math.max(viewportWidth, 800);
+        const canvasHeight = Math.max(viewportHeight, 500);
+        
+        // Calculate center offset in the 5000x5000 scrollable canvas
+        const offsetX = 2500 - (layoutWidth / 2) - minX; // Center in 5000px canvas
+        const offsetY = 2500 - (layoutHeight / 2) - minY; // Center in 5000px canvas
+        
+        console.log('Auto-centering layout:', {
+          layoutBounds: { minX, minY, maxX, maxY },
+          layoutDimensions: { width: layoutWidth, height: layoutHeight },
+          viewportDimensions: { width: viewportWidth, height: viewportHeight },
+          canvasDimensions: { width: canvasWidth, height: canvasHeight },
+          centerOffset: { x: offsetX, y: offsetY }
+        });
+        
+        // Apply centering to all items
+        const centeredItems = items.map(item => ({
+          ...item,
+          x: (item.x || 0) + offsetX,
+          y: (item.y || 0) + offsetY
+        }));
+        
+        setWarehouseItems(centeredItems);
+        
+        // Auto-scroll to center the view
+        setTimeout(() => {
+          const canvasElement = document.querySelector('.warehouse-canvas');
+          if (canvasElement) {
+            // Scroll to the center of the layout in the 5000x5000 canvas
+            const scrollLeft = offsetX - (canvasWidth / 2) + (layoutWidth / 2);
+            const scrollTop = offsetY - (canvasHeight / 2) + (layoutHeight / 2);
+            
+            console.log('Auto-scrolling to:', { scrollLeft, scrollTop });
+            
+            canvasElement.scrollLeft = scrollLeft;
+            canvasElement.scrollTop = scrollTop;
+          }
+        }, 100);
+      } else {
+        setWarehouseItems(items);
+      }
+    }
+  }, [initialOrgUnit, initialLayout]);
+
   // Real-time data refresh effect
   useEffect(() => {
     const refreshInterval = setInterval(() => {
       setWarehouseItems(prev => {
+        // Safety check: ensure prev is an array
+        if (!Array.isArray(prev)) {
+          console.warn('warehouseItems is not an array during refresh, resetting to empty array');
+          return [];
+        }
+        
         const refreshed = simulateDataRefresh(prev);
         setLastRefresh(Date.now());
         return refreshed;
@@ -94,6 +207,12 @@ function App() {
   // Color correction effect - ensure all items have fixed colors
   useEffect(() => {
     setWarehouseItems(prev => {
+      // Safety check: ensure prev is an array
+      if (!Array.isArray(prev)) {
+        console.warn('warehouseItems is not an array, resetting to empty array');
+        return [];
+      }
+      
       // First apply general color correction
       const generalCorrectedItems = prev.map(item => {
         if (item.type === COMPONENT_TYPES.SPARE_UNIT) {
@@ -159,10 +278,10 @@ function App() {
 
   // Global context menu prevention when no items exist
   useEffect(() => {
-    const handleGlobalContextMenu = (e) => {
+    const handleGlobalContextMenu = (e: MouseEvent) => {
       if (warehouseItems.length === 0) {
         // Check if the right-click is on the canvas area
-        const canvasElement = e.target.closest('.warehouse-canvas, .canvas-container, .main-content');
+        const canvasElement = (e.target as HTMLElement).closest('.warehouse-canvas, .canvas-container, .main-content');
         if (canvasElement) {
           e.preventDefault();
           e.stopPropagation();
@@ -210,7 +329,7 @@ function App() {
     }
   }, [redoStack, warehouseItems]);
 
-  const handleAddItem = useCallback((newItem) => {
+  const handleAddItem = useCallback((newItem: any) => {
     const isSpareUnit = newItem.type === COMPONENT_TYPES.SPARE_UNIT;
     // If no org unit is selected, user needs to select one from the navbar dropdown first
     if (!selectedOrgUnit) {
@@ -273,7 +392,7 @@ function App() {
     setSelectedItemId(newItem.id);
   }, [warehouseItems, selectedFacility, saveToUndoStack, layoutNameSet, selectedOrgUnit]);
 
-  const handleMoveItem = useCallback((itemId, x, y) => {
+  const handleMoveItem = useCallback((itemId: string, x: number, y: number) => {
     setWarehouseItems(prev => {
       const floorPlan = getFloorPlan(prev);
       
@@ -303,11 +422,11 @@ function App() {
     }, 100);
   }, []);
 
-  const handleSelectItem = useCallback((itemId) => {
+  const handleSelectItem = useCallback((itemId: string) => {
     setSelectedItemId(itemId);
   }, []);
 
-  const handleUpdateItem = useCallback((itemId, updates) => {
+  const handleUpdateItem = useCallback((itemId: string, updates: any) => {
     setWarehouseItems(prev => {
       const floorPlan = getFloorPlan(prev);
       
@@ -353,7 +472,7 @@ function App() {
     });
   }, []);
 
-  const handleDeleteItem = useCallback((itemId) => {
+  const handleDeleteItem = useCallback((itemId: string) => {
     setWarehouseItems(prev => prev.filter(item => item.id !== itemId));
     if (selectedItemId === itemId) {
       setSelectedItemId(null);
@@ -367,7 +486,7 @@ function App() {
     setZoneContextMenu(null);
   }, []);
 
-  const handleInfoClick = useCallback((e, item) => {
+  const handleInfoClick = useCallback((e: MouseEvent, item: any) => {
     setInfoPopup({
       item,
       x: e.clientX,
@@ -387,7 +506,7 @@ function App() {
     setSearchPanel(false);
   }, []);
 
-  const handleSearchSelect = useCallback((item) => {
+  const handleSearchSelect = useCallback((item: any) => {
     setSelectedItemId(item.id);
     // Optionally scroll to item or highlight it
   }, []);
@@ -451,7 +570,7 @@ function App() {
     });
   }, [warehouseItems, isZoomFitEnabled]);
 
-  const handlePanChange = useCallback((newPanOffset, newZoomLevel) => {
+  const handlePanChange = useCallback((newPanOffset: any, newZoomLevel?: number) => {
     setPanOffset(newPanOffset);
     if (newZoomLevel !== undefined) {
       setZoomLevel(newZoomLevel);
@@ -462,7 +581,7 @@ function App() {
     setStackMode(prev => prev === STACK_MODES.ENABLED ? STACK_MODES.DISABLED : STACK_MODES.ENABLED);
   }, []);
 
-  const handleRightClick = useCallback((e, item) => {
+  const handleRightClick = useCallback((e: MouseEvent, item: any) => {
     // Always prevent default context menu
     e.preventDefault();
     e.stopPropagation();
@@ -518,7 +637,7 @@ function App() {
     setZoneContextMenu({ visible: false, x: 0, y: 0, zone: null });
   }, []);
 
-  const handleLockToggle = useCallback((itemId, lockType, isLocked) => {
+  const handleLockToggle = useCallback((itemId: string, lockType: any, isLocked: any) => {
     setWarehouseItems(prevItems => 
       prevItems.map(item => 
         item.id === itemId 
@@ -531,15 +650,15 @@ function App() {
     );
   }, []);
 
-  const handleAddUnitsToZone = useCallback((units) => {
+  const handleAddUnitsToZone = useCallback((units: any) => {
     setWarehouseItems(prev => [...prev, ...units]);
   }, []);
 
-  const handleClearZone = useCallback((zoneId) => {
+  const handleClearZone = useCallback((zoneId: string) => {
     setWarehouseItems(prev => prev.filter(item => item.containerId !== zoneId));
   }, []);
 
-  const handleCreateStack = useCallback((baseItemId, draggedItemId, newItem) => {
+  const handleCreateStack = useCallback((baseItemId: string, draggedItemId: string, newItem: any) => {
     setWarehouseItems(prev => {
       const items = [...prev];
       const baseItemIndex = items.findIndex(item => item.id === baseItemId);
@@ -584,7 +703,7 @@ function App() {
     setSelectedItemId(baseItemId);
   }, []);
 
-  const handleAddLayerAbove = useCallback((item) => {
+  const handleAddLayerAbove = useCallback((item: any) => {
     const newLayerName = prompt('Enter name for new layer:', item.name + ' Layer');
     if (newLayerName) {
       setWarehouseItems(prev => 
@@ -613,7 +732,7 @@ function App() {
     }
   }, []);
 
-  const handleAddLayerBelow = useCallback((item) => {
+  const handleAddLayerBelow = useCallback((item: any) => {
     const newLayerName = prompt('Enter name for new layer:', item.name + ' Base Layer');
     if (newLayerName) {
       setWarehouseItems(prev => 
@@ -642,7 +761,7 @@ function App() {
     }
   }, []);
 
-  const handleManageStack = useCallback((item) => {
+  const handleManageStack = useCallback((item: any) => {
     setStackManager(item);
   }, []);
 
@@ -650,7 +769,7 @@ function App() {
     setStackManager(null);
   }, []);
 
-  const handleUpdateStack = useCallback((updatedStack) => {
+  const handleUpdateStack = useCallback((updatedStack: any) => {
     setWarehouseItems(prev => 
       prev.map(item => 
         item.id === updatedStack.id 
@@ -660,7 +779,7 @@ function App() {
     );
   }, []);
 
-  const handleDeleteLayer = useCallback((layerIndex) => {
+  const handleDeleteLayer = useCallback((layerIndex: number) => {
     if (stackManager && window.confirm('Are you sure you want to delete this layer?')) {
       const updatedStack = { ...stackManager };
       updatedStack.stack.layers.splice(layerIndex, 1);
@@ -675,19 +794,8 @@ function App() {
     }
   }, [stackManager, handleUpdateStack]);
 
-  // Handle org unit selection
-  const handleOrgUnitSelect = useCallback((selection) => {
-    const { orgUnit, status } = selection;
-    const layoutName = `${orgUnit.name} Layout`;
-    
-    setSelectedOrgUnit(orgUnit);
-    setSelectedOrgMap(null); // Reset map selection when org unit changes
-    setLayoutName(layoutName);
-    setLayoutNameSet(true);
-  }, []);
-
   // Handle organization mapping selection
-  const handleOrgMapSelect = useCallback((orgMap) => {
+  const handleOrgMapSelect = useCallback((orgMap: any) => {
     if (!selectedOrgUnit) return;
     
     const layoutName = `${selectedOrgUnit.name} - ${orgMap.name}`;
@@ -698,7 +806,7 @@ function App() {
   }, [selectedOrgUnit]);
 
   // Handle Location ID request from WarehouseItem
-  const handleLocationIdRequest = useCallback((itemId, compartmentId, row, col) => {
+  const handleLocationIdRequest = useCallback((itemId: string, compartmentId: any, row: any, col: any) => {
     const item = warehouseItems.find(item => item.id === itemId);
     setPendingSkuRequest({ itemId, compartmentId, row, col });
     
@@ -745,7 +853,7 @@ function App() {
   }, [warehouseItems]);
 
   // Handle Location ID selection
-  const handleLocationIdSelect = useCallback((data) => {
+  const handleLocationIdSelect = useCallback((data: any) => {
     if (!pendingSkuRequest) return;
     
     const { itemId, compartmentId, row, col } = pendingSkuRequest;
@@ -910,7 +1018,7 @@ function App() {
     setMapTypeSelectorVisible(true);
   }, [selectedOrgUnit]);
 
-  const handleMapTypeSelected = useCallback((selection) => {
+  const handleMapTypeSelected = useCallback((selection: any) => {
     const { status } = selection;
     const operationalStatus = status.id; // Use selected status from modal
     
@@ -960,8 +1068,8 @@ function App() {
       id: `layout-${Date.now()}`,
       name: layoutName,
       status: operationalStatus,
-      location: selectedOrgUnit.location,
-      orgUnit: selectedOrgUnit.name,
+      location: selectedOrgUnit?.location || 'Unknown',
+      orgUnit: selectedOrgUnit?.name || 'Unknown',
       size: `${operationalMetadata.croppedDimensions.width}x${operationalMetadata.croppedDimensions.height}`,
       items: warehouseItems.length,
       zones: warehouseItems.filter(item => item.type && (item.type.includes('zone') || item.type.includes('storage'))).length,
@@ -1000,18 +1108,29 @@ function App() {
       ? `\n\nUltra-tight optimization: Removed ${operationalMetadata.whitespaceRemoved.x}px × ${operationalMetadata.whitespaceRemoved.y}px of white space\nFinal size: ${operationalMetadata.croppedDimensions.width}px × ${operationalMetadata.croppedDimensions.height}px\nZero padding applied for maximum focus`
       : '';
     
-    showMessage.success(`Layout "${layoutName}" saved successfully!\n\nOrganizational Unit: ${selectedOrgUnit.name} (${selectedOrgUnit.location})\nStatus: ${statusLabels[operationalStatus]}${croppingInfo}\n\nThis layout is now available in the Live Warehouse Maps section.`);
+    showMessage.success(`Layout "${layoutName}" saved successfully!\n\nOrganizational Unit: ${selectedOrgUnit?.name || 'Unknown'} (${selectedOrgUnit?.location || 'Unknown'})\nStatus: ${statusLabels[operationalStatus as keyof typeof statusLabels] || 'Unknown'}${croppingInfo}\n\nThis layout is now available in the Live Warehouse Maps section.`);
     
     // Close the map type selector modal
     setMapTypeSelectorVisible(false);
   }, [warehouseItems, layoutName, layoutNameSet, selectedOrgUnit, selectedOrgMap]);
 
-  const handleLoad = useCallback((data) => {
-    if (data.items && Array.isArray(data.items)) {
-      setWarehouseItems(data.items);
-      setSelectedItemId(null);
-    } else {
-      showMessage.error('Invalid file format');
+  const handleLoad = useCallback(() => {
+    // Try to load from localStorage
+    const savedData = localStorage.getItem('loadLayoutData');
+    if (savedData) {
+      try {
+        const data = JSON.parse(savedData);
+        if (data.items && Array.isArray(data.items)) {
+          setWarehouseItems(data.items);
+          setSelectedItemId(null);
+        } else {
+          showMessage.error('Invalid file format');
+        }
+      } catch (error) {
+        showMessage.error('Failed to load layout');
+      }
+      // Clear the temporary load data
+      localStorage.removeItem('loadLayoutData');
     }
   }, []);
 
@@ -1027,13 +1146,13 @@ function App() {
   const handleFacilityManager = useCallback(() => {
     setFacilityManagerVisible(true);
   }, []);
-
-  const handleCloseFacilityManager = useCallback(() => {
+  
+  const handleFacilitySelect = useCallback((facility: any) => {
+    setSelectedFacility(facility);
     setFacilityManagerVisible(false);
   }, []);
-
-  const handleFacilitySelect = useCallback((facility) => {
-    setSelectedFacility(facility);
+  
+  const handleCloseFacilityManager = useCallback(() => {
     setFacilityManagerVisible(false);
   }, []);
 
@@ -1112,14 +1231,14 @@ function App() {
     input.type = 'file';
     input.accept = '.svg,.dxf,.dwg';
     
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
+    input.onchange = async (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         try {
           // CAD import functionality would be implemented here
           showMessage.info('CAD import feature is not yet implemented');
         } catch (error) {
-          showMessage.error(`Failed to import CAD file: ${error.message}`);
+          showMessage.error(`Failed to import CAD file: ${(error as Error).message}`);
         }
       }
     };
@@ -1128,7 +1247,7 @@ function App() {
   }, [warehouseItems, saveToUndoStack]);
 
   // Enhanced export handler
-  const handleExportLayout = useCallback(async (format) => {
+  const handleExportLayout = useCallback(async (format: any) => {
     try {
       await layoutExporter.exportLayout(warehouseItems, format, {
         includeGrid: gridVisible,
@@ -1136,7 +1255,7 @@ function App() {
         includeLabels: true
       });
     } catch (error) {
-      showMessage.error(`Export failed: ${error.message}`);
+      showMessage.error(`Export failed: ${(error as Error).message}`);
     }
   }, [warehouseItems, gridVisible]);
 
@@ -1164,6 +1283,8 @@ function App() {
           <MainDashboard onNavigateToBuilder={handleNavigateToBuilder} />
         ) : (
           <>
+            {/* Debug: Log what's being passed to TopNavbar */}
+            {console.log('WarehouseLayoutBuilder - Passing to TopNavbar - selectedOrgUnit:', selectedOrgUnit)}
             <TopNavbar
               layoutName={layoutName}
               selectedOrgUnit={selectedOrgUnit}
@@ -1194,10 +1315,13 @@ function App() {
               onAutoGenerateBoundary={handleAutoGenerateBoundary}
               itemCount={warehouseItems.length}
               onNavigateToDashboard={handleNavigateToDashboard}
-              showMainDashboard={showMainDashboard}
             />
             
             <div className="main-content">
+              {/* Debug: Log warehouseItems state */}
+              {console.log('WarehouseCanvas - warehouseItems:', warehouseItems)}
+              {console.log('WarehouseCanvas - warehouseItems length:', warehouseItems.length)}
+              {console.log('WarehouseCanvas - warehouseItems sample:', warehouseItems[0])}
               <ComponentPanel />
               
               <WarehouseCanvas

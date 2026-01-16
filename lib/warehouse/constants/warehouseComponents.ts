@@ -32,7 +32,9 @@ export const DRAG_TYPES = {
 export const STACK_MODES = {
   HORIZONTAL: 'horizontal',
   VERTICAL: 'vertical',
-  GRID: 'grid'
+  GRID: 'grid',
+  ENABLED: 'enabled',
+  DISABLED: 'disabled'
 };
 
 // Occupancy status for warehouse items

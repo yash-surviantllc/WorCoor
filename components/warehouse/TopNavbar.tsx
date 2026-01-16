@@ -138,6 +138,9 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
   };
 
   const getDropdownLabel = () => {
+    console.log('TopNavbar - selectedOrgUnit:', selectedOrgUnit);
+    console.log('TopNavbar - selectedOrgMap:', selectedOrgMap);
+    
     if (selectedOrgUnit && selectedOrgMap) {
       return `${selectedOrgUnit.name} • ${selectedOrgMap.name}`;
     }

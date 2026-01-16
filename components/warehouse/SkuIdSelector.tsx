@@ -4,7 +4,16 @@ import React, { useState, useEffect } from 'react';
 import showMessage from '@/lib/warehouse/utils/showMessage';
 import globalIdCache from '@/lib/warehouse/utils/globalIdCache';
 
-const SkuIdSelector = ({ 
+interface SkuIdSelectorProps {
+  isVisible: boolean;
+  onClose: () => void;
+  onSave: (skuId: string | { locationId: string; category: string }) => void;
+  existingLocationIds?: string[];
+  showCategories?: boolean;
+  allowCustomIds?: boolean;
+}
+
+const SkuIdSelector: React.FC<SkuIdSelectorProps> = ({ 
   isVisible, 
   onClose, 
   onSave, 

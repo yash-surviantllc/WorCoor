@@ -6,7 +6,7 @@ import { getContextualLabel, generateStorageUnitLabelInfo } from '@/lib/warehous
 import showMessage from '@/lib/warehouse/utils/showMessage';
 import globalIdCache from '@/lib/warehouse/utils/globalIdCache';
 
-const normalizeHexColor = (value, fallback = '#8D6E63') => {
+const normalizeHexColor = (value: string, fallback: string = '#8D6E63'): string => {
   if (!value || typeof value !== 'string') {
     return fallback;
   }
@@ -43,9 +43,15 @@ const SPARE_UNIT_PALETTE = [
   '#37474F'  // Slate gray
 ];
 
-const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
+interface PropertiesPanelProps {
+  selectedItem: any;
+  onUpdateItem: (id: string, updates: any) => void;
+  onDeleteItem: (id: string) => void;
+}
+
+const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
   const [skuIdSelectorVisible, setSkuIdSelectorVisible] = useState(false);
-  const [pendingCompartmentId, setPendingCompartmentId] = useState(null);
+  const [pendingCompartmentId, setPendingCompartmentId] = useState<string | null>(null);
 
   if (!selectedItem) {
     return (
@@ -53,27 +59,28 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
         <h3>⚙️ Properties</h3>
         <div style={{ 
           textAlign: 'center', 
-          color: 'var(--gray-500)', 
+          color: '#94a3b8', 
           marginTop: 'var(--spacing-8)',
           fontSize: 'var(--font-size-sm)',
           padding: 'var(--spacing-6)',
-          background: 'var(--gray-50)',
+          background: 'rgba(255, 255, 255, 0.03)',
           borderRadius: 'var(--radius-lg)',
-          border: '2px dashed var(--gray-300)'
+          border: '2px dashed rgba(148, 163, 184, 0.3)',
+          backdropFilter: 'blur(10px)'
         }}>
           <div style={{ fontSize: '2rem', marginBottom: 'var(--spacing-2)' }}>🎯</div>
-          <div style={{ fontWeight: '600', marginBottom: 'var(--spacing-1)' }}>No Selection</div>
-          <div>Click on any warehouse item to view and edit its properties</div>
+          <div style={{ fontWeight: '600', marginBottom: 'var(--spacing-1)', color: '#e2e8f0' }}>No Selection</div>
+          <div style={{ color: '#64748b' }}>Click on any warehouse item to view and edit its properties</div>
         </div>
       </div>
     );
   }
 
-  const handleInputChange = (property, value) => {
+  const handleInputChange = (property: string, value: any) => {
     onUpdateItem(selectedItem.id, { [property]: value });
   };
 
-  const handleSpareUnitColorChange = (value) => {
+  const handleSpareUnitColorChange = (value: string) => {
     const normalized = normalizeHexColor(value);
     onUpdateItem(selectedItem.id, { customColor: normalized, color: normalized });
   };
@@ -82,45 +89,37 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
   const spareUnitBaseColor = normalizeHexColor(selectedItem.customColor || selectedItem.color || '#8D6E63');
 
   // Get all existing SKU IDs from the selected item
-  const getExistingSkuIds = () => {
+  const getExistingSkuIds = (): string[] => {
     if (!selectedItem.compartmentContents) return [];
     return Object.values(selectedItem.compartmentContents)
-      .map(item => item.locationId || item.uniqueId)
-      .filter(Boolean);
+      .map((item: any) => item.locationId || item.uniqueId)
+      .filter(Boolean) as string[];
   };
 
   // Handle SKU ID selection from dropdown
-  const handleSkuIdSelect = (skuId) => {
+  const handleSkuIdSelect = (skuIdOrData: string | { locationId: string; category: string }) => {
     if (!pendingCompartmentId) return;
     
-    const row = Math.floor(pendingCompartmentId.split('-')[1] / (selectedItem.width / 60));
-    const col = pendingCompartmentId.split('-')[1] % (selectedItem.width / 60);
+    const parts = pendingCompartmentId.split('-');
+    if (parts.length < 2) return;
+    
+    const row = Math.floor(parseInt(parts[1]) / (selectedItem.width / 60));
+    const col = parseInt(parts[1]) % (selectedItem.width / 60);
+    
+    // Extract location ID and category from the data
+    const locationId = typeof skuIdOrData === 'string' ? skuIdOrData : skuIdOrData.locationId;
+    const category = typeof skuIdOrData === 'string' ? '' : skuIdOrData.category;
     
     const newContents = { 
       ...selectedItem.compartmentContents, 
       [pendingCompartmentId]: { 
-        locationId: skuId,
-        uniqueId: skuId, // Keep for backward compatibility
-        sku: skuId, // Use the selected SKU ID as the SKU
+        locationId: locationId,
+        uniqueId: locationId, // Keep for backward compatibility
+        sku: locationId, // Use the selected SKU ID as the SKU
         quantity: 1,
         status: 'planned',
-        category: '',
-        storageSpace: `${Math.floor(selectedItem.width / 60)}x${Math.floor(selectedItem.height / 60)}`,
-        availability: 'available',
-        createdAt: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-        position: {
-          row: row + 1,
-          col: col + 1,
-          compartment: pendingCompartmentId
-        },
-        metadata: {
-          weight: null,
-          dimensions: null,
-          temperature: null,
-          hazardous: false,
-          priority: 'normal'
-        }
+        category: category,
+        lastModified: new Date().toISOString()
       }
     };
     
@@ -134,7 +133,7 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
     setPendingCompartmentId(null);
   };
 
-  const handleNumberChange = (property, value) => {
+  const handleNumberChange = (property: string, value: string) => {
     // Check if the property is locked
     if ((property === 'x' || property === 'y') && selectedItem.isPositionLocked) {
       return; // Don't update position if position is locked
@@ -207,6 +206,54 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
     showMessage.success('Item deleted successfully');
   };
 
+  // Helper function to generate unique Location ID
+  const generateUniqueLocationId = (itemName: string, row: number, col: number, totalCols: number): string => {
+    // Extract zone/unit identifier from item name or use default
+    const unitPrefix = itemName ? itemName.replace(/[^A-Z0-9]/g, '').substring(0, 3) || 'STG' : 'STG';
+    const zone = String.fromCharCode(65 + (Math.floor((row + col) / 4) % 26)); // A, B, C, etc.
+    const aisle = String(Math.floor((row + col) / 2) + 1).padStart(2, '0'); // 01, 02, etc.
+    const position = String((row * totalCols + col) + 1).padStart(3, '0'); // 001, 002, etc.
+    return `${unitPrefix}-${zone}${aisle}-${position}`;
+  };
+
+  // Helper function to update SKU metadata with global ID cache validation
+  const updateSkuMetadata = (compartmentId: string, updates: any) => {
+    const currentContents = selectedItem.compartmentContents || {};
+    const currentSku = currentContents[compartmentId] || {};
+    
+    // If updating locationId, validate uniqueness using global cache
+    if (updates.locationId) {
+      const oldLocationId = currentSku.locationId || currentSku.uniqueId;
+      const newLocationId = updates.locationId;
+      
+      // Check if the new ID is different from the old one
+      if (oldLocationId && String(oldLocationId).trim().toUpperCase() !== String(newLocationId).trim().toUpperCase()) {
+        // Check if new ID is already in use
+        if (globalIdCache.isIdInUse(newLocationId)) {
+          showMessage.error(`Location ID "${newLocationId}" is already in use elsewhere in the map`);
+          return;
+        }
+        
+        // Update the cache: remove old ID, add new ID
+        if (oldLocationId) {
+          globalIdCache.removeId(oldLocationId);
+        }
+        globalIdCache.addId(newLocationId);
+      } else if (!oldLocationId) {
+        // New location ID being added
+        if (globalIdCache.isIdInUse(newLocationId)) {
+          showMessage.error(`Location ID "${newLocationId}" is already in use elsewhere in the map`);
+          return;
+        }
+        globalIdCache.addId(newLocationId);
+      }
+    }
+    
+    const updatedSku = { ...currentSku, ...updates };
+    const newContents = { ...currentContents, [compartmentId]: updatedSku };
+    onUpdateItem(selectedItem.id, { compartmentContents: newContents });
+  };
+
   return (
     <div className="properties-panel animate-slide-right">
       <h3>⚙️ Properties</h3>
@@ -216,21 +263,22 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
         const labelInfo = generateStorageUnitLabelInfo(selectedItem, 1);
         return (
           <div style={{ 
-            backgroundColor: '#e8f5e8', 
+            backgroundColor: 'rgba(34, 197, 94, 0.1)', 
             padding: '12px', 
             borderRadius: '6px', 
-            border: '1px solid #4CAF50',
-            marginBottom: '16px'
+            border: '1px solid rgba(34, 197, 94, 0.3)',
+            marginBottom: '16px',
+            backdropFilter: 'blur(10px)'
           }}>
-            <div style={{ fontWeight: 'bold', color: '#2E7D32', marginBottom: '8px' }}>
+            <div style={{ fontWeight: 'bold', color: '#4ade80', marginBottom: '8px' }}>
               📦 Storage Unit Information
             </div>
-            <div style={{ fontSize: '0.9rem', color: '#1B5E20' }}>
+            <div style={{ fontSize: '0.9rem', color: '#86efac' }}>
               <div><strong>Type:</strong> {labelInfo?.displayName || 'Storage Unit'}</div>
               <div><strong>Location ID:</strong> {getContextualLabel(selectedItem, 'properties') || 'Not Assigned'}</div>
               <div><strong>Category:</strong> {labelInfo?.categoryText || 'General Storage'}</div>
               {selectedItem.locationId && (
-                <div style={{ marginTop: '4px', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                <div style={{ marginTop: '4px', fontSize: '0.8rem', fontStyle: 'italic', color: '#bbf7d0' }}>
                   Selected from dropdown: {selectedItem.locationId}
                 </div>
               )}
@@ -411,7 +459,7 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               <button
                 type="button"
-                onClick={() => handleNumberChange('width', selectedItem.width + selectedItem.gridStep)}
+                onClick={() => handleNumberChange('width', String(selectedItem.width + selectedItem.gridStep))}
                 style={{
                   width: '24px',
                   height: '16px',
@@ -429,7 +477,7 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
               </button>
               <button
                 type="button"
-                onClick={() => handleNumberChange('width', selectedItem.width - selectedItem.gridStep)}
+                onClick={() => handleNumberChange('width', String(selectedItem.width - selectedItem.gridStep))}
                 style={{
                   width: '24px',
                   height: '16px',
@@ -485,7 +533,7 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               <button
                 type="button"
-                onClick={() => handleNumberChange('height', selectedItem.height + selectedItem.gridStep)}
+                onClick={() => handleNumberChange('height', String(selectedItem.height + selectedItem.gridStep))}
                 style={{
                   width: '24px',
                   height: '16px',
@@ -503,7 +551,7 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
               </button>
               <button
                 type="button"
-                onClick={() => handleNumberChange('height', selectedItem.height - selectedItem.gridStep)}
+                onClick={() => handleNumberChange('height', String(selectedItem.height - selectedItem.gridStep))}
                 style={{
                   width: '24px',
                   height: '16px',
@@ -546,19 +594,20 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
           <label className="property-label">Stack Information</label>
           <div style={{ 
             padding: '1rem', 
-            background: '#e3f2fd', 
+            background: 'rgba(59, 130, 246, 0.1)', 
             borderRadius: '6px',
-            fontSize: '0.9rem'
+            fontSize: '0.9rem',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            backdropFilter: 'blur(10px)'
           }}>
-            <div style={{ marginBottom: '0.5rem' }}>
+            <div style={{ marginBottom: '0.5rem', color: '#93c5fd' }}>
               <strong>📚 Layers:</strong> {selectedItem.stack.layers.length}
             </div>
-            <div style={{ marginBottom: '0.5rem' }}>
-              <strong>📦 Total SKUs:</strong> {selectedItem.stack.layers.reduce((total, layer) => 
-                total + (layer.skus ? layer.skus.length : 0), 0
-              )}
+            <div style={{ marginBottom: '0.5rem', color: '#93c5fd' }}>
+              <strong>📦 Total SKUs:</strong> {selectedItem.stack.layers.reduce((total: number, layer: any) => 
+                total + (layer.skus ? layer.skus.length : 0), 0)}
             </div>
-            <div style={{ fontSize: '0.8rem', color: '#666' }}>
+            <div style={{ fontSize: '0.8rem', color: '#bfdbfe' }}>
               Right-click to manage stack layers and SKUs
             </div>
           </div>
@@ -577,18 +626,8 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
         const totalCompartments = rows * cols;
         const occupiedCount = selectedItem.compartmentContents ? Object.keys(selectedItem.compartmentContents).length : 0;
         
-        // Helper function to generate unique Location ID
-        const generateUniqueLocationId = (itemName, row, col) => {
-          // Extract zone/unit identifier from item name or use default
-          const unitPrefix = itemName ? itemName.replace(/[^A-Z0-9]/g, '').substring(0, 3) || 'STG' : 'STG';
-          const zone = String.fromCharCode(65 + (Math.floor((row + col) / 4) % 26)); // A, B, C, etc.
-          const aisle = String(Math.floor((row + col) / 2) + 1).padStart(2, '0'); // 01, 02, etc.
-          const position = String((row * cols + col) + 1).padStart(3, '0'); // 001, 002, etc.
-          return `${unitPrefix}-${zone}${aisle}-${position}`;
-        };
-        
         // Helper function to update SKU metadata with global ID cache validation
-        const updateSkuMetadata = (compartmentId, updates) => {
+        const updateSkuMetadata = (compartmentId: string, updates: any) => {
           const currentContents = selectedItem.compartmentContents || {};
           const currentSku = currentContents[compartmentId] || {};
           
@@ -630,21 +669,22 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
             <label className="property-label">📋 SKU Compartments</label>
             <div style={{ 
               padding: '1rem', 
-              background: '#E0F7FA', 
+              background: 'rgba(0, 188, 212, 0.1)', 
               borderRadius: '6px',
               fontSize: '0.85rem',
-              border: '1px solid #00BCD4'
+              border: '1px solid rgba(0, 188, 212, 0.3)',
+              backdropFilter: 'blur(10px)'
             }}>
-              <div style={{ marginBottom: '0.5rem', color: '#006064' }}>
+              <div style={{ marginBottom: '0.5rem', color: '#5eead4' }}>
                 <strong>Layout:</strong> {rows} rows × {cols} cols (Dynamic)
               </div>
-              <div style={{ marginBottom: '0.5rem', color: '#006064' }}>
+              <div style={{ marginBottom: '0.5rem', color: '#5eead4' }}>
                 <strong>Total Compartments:</strong> {totalCompartments}
               </div>
-              <div style={{ marginBottom: '0.5rem', color: '#006064' }}>
+              <div style={{ marginBottom: '0.5rem', color: '#5eead4' }}>
                 <strong>Occupied:</strong> {occupiedCount}
               </div>
-              <div style={{ marginBottom: '1rem', color: '#006064' }}>
+              <div style={{ marginBottom: '1rem', color: '#5eead4' }}>
                 <strong>Available:</strong> {totalCompartments - occupiedCount}
               </div>
               
@@ -712,7 +752,7 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
                 <div style={{ marginTop: '1rem', marginBottom: '1rem' }}>
                   <div style={{ fontSize: '0.8rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Location Details:</div>
                   <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #00BCD4', borderRadius: '4px' }}>
-                    {Object.entries(selectedItem.compartmentContents).map(([compartmentId, itemData]) => {
+                    {Object.entries(selectedItem.compartmentContents).map(([compartmentId, itemData]: [string, any]) => {
                       const [row, col] = compartmentId.split('-').map(Number);
                       return (
                         <div key={compartmentId} style={{
@@ -729,7 +769,7 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
                                 (() => {
                                   const mappingList = (itemData.levelLocationMappings && itemData.levelLocationMappings.length > 0)
                                     ? itemData.levelLocationMappings
-                                    : (itemData.locationIds || []).map((locId, idx) => ({
+                                    : (itemData.locationIds as string[] || []).map((locId: string, idx: number) => ({
                                         levelId: (itemData.levelIds && itemData.levelIds[idx]) || `L${idx + 1}`,
                                         locationId: locId
                                       }));
@@ -845,31 +885,32 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
           <label className="property-label">📏 Grid Information</label>
           <div style={{ 
             padding: '1rem', 
-            background: '#e8f5e8', 
+            background: 'rgba(34, 197, 94, 0.1)', 
             borderRadius: '6px',
             fontSize: '0.85rem',
-            border: '1px solid #4CAF50'
+            border: '1px solid rgba(34, 197, 94, 0.3)',
+            backdropFilter: 'blur(10px)'
           }}>
-            <div style={{ marginBottom: '0.5rem', color: '#2E7D32' }}>
+            <div style={{ marginBottom: '0.5rem', color: '#4ade80' }}>
               <strong>Grid Size:</strong> {selectedItem.gridStep}px × {selectedItem.gridStep}px
             </div>
-            <div style={{ marginBottom: '0.5rem', color: '#2E7D32' }}>
+            <div style={{ marginBottom: '0.5rem', color: '#4ade80' }}>
               <strong>Current Size:</strong> {Math.round(selectedItem.width / selectedItem.gridStep)} × {Math.round(selectedItem.height / selectedItem.gridStep)} blocks
             </div>
-            <div style={{ marginBottom: '0.5rem', color: '#2E7D32' }}>
+            <div style={{ marginBottom: '0.5rem', color: '#4ade80' }}>
               <strong>Dimensions:</strong> {selectedItem.width}px × {selectedItem.height}px
             </div>
             {selectedItem.minSize && (
-              <div style={{ marginBottom: '0.5rem', color: '#666', fontSize: '0.8rem' }}>
+              <div style={{ marginBottom: '0.5rem', color: '#86efac', fontSize: '0.8rem' }}>
                 <strong>Min Size:</strong> {selectedItem.minSize.width}px × {selectedItem.minSize.height}px
               </div>
             )}
             {selectedItem.maxSize && (
-              <div style={{ marginBottom: '0.5rem', color: '#666', fontSize: '0.8rem' }}>
+              <div style={{ marginBottom: '0.5rem', color: '#86efac', fontSize: '0.8rem' }}>
                 <strong>Max Size:</strong> {selectedItem.maxSize.width}px × {selectedItem.maxSize.height}px
               </div>
             )}
-            <div style={{ fontSize: '0.75rem', color: '#666', fontStyle: 'italic' }}>
+            <div style={{ fontSize: '0.75rem', color: '#bbf7d0', fontStyle: 'italic' }}>
               Resizing is constrained to {selectedItem.gridStep}px increments
             </div>
           </div>
@@ -879,18 +920,20 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
       <div style={{ 
         marginTop: '2rem', 
         padding: '1rem', 
-        background: '#f8f9fa', 
+        background: 'rgba(255, 255, 255, 0.03)', 
         borderRadius: '6px',
         fontSize: '0.8rem',
-        color: '#666'
+        color: '#94a3b8',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        backdropFilter: 'blur(10px)'
       }}>
-        <strong>Type:</strong> {selectedItem.type}<br/>
-        <strong>ID:</strong> {selectedItem.id.substring(0, 8)}...<br/>
+        <strong style={{ color: '#e2e8f0' }}>Type:</strong> {selectedItem.type}<br/>
+        <strong style={{ color: '#e2e8f0' }}>ID:</strong> {selectedItem.id.substring(0, 8)}...<br/>
         {selectedItem.stack && selectedItem.stack.layers && selectedItem.stack.layers.length > 1 && (
-          <><strong>Stacked:</strong> Yes ({selectedItem.stack.layers.length} layers)<br/></>
+          <><strong style={{ color: '#e2e8f0' }}>Stacked:</strong> Yes ({selectedItem.stack.layers.length} layers)<br/></>
         )}
         {selectedItem.gridStep && (
-          <><strong>Grid-Aligned:</strong> Yes ({selectedItem.gridStep}px grid)<br/></>
+          <><strong style={{ color: '#e2e8f0' }}>Grid-Aligned:</strong> Yes ({selectedItem.gridStep}px grid)<br/></>
         )}
       </div>
 
@@ -899,7 +942,7 @@ const PropertiesPanel = ({ selectedItem, onUpdateItem, onDeleteItem }) => {
         isVisible={skuIdSelectorVisible}
         onClose={handleSkuIdSelectorClose}
         onSave={handleSkuIdSelect}
-        existingSkuIds={getExistingSkuIds()}
+        existingLocationIds={getExistingSkuIds()}
       />
     </div>
   );

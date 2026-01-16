@@ -218,6 +218,7 @@ const ComponentCategory: React.FC<ComponentCategoryProps> = ({ category, isExpan
 
 const ComponentPanel = () => {
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
+    'Primary Components': true,
     'Storage & Inventory': false,
     'Operations': false,
     'Facilities': false,

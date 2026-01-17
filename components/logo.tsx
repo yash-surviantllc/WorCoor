@@ -11,7 +11,6 @@ interface LogoProps {
 const PATHS_WITH_LOGO = [
   "/dashboard",
   "/dashboard/admin",
-  "/dashboard/product-manager",
   "/dashboard/task-manager",
   "/dashboard/inventory",
   "/dashboard/audit",

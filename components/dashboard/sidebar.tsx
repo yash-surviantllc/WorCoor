@@ -80,25 +80,7 @@ export function DashboardSidebar({ isOpen, toggle }: SidebarProps) {
       icon: Cog,
       parent: "Admin Panel",
     },
-    // Product Management Menu
-    {
-      title: "Product Management",
-      href: "/dashboard/product-manager",
-      icon: Package,
-    },
-    {
-      title: "Product Definition",
-      href: "/dashboard/product-manager/products",
-      icon: Package,
-      parent: "Product Management",
-    },
-    // {
-    //   title: "Manufacturing Process",
-    //   href: "/dashboard/product-manager/manufacturing",
-    //   icon: Truck,
-    //   parent: "Product Management",
-    // },
-    // Task Management Menu
+            // Task Management Menu
     // {
     //   title: "Task Management",
     //   href: "/dashboard/task-manager",

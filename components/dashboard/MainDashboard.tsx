@@ -32,13 +32,7 @@ const MainDashboard = ({ onNavigateToBuilder }) => {
       icon: '📦',
       active: false
     },
-    {
-      id: 'product-management',
-      label: 'Product Management',
-      icon: '🏷️',
-      active: false
-    },
-    {
+        {
       id: 'task-management',
       label: 'Task Management',
       icon: '✅',

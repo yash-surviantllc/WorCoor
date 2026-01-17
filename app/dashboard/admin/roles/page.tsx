@@ -77,17 +77,7 @@ const systemModules = [
       { id: "settings", name: "System Settings" },
     ],
   },
-  {
-    id: "product-management",
-    name: "Product Management",
-    screens: [
-      { id: "products", name: "Product Definition" },
-      { id: "manufacturing", name: "Manufacturing Process" },
-      { id: "specifications", name: "Product Specifications" },
-      { id: "analytics", name: "Product Analytics" },
-    ],
-  },
-  {
+    {
     id: "task-management",
     name: "Task Management",
     screens: [

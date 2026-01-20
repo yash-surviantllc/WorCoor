@@ -9,7 +9,7 @@ type MockUserContext = {
 
 export type MockedReply = FastifyReply & {
   statusCode: number;
-  payload: unknown;
+  payload: any;
   cookies: Record<string, string>;
 };
 
@@ -47,20 +47,27 @@ export function createMockReply(): MockedReply {
   return reply as MockedReply;
 }
 
-export function createMockRequest<TBody = unknown, TParams = unknown>({
+export function createMockRequest<TBody = unknown, TParams = unknown, TQuery = unknown>({
   body,
   params,
+  query,
   user,
 }: {
   body?: TBody;
   params?: TParams;
+  query?: TQuery;
   user?: MockUserContext;
 }) {
   const mockRequest = {
     body,
     params,
+    query,
     user: user ?? { organizationId: 'org-1', role: 'admin', userId: 'user-1' },
   };
 
-  return mockRequest as FastifyRequest<{ Body: TBody; Params: TParams }> & { user: MockUserContext };
+  return mockRequest as FastifyRequest<{
+    Body: TBody;
+    Params: TParams;
+    Querystring: TQuery;
+  }> & { user: MockUserContext };
 }

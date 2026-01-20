@@ -1,4 +1,4 @@
-import { and, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, eq, ilike, inArray, sql } from 'drizzle-orm';
 
 import { db } from '../../../config/database.js';
 import {
@@ -59,11 +59,30 @@ export class LiveMapRepository {
       .where(and(eq(skus.locationTagId, locationTagId), eq(skus.organizationId, organizationId)));
   }
 
+  async getSkusForLocationTags(locationTagIds: string[], organizationId: string) {
+    if (locationTagIds.length === 0) {
+      return [];
+    }
+
+    return db
+      .select({
+        id: skus.id,
+        skuName: skus.skuName,
+        quantity: skus.quantity,
+        skuUnit: skus.skuUnit,
+        locationTagId: skus.locationTagId,
+      })
+      .from(skus)
+      .where(
+        and(eq(skus.organizationId, organizationId), inArray(skus.locationTagId, locationTagIds)),
+      );
+  }
+
   async calculateUtilization(unitId: string, organizationId: string) {
     const result = await db
       .select({
         totalCapacity: sql<number>`COALESCE(SUM(${locationTags.capacity}), 0)`,
-        totalItems: sql<number>`COALESCE(COUNT(${skus.id}), 0)`,
+        totalItems: sql<number>`COALESCE(SUM(${skus.quantity}), 0)`,
       })
       .from(components)
       .innerJoin(locationTags, eq(components.locationTagId, locationTags.id))

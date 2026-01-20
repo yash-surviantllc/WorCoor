@@ -44,13 +44,22 @@ export class LocationTagsRepository {
     return updated ?? null;
   }
 
-  async getUsage(locationTagId: string, organizationId: string) {
+  async getUsage(locationTagId: string, organizationId: string, excludeSkuId?: string) {
+    let conditions = and(
+      eq(skus.locationTagId, locationTagId),
+      eq(skus.organizationId, organizationId),
+    );
+
+    if (excludeSkuId) {
+      conditions = and(conditions, ne(skus.id, excludeSkuId));
+    }
+
     const result = await db
       .select({
         totalItems: sql<number>`COALESCE(SUM(${skus.quantity}), 0)`,
       })
       .from(skus)
-      .where(and(eq(skus.locationTagId, locationTagId), eq(skus.organizationId, organizationId)));
+      .where(conditions);
 
     return Number(result[0]?.totalItems ?? 0);
   }

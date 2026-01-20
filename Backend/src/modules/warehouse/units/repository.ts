@@ -1,9 +1,15 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql, count } from 'drizzle-orm';
 
 import { db } from '../../../config/database.js';
-import { units } from '../../../database/schema/index.js';
+import { units, locationTags, skus } from '../../../database/schema/index.js';
 
 export type UnitEntity = typeof units.$inferSelect;
+
+export type UnitWithUtilization = UnitEntity & {
+  totalLocations: number;
+  occupiedLocations: number;
+  utilizationPercentage: number;
+};
 export type CreateUnitDto = Omit<UnitEntity, 'id' | 'createdAt'>;
 export type UpdateUnitDto = Partial<Omit<CreateUnitDto, 'organizationId'>>;
 
@@ -20,6 +26,33 @@ export class UnitsRepository {
       .limit(1);
 
     return result[0] ?? null;
+  }
+
+  async findByIdWithUtilization(id: string, organizationId: string): Promise<UnitWithUtilization | null> {
+    const unit = await this.findById(id, organizationId);
+    if (!unit) return null;
+
+    const locationStats = await db
+      .select({
+        totalLocations: count(locationTags.id),
+        occupiedLocations: count(sql`CASE WHEN EXISTS (
+          SELECT 1 FROM skus WHERE skus.location_tag_id = ${locationTags.id}
+        ) THEN 1 END`),
+      })
+      .from(locationTags)
+      .where(eq(locationTags.unitId, id));
+
+    const stats = locationStats[0] ?? { totalLocations: 0, occupiedLocations: 0 };
+    const utilizationPercentage = stats.totalLocations > 0
+      ? (Number(stats.occupiedLocations) / Number(stats.totalLocations)) * 100
+      : 0;
+
+    return {
+      ...unit,
+      totalLocations: Number(stats.totalLocations),
+      occupiedLocations: Number(stats.occupiedLocations),
+      utilizationPercentage: Math.round(utilizationPercentage * 10) / 10,
+    };
   }
 
   async create(payload: CreateUnitDto): Promise<UnitEntity> {

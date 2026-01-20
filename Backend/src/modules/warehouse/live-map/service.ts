@@ -19,62 +19,58 @@ export class LiveMapService {
 
     const utilization = await this.repository.calculateUtilization(unitId, organizationId);
 
-    const layoutsWithComponents = await Promise.all(
-      data.layouts.map(async (layout) => {
-        const componentsData = await this.repository.getLayoutComponents(
-          layout.id,
-          organizationId,
-        );
+    const layoutComponents = await Promise.all(
+      data.layouts.map((layout) => this.repository.getLayoutComponents(layout.id, organizationId)),
+    );
+    const locationTagIds = layoutComponents
+      .flat()
+      .map((component) => component.locationTagId)
+      .filter((id): id is string => Boolean(id));
 
-        const componentsWithSkus = await Promise.all(
-          componentsData.map(async (component) => {
-            let locationTag = null;
+    const skusByLocationTag = await this.repository.getSkusForLocationTags(locationTagIds, organizationId);
+    const skuMap = skusByLocationTag.reduce<Record<string, typeof skusByLocationTag>>((acc, sku) => {
+      if (!acc[sku.locationTagId ?? '']) acc[sku.locationTagId ?? ''] = [];
+      acc[sku.locationTagId ?? ''].push(sku);
+      return acc;
+    }, {});
 
-            if (component.locationTagId) {
-              const skusData = await this.repository.getLocationTagSkus(
-                component.locationTagId,
-                organizationId,
-              );
+    const layoutsWithComponents = data.layouts.map((layout, index) => {
+      const componentsData = layoutComponents[index];
 
-              const currentItems = skusData.reduce(
-                (sum, sku) => sum + Number(sku.quantity || 0),
-                0,
-              );
-              const capacity = component.capacity || 0;
-              const locationUtilization =
-                capacity > 0 ? Math.round((currentItems / capacity) * 100 * 10) / 10 : 0;
+      const componentsWithSkus = componentsData.map((component) => {
+        const skusData = component.locationTagId ? skuMap[component.locationTagId] ?? [] : [];
+        const currentItems = skusData.reduce((sum, sku) => sum + Number(sku.quantity || 0), 0);
+        const capacity = component.capacity || 0;
+        const locationUtilization = capacity > 0 ? Math.round((currentItems / capacity) * 100 * 10) / 10 : 0;
 
-              locationTag = {
+        return {
+          id: component.id,
+          componentType: component.componentType,
+          displayName: component.displayName,
+          positionX: component.positionX,
+          positionY: component.positionY,
+          width: component.width,
+          height: component.height,
+          color: component.color,
+          locationTag: component.locationTagId
+            ? {
                 id: component.locationTagId,
                 tagName: component.locationTagName,
                 capacity,
                 currentItems,
                 utilizationPercentage: locationUtilization,
                 skus: skusData,
-              };
-            }
-
-            return {
-              id: component.id,
-              componentType: component.componentType,
-              displayName: component.displayName,
-              positionX: component.positionX,
-              positionY: component.positionY,
-              width: component.width,
-              height: component.height,
-              color: component.color,
-              locationTag,
-            };
-          }),
-        );
-
-        return {
-          id: layout.id,
-          layoutName: layout.layoutName,
-          components: componentsWithSkus,
+              }
+            : null,
         };
-      }),
-    );
+      });
+
+      return {
+        id: layout.id,
+        layoutName: layout.layoutName,
+        components: componentsWithSkus,
+      };
+    });
 
     reply.send({
       unit: {

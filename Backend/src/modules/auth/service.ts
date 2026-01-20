@@ -23,7 +23,7 @@ export class AuthService {
     this.repository = repository;
   }
 
-  private async setAuthCookie(
+  private async signAndSetCookie(
     reply: FastifyReply,
     payload: { userId: string; organizationId: string; role: JwtRole },
   ) {
@@ -34,7 +34,6 @@ export class AuthService {
       secure: process.env.NODE_ENV === 'production',
       path: '/',
     });
-    return reply;
   }
 
   async login(request: LoginRequest, reply: FastifyReply) {
@@ -42,8 +41,7 @@ export class AuthService {
     const user = await this.repository.findUserByEmail(email);
 
     if (!user) {
-      reply.status(401).send({ error: 'Invalid credentials' });
-      return;
+      return reply.status(401).send({ error: 'Invalid credentials' });
     }
 
     const matches = await bcrypt.compare(password, user.passwordHash);
@@ -51,13 +49,13 @@ export class AuthService {
       return reply.status(401).send({ error: 'Invalid credentials' });
     }
 
-    await this.setAuthCookie(reply, {
+    await this.signAndSetCookie(reply, {
       userId: user.id,
       organizationId: user.organizationId,
       role: user.role,
     });
 
-    reply.send({
+    return {
       user: {
         id: user.id,
         email: user.email,
@@ -67,7 +65,7 @@ export class AuthService {
         id: user.organizationId,
         name: user.organizationName,
       },
-    });
+    };
   }
 
   async register(request: RegisterRequest, reply: FastifyReply) {
@@ -91,12 +89,13 @@ export class AuthService {
       role: 'admin',
     });
 
-    await this.setAuthCookie(reply, { userId, organizationId, role: 'admin' });
+    await this.signAndSetCookie(reply, { userId, organizationId, role: 'admin' });
 
-    reply.code(201).send({
+    reply.code(201);
+    return {
       user: { id: userId, email, role: 'admin' },
       organization: { id: organizationId, name: organizationName },
-    });
+    };
   }
 
   async requestPasswordReset(request: RequestPasswordResetRequest, reply: FastifyReply) {
@@ -104,7 +103,7 @@ export class AuthService {
     const user = await this.repository.findUserByEmail(email);
 
     if (!user) {
-      return reply.send({ message: 'If the email exists, a reset link has been sent.' });
+      return { message: 'If the email exists, a reset link has been sent.' };
     }
 
     const token = crypto.randomBytes(32).toString('hex');
@@ -113,10 +112,10 @@ export class AuthService {
 
     await this.repository.setResetToken(user.id, tokenHash, expiresAt);
 
-    reply.send({
+    return {
       message: 'Password reset link generated.',
       resetToken: process.env.NODE_ENV === 'development' ? token : undefined,
-    });
+    };
   }
 
   async confirmPasswordReset(request: ConfirmPasswordResetRequest, reply: FastifyReply) {
@@ -132,10 +131,11 @@ export class AuthService {
     const newPasswordHash = await bcrypt.hash(newPassword, 10);
     await this.repository.clearResetTokenAndUpdatePassword(user.id, newPasswordHash);
 
-    reply.send({ message: 'Password reset successfully' });
+    return { message: 'Password reset successfully' };
   }
 
   async logout(_request: FastifyRequest, reply: FastifyReply) {
-    reply.clearCookie('token', { path: '/' }).send({ message: 'Logged out successfully' });
+    reply.clearCookie('token', { path: '/' });
+    return { message: 'Logged out successfully' };
   }
 }

@@ -11,6 +11,17 @@ export class UnitsService {
     reply.send(units);
   }
 
+  async getById(request: FastifyRequest<{ Params: { unitId: string } }>, reply: FastifyReply) {
+    const { unitId } = request.params;
+    const unit = await this.repository.findByIdWithUtilization(unitId, request.user.organizationId);
+
+    if (!unit) {
+      return reply.code(404).send({ error: 'Unit not found' });
+    }
+
+    reply.send(unit);
+  }
+
   async create(request: FastifyRequest<{ Body: CreateUnitInput }>, reply: FastifyReply) {
     const payload = request.body;
     const unit = await this.repository.create({

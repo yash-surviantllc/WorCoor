@@ -62,6 +62,29 @@ export async function unitsRoutes(app: FastifyInstance) {
     handler: (request, reply) => service.list(request, reply),
   });
 
+  app.get<{ Params: UnitParams }>('/:unitId', {
+    preHandler: [app.authenticate],
+    schema: {
+      params: unitIdParamsSchema,
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            ...unitResponseSchema.properties,
+            totalLocations: { type: 'integer' },
+            occupiedLocations: { type: 'integer' },
+            utilizationPercentage: { type: 'number' },
+          },
+        },
+        404: {
+          type: 'object',
+          properties: { error: { type: 'string' } },
+        },
+      },
+    },
+    handler: (request, reply) => service.getById(request, reply),
+  });
+
   app.post<{ Body: CreateUnitInput }>('/', {
     preHandler: [app.authenticate, requireRole('admin')],
     schema: {

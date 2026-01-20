@@ -18,35 +18,44 @@ export async function authRoutes(app: FastifyInstance) {
   app.post<{ Body: LoginInput }>('/login', {
     schema: { body: loginSchema },
     handler: async (request, reply) => {
-      await service.login(request, reply);
+      return service.login(request, reply);
     },
   });
 
+  // Organization signup (first user auto-admin)
+  app.post<{ Body: RegisterInput }>('/signup', {
+    schema: { body: registerSchema },
+    handler: async (request, reply) => {
+      return service.register(request, reply);
+    },
+  });
+
+  // Alias for backward compatibility (but same behavior: auto-admin)
   app.post<{ Body: RegisterInput }>('/register', {
     schema: { body: registerSchema },
     handler: async (request, reply) => {
-      await service.register(request, reply);
+      return service.register(request, reply);
     },
   });
 
   app.post<{ Body: RequestPasswordResetInput }>('/password/reset/request', {
     schema: { body: requestPasswordResetSchema },
     handler: async (request, reply) => {
-      await service.requestPasswordReset(request, reply);
+      return service.requestPasswordReset(request, reply);
     },
   });
 
   app.post<{ Body: ConfirmPasswordResetInput }>('/password/reset/confirm', {
     schema: { body: confirmPasswordResetSchema },
     handler: async (request, reply) => {
-      await service.confirmPasswordReset(request, reply);
+      return service.confirmPasswordReset(request, reply);
     },
   });
 
   app.post(
     '/logout',
     async (request: FastifyRequest, reply: FastifyReply) => {
-      await service.logout(request, reply);
+      return service.logout(request, reply);
     },
   );
 }

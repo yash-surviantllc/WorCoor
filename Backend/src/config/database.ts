@@ -1,19 +1,24 @@
-import { Pool } from 'pg';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/postgres-js';
 
 import { loadEnv } from './env.js';
 
-let pool: Pool | null = null;
+const env = loadEnv();
 
-export function getPool(): Pool {
-  if (!pool) {
-    const env = loadEnv();
-    pool = new Pool({
-      connectionString: env.DATABASE_URL,
-      max: 10,
-    });
-  }
-  return pool;
+// Use postgres.js with prepare: false for Supabase transaction pooler compatibility
+const client = postgres(env.DATABASE_URL, {
+  max: 10,
+  prepare: false, // Required for Supabase transaction pooler
+  ssl: 'require',
+  idle_timeout: 20,
+  connect_timeout: 10,
+});
+
+export const db = drizzle(client, {
+  logger: process.env.NODE_ENV === 'development',
+});
+
+// Legacy export for compatibility
+export function getPool() {
+  return client;
 }
-
-export const db = drizzle(getPool());

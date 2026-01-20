@@ -79,6 +79,38 @@ const searchResultSchema = {
   },
 };
 
+export async function unitSearchRoutes(app: FastifyInstance) {
+  const repository = new LiveMapRepository();
+  const service = new LiveMapService(repository);
+
+  // GET /api/units/:unitId/search?q= - Search within unit (per Tech Architecture Doc)
+  app.get<{ Params: UnitParams; Querystring: SearchQuery }>('/', {
+    preHandler: [app.authenticate],
+    schema: {
+      querystring: {
+        type: 'object',
+        required: ['q'],
+        properties: {
+          q: { type: 'string', minLength: 2 },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            results: { type: 'array', items: searchResultSchema },
+          },
+        },
+        400: {
+          type: 'object',
+          properties: { error: { type: 'string' } },
+        },
+      },
+    },
+    handler: (request, reply) => service.search(request, reply),
+  });
+}
+
 export async function liveMapRoutes(app: FastifyInstance) {
   const repository = new LiveMapRepository();
   const service = new LiveMapService(repository);

@@ -1,74 +1,34 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
-import type { AuthData } from "@/src/utils/AuthContext";
-import localStorageService from "@/src/services/localStorageService";
 import { getAuthContext } from "@/src/utils/AuthContextProviderForApi";
 
 interface RequestOptions {
   path: string;
-  isAuth?: boolean;
-  refreshToken?: boolean;
   headers?: Record<string, string>;
   params?: Record<string, any>;
   data?: any;
   method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
-  // if Media
   isImage?: boolean;
   dp?: string;
   df?: Record<string, any>;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-
-// 🔑 in-memory token cache (always up-to-date after login/refresh)
-let currentAccessToken: string | null = null;
-
-// called by AuthContext after login/refresh
-const setAuthToken = (token: string) => {
-  currentAccessToken = token;
-};
-
-const clearAuthToken = () => {
-  currentAccessToken = null;
-};
-
-const getAuthHeaders = (options: RequestOptions) => {
-  const headers: Record<string, string> = {};
-  const authData = localStorageService.getItem<AuthData>("authData");
-
-  const token = currentAccessToken || authData?.accessToken;
-
-  if (options.isAuth && token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  if (options.refreshToken && authData?.refreshToken) {
-    headers["x-refresh-token"] = authData.refreshToken;
-  }
-
-  if (options.isImage) {
-    if (options.dp) {
-      headers["dp"] = options.dp;
-    }
-    if (options.df) {
-      headers["df"] = JSON.stringify(options.df);
-    }
-  }
-
-  return {
-    ...headers,
-    ...(options.headers || {}),
-  };
-};
+const RAW_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+const API_BASE_URL = RAW_API_BASE_URL.endsWith("/")
+  ? RAW_API_BASE_URL.slice(0, RAW_API_BASE_URL.length - 1)
+  : RAW_API_BASE_URL;
 
 const request = async <T = any>(
   options: RequestOptions
 ): Promise<AxiosResponse<T>> => {
+  const normalizedPath = options.path.startsWith("/") ? options.path : `/${options.path}`;
+
   const config: AxiosRequestConfig = {
-    url: API_BASE_URL + options.path,
+    url: `${API_BASE_URL}${normalizedPath}`,
     method: options.method || "GET",
-    headers: getAuthHeaders(options),
+    headers: options.headers,
     params: options.params,
     data: options.data,
+    withCredentials: true,
   };
 
   try {
@@ -83,9 +43,6 @@ const request = async <T = any>(
       if (authContext) {
         authContext.authLogout();
       } else {
-        // fallback if context not mounted
-        localStorageService.removeItem("authData");
-        clearAuthToken();
         window.location.href = "/login";
       }
     }
@@ -99,6 +56,4 @@ export const apiService = {
   put: (options: RequestOptions) => request({ ...options, method: "PUT" }),
   delete: (options: RequestOptions) => request({ ...options, method: "DELETE" }),
   patch: (options: RequestOptions) => request({ ...options, method: "PATCH" }),
-  setAuthToken,   // 👈 use after login/refresh
-  clearAuthToken, // 👈 use after logout
 };

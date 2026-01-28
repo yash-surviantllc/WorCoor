@@ -1,22 +1,16 @@
 "use client"
 
-import { useEffect, useState } from 'react'
 import Link from "next/link"
 import Image from "next/image"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { ShoppingCart, ReceiptText, FilePlus, BarChart3, Bell, ChevronRight, Database, FileText, LayoutDashboard, Layers, Truck, ChevronLeft, LineChart, Trash, Activity, PackageSearch, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { ThemeSwitcher } from "@/components/theme-switcher"
-import type { AuthData } from '@/src/utils/AuthContext'
-import localStorageService from '@/src/services/localStorageService'
-import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarShortcut, MenubarTrigger } from '../ui/menubar'
-import { notification } from '@/src/services/notificationService'
-import { useRouter } from 'next/navigation'
-import { apiService } from '@/src/services/apiService'
-import { api_url } from '@/src/constants/api_url'
-import { useAuth } from '@/src/utils/AuthContext'
-import { Logo } from '../logo'
+import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarTrigger } from "../ui/menubar"
+import { notification } from "@/src/services/notificationService"
+import { useAuth } from "@/src/utils/AuthContext"
+import { Logo } from "../logo"
 
 type SidebarProps = {
   isOpen: boolean
@@ -24,15 +18,17 @@ type SidebarProps = {
 }
 
 export function DashboardSidebar({ isOpen, toggle }: SidebarProps) {
-  const { authLogout, userData } = useAuth();
+  const { authLogout, session } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
-  const logout = async (e: React.FormEvent) => {
+  const userDisplayName = session?.user.fullName ?? session?.user.email ?? "Admin User";
+  const userEmail = session?.user.email ?? "admin@worcoor.com";
+
+  const logout = async () => {
     try {
-      // ✅ Mock logout - no external API call needed
+      await authLogout();
       notification.success('Logout Successful');
-      authLogout();
       router.replace('/login');
     } catch (error: any) {
       notification.error("Something went wrong. Please try again.");
@@ -229,7 +225,7 @@ export function DashboardSidebar({ isOpen, toggle }: SidebarProps) {
     ]
 
   const getInitials = (name?: string) => {
-    if (!name) return 'A'; // fallback
+    if (!name) return 'A';
     const words = name.trim().split(' ');
     return words.length > 1
       ? words[0][0].toUpperCase() + words[1][0].toUpperCase()
@@ -375,12 +371,12 @@ export function DashboardSidebar({ isOpen, toggle }: SidebarProps) {
                 <MenubarTrigger className="w-full h-full bg-slate-800/50 p-2 py-6">
                   <div className="w-full flex items-center">
                     <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-semibold text-sm shadow-lg">
-                      {getInitials(userData?.fullName)}
+                      {getInitials(userDisplayName)}
                     </div>
                     <div className="flex-1 flex items-center min-w-0 ml-2">
                       <div className="text-left">
-                        <p className="text-[14px] font-md text-white truncate">{userData?.fullName || "Admin User"}</p>
-                        <p className="text-[10px] text-slate-400 truncate">{userData?.maskEmail || "admin@worcoor.com"}</p>
+                        <p className="text-[14px] font-md text-white truncate">{userDisplayName}</p>
+                        <p className="text-[10px] text-slate-400 truncate">{userEmail}</p>
                       </div>
                       <ChevronRight className="h-4 w-4 ml-auto" />
                     </div>
@@ -395,7 +391,7 @@ export function DashboardSidebar({ isOpen, toggle }: SidebarProps) {
         ) : (
           <div className="flex justify-center">
             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-semibold text-sm shadow-lg hover:scale-105 transition-transform duration-200">
-              {getInitials(userData?.fullName)}
+              {getInitials(userDisplayName)}
             </div>
           </div>
         )}

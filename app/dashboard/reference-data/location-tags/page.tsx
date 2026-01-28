@@ -1,10 +1,9 @@
 "use client"
 
-import { Tag, Plus, Search, Filter, MoreVertical, Pencil, Trash2, ChevronDown } from "lucide-react"
+import { Tag, Plus, Search, MoreVertical, Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
 import {
   Table,
   TableBody,
@@ -19,8 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
-import { useState, useEffect } from "react"
+import { useCallback, useMemo, useState, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -29,16 +27,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -59,187 +47,178 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { toast } from "@/components/ui/use-toast"
+import { useAuth } from "@/src/utils/AuthContext"
+import { orgUnitsApi, type OrgUnit } from "@/src/services/referenceData/orgUnits"
+import {
+  locationTagsApi,
+  type LocationTag,
+} from "@/src/services/referenceData/locationTags"
 
-// Types
-interface LocationTag {
-  location_tag_name: string
-  capacity: number
-  current_items: number
-}
-
-// Form schema
 const locationTagSchema = z.object({
-  location_tag_name: z.string().min(1, "Location Tag Name is required").max(100, "Name must be less than 100 characters"),
-  capacity: z.coerce.number().int("Capacity must be an integer").min(0, "Capacity must be 0 or greater"),
+  unitId: z.string().uuid({ message: "Unit is required" }),
+  locationTagName: z
+    .string()
+    .min(1, "Location tag name is required")
+    .max(200, "Name must be less than 200 characters"),
+  capacity: z.coerce.number().int("Capacity must be an integer").min(1, "Capacity must be at least 1"),
 })
 
 type LocationTagFormValues = z.infer<typeof locationTagSchema>
 
-// Default data
-const defaultLocationTags: LocationTag[] = [
-  {
-    location_tag_name: "Warehouse A - Rack 1",
-    capacity: 100,
-    current_items: 0,
-  },
-  {
-    location_tag_name: "Warehouse A - Loading Dock",
-    capacity: 50,
-    current_items: 0,
-  },
-  {
-    location_tag_name: "Warehouse B - Quality Check",
-    capacity: 25,
-    current_items: 0,
-  },
-]
-
-// localStorage keys
-const LOCATION_TAGS_STORAGE_KEY = "worcoor-location-tags"
-const ORG_UNITS_STORAGE_KEY = "worcoor-org-units"
-
 export default function LocationTagsPage() {
+  const [units, setUnits] = useState<OrgUnit[]>([])
+  const [selectedUnitId, setSelectedUnitId] = useState<string>("")
   const [locationTags, setLocationTags] = useState<LocationTag[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingTag, setEditingTag] = useState<LocationTag | null>(null)
-  const [deleteTag, setDeleteTag] = useState<LocationTag | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isUnitsLoading, setIsUnitsLoading] = useState(true)
+  const [isTagsLoading, setIsTagsLoading] = useState(true)
+
+  const { session } = useAuth()
+  const canManage = session?.user.role === "admin"
 
   // Form initialization
   const form = useForm<LocationTagFormValues>({
     resolver: zodResolver(locationTagSchema),
     defaultValues: {
-      location_tag_name: "",
-      capacity: 0,
+      unitId: "",
+      locationTagName: "",
+      capacity: 1,
     },
   })
 
-  // Load data from localStorage on mount
-  useEffect(() => {
-    // Load location tags
-    const storedTags = localStorage.getItem(LOCATION_TAGS_STORAGE_KEY)
-    if (storedTags) {
-      try {
-        const parsedTags = JSON.parse(storedTags)
-        setLocationTags(parsedTags)
-      } catch (error) {
-        console.error("Error parsing stored location tags:", error)
-        // Fallback to default data
-        setLocationTags(defaultLocationTags)
-        localStorage.setItem(LOCATION_TAGS_STORAGE_KEY, JSON.stringify(defaultLocationTags))
+  const loadUnits = useCallback(async () => {
+    setIsUnitsLoading(true)
+    try {
+      const data = await orgUnitsApi.list()
+      setUnits(data)
+      setSelectedUnitId((current) => current || data[0]?.id || "")
+      if (data.length === 0) {
+        setLocationTags([])
+        setIsTagsLoading(false)
       }
-    } else {
-      // Initialize with default data
-      setLocationTags(defaultLocationTags)
-      localStorage.setItem(LOCATION_TAGS_STORAGE_KEY, JSON.stringify(defaultLocationTags))
+    } catch (error) {
+      toast({
+        title: "Failed to load units",
+        description: "Unable to retrieve organizational units.",
+        variant: "destructive",
+      })
+      setLocationTags([])
+      setIsTagsLoading(false)
+    } finally {
+      setIsUnitsLoading(false)
     }
-
   }, [])
 
-  // Save to localStorage whenever locationTags changes
+  const loadLocationTags = useCallback(async () => {
+    if (!selectedUnitId) {
+      setLocationTags([])
+      setIsTagsLoading(false)
+      return
+    }
+    setIsTagsLoading(true)
+    try {
+      const tags = await locationTagsApi.listByUnit(selectedUnitId)
+      setLocationTags(tags)
+    } catch (error) {
+      toast({
+        title: "Failed to load location tags",
+        description: "Please try again later.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsTagsLoading(false)
+    }
+  }, [selectedUnitId])
+
   useEffect(() => {
-    if (locationTags.length > 0) {
-      localStorage.setItem(LOCATION_TAGS_STORAGE_KEY, JSON.stringify(locationTags))
+    loadUnits()
+  }, [loadUnits])
+
+  useEffect(() => {
+    loadLocationTags()
+  }, [loadLocationTags])
+
+  useEffect(() => {
+    if (!editingTag && selectedUnitId) {
+      form.setValue("unitId", selectedUnitId)
     }
-  }, [locationTags])
+  }, [editingTag, form, selectedUnitId])
 
-  // Filter tags based on search and filters
-  const filteredTags = locationTags.filter((tag) => {
-    const search = searchTerm.toLowerCase()
-    const tagName = (tag.location_tag_name ?? (tag as any).name ?? "").toString().toLowerCase()
+  const filteredTags = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase()
+    return locationTags.filter((tag) => tag.locationTagName.toLowerCase().includes(search))
+  }, [locationTags, searchTerm])
 
-    const matchesSearch = tagName.includes(search)
+  const getUtilizationPercentage = (tag: LocationTag) => tag.utilizationPercentage ?? 0
 
-    return matchesSearch
-  })
-
-  const getUtilizationPercentage = (tag: LocationTag) => {
-    const cap = Number(tag.capacity) || 0
-    const cur = Number(tag.current_items) || 0
-    if (cap <= 0) return 0
-    return Math.round((cur / cap) * 100)
-  }
-
-  // Handle add new tag
-  const handleAddTag = (data: LocationTagFormValues) => {
+  const handleAddTag = async (data: LocationTagFormValues) => {
     setIsSubmitting(true)
-
-    const newTag: LocationTag = {
-      location_tag_name: data.location_tag_name,
-      capacity: Number(data.capacity),
-      current_items: 0,
+    try {
+      await locationTagsApi.create({
+        unitId: data.unitId,
+        locationTagName: data.locationTagName,
+        capacity: data.capacity,
+      })
+      toast({
+        title: "Location tag created",
+        description: `${data.locationTagName} has been added successfully.`,
+      })
+      setIsAddDialogOpen(false)
+      form.reset({ unitId: data.unitId, locationTagName: "", capacity: 1 })
+      await loadLocationTags()
+    } catch (error: any) {
+      toast({
+        title: "Failed to create location tag",
+        description: error?.response?.data?.error ?? "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
-
-    setLocationTags((prev) => [...prev, newTag])
-    setIsAddDialogOpen(false)
-    form.reset()
-
-    toast({
-      title: "Location tag created",
-      description: `${newTag.location_tag_name} has been added successfully.`,
-    })
-
-    setIsSubmitting(false)
   }
 
-  // Handle edit tag
-  const handleEditTag = (data: LocationTagFormValues) => {
+  const handleEditTag = async (data: LocationTagFormValues) => {
     if (!editingTag) return
-
     setIsSubmitting(true)
-
-    const updatedTag: LocationTag = {
-      ...editingTag,
-      location_tag_name: data.location_tag_name,
-      capacity: Number(data.capacity),
-      current_items: editingTag.current_items,
+    try {
+      await locationTagsApi.update(editingTag.id, {
+        unitId: data.unitId,
+        locationTagName: data.locationTagName,
+        capacity: data.capacity,
+      })
+      toast({
+        title: "Location tag updated",
+        description: `${data.locationTagName} has been updated successfully.`,
+      })
+      setIsEditDialogOpen(false)
+      setEditingTag(null)
+      form.reset({ unitId: data.unitId, locationTagName: "", capacity: 1 })
+      await loadLocationTags()
+    } catch (error: any) {
+      toast({
+        title: "Failed to update location tag",
+        description: error?.response?.data?.error ?? "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
-
-    setLocationTags((prev) =>
-      prev.map((tag) => (tag === editingTag ? updatedTag : tag))
-    )
-    setIsEditDialogOpen(false)
-    setEditingTag(null)
-    form.reset()
-
-    toast({
-      title: "Location tag updated",
-      description: `${updatedTag.location_tag_name} has been updated successfully.`,
-    })
-
-    setIsSubmitting(false)
-  }
-
-  // Handle delete tag
-  const handleDeleteTag = () => {
-    if (!deleteTag) return
-
-    setLocationTags((prev) => prev.filter((tag) => tag !== deleteTag))
-
-    toast({
-      title: "Location tag deleted",
-      description: `${deleteTag.location_tag_name} has been deleted successfully.`,
-      variant: "destructive",
-    })
-
-    setDeleteTag(null)
   }
 
   // Open edit dialog
   const handleEditClick = (tag: LocationTag) => {
     setEditingTag(tag)
     form.reset({
-      location_tag_name: tag.location_tag_name,
+      unitId: tag.unitId,
+      locationTagName: tag.locationTagName,
       capacity: tag.capacity,
     })
+    setIsAddDialogOpen(false)
     setIsEditDialogOpen(true)
-  }
-
-  // Open delete confirmation
-  const handleDeleteClick = (tag: LocationTag) => {
-    setDeleteTag(tag)
   }
 
   // Handle form submission
@@ -263,7 +242,19 @@ export default function LocationTagsPage() {
             </p>
           </div>
         </div>
-        <Button onClick={() => setIsAddDialogOpen(true)}>
+        <Button
+          onClick={() => {
+            setEditingTag(null)
+            form.reset({
+              unitId: selectedUnitId || "",
+              locationTagName: "",
+              capacity: 1,
+            })
+            setIsEditDialogOpen(false)
+            setIsAddDialogOpen(true)
+          }}
+          disabled={!canManage || isUnitsLoading || units.length === 0}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Add New Location
         </Button>
@@ -275,6 +266,24 @@ export default function LocationTagsPage() {
             All Location Tags ({filteredTags.length} of {locationTags.length})
           </CardTitle>
           <div className="flex items-center gap-2">
+            <Select
+              value={selectedUnitId}
+              onValueChange={(value) => {
+                setSelectedUnitId(value)
+              }}
+              disabled={isUnitsLoading || units.length === 0}
+            >
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Select unit" />
+              </SelectTrigger>
+              <SelectContent>
+                {units.map((unit) => (
+                  <SelectItem key={unit.id} value={unit.id}>
+                    {unit.unitName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -288,6 +297,12 @@ export default function LocationTagsPage() {
           </div>
         </CardHeader>
         <CardContent>
+          {isTagsLoading ? (
+            <div className="flex h-40 flex-col items-center justify-center text-sm text-muted-foreground">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900" />
+              <span className="mt-3">Loading location tags…</span>
+            </div>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -300,34 +315,31 @@ export default function LocationTagsPage() {
             </TableHeader>
             <TableBody>
               {filteredTags.length > 0 ? (
-                filteredTags.map((tag, idx) => (
-                  <TableRow key={`${tag.location_tag_name}-${idx}`}>
-                    <TableCell className="font-medium">{tag.location_tag_name}</TableCell>
+                filteredTags.map((tag) => (
+                  <TableRow key={tag.id}>
+                    <TableCell className="font-medium">{tag.locationTagName}</TableCell>
                     <TableCell>{tag.capacity}</TableCell>
-                    <TableCell>{tag.current_items}</TableCell>
+                    <TableCell>{tag.currentItems}</TableCell>
                     <TableCell>{getUtilizationPercentage(tag)}%</TableCell>
                     <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                            <span className="sr-only">Actions</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditClick(tag)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => handleDeleteClick(tag)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {canManage ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                              <span className="sr-only">Actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEditClick(tag)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">View only</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -342,6 +354,7 @@ export default function LocationTagsPage() {
               )}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -351,7 +364,7 @@ export default function LocationTagsPage() {
           setIsAddDialogOpen(false)
           setIsEditDialogOpen(false)
           setEditingTag(null)
-          form.reset()
+          form.reset({ unitId: selectedUnitId || "", locationTagName: "", capacity: 1 })
         }
       }}>
         <DialogContent className="sm:max-w-[425px]">
@@ -369,7 +382,36 @@ export default function LocationTagsPage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="location_tag_name"
+                name="unitId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Organizational Unit</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || selectedUnitId}
+                      disabled={!canManage || isUnitsLoading || units.length === 0}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select unit" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {units.map((unit) => (
+                          <SelectItem key={unit.id} value={unit.id}>
+                            {unit.unitName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="locationTagName"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Location Tag Name</FormLabel>
@@ -399,7 +441,7 @@ export default function LocationTagsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Current Items</Label>
-                    <p className="text-sm">{editingTag.current_items}</p>
+                    <p className="text-sm">{editingTag.currentItems}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Utilization Percentage</Label>
@@ -416,12 +458,12 @@ export default function LocationTagsPage() {
                     setIsAddDialogOpen(false)
                     setIsEditDialogOpen(false)
                     setEditingTag(null)
-                    form.reset()
+                    form.reset({ unitId: selectedUnitId || "", locationTagName: "", capacity: 1 })
                   }}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
+                <Button type="submit" disabled={isSubmitting || !canManage}>
                   {isSubmitting ? "Saving..." : editingTag ? "Update Location" : "Create Location"}
                 </Button>
               </DialogFooter>
@@ -429,28 +471,6 @@ export default function LocationTagsPage() {
           </Form>
         </DialogContent>
       </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteTag} onOpenChange={() => setDeleteTag(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the location tag
-              "{deleteTag?.location_tag_name}" and remove all associated data.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteTag}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Delete Location
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

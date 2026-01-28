@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { Tag, Plus, Search, Edit, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -14,160 +14,315 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Label } from "@/components/ui/label"
 import PageHeader from "@/components/layout/page-header"
 import SkuForm from "@/components/inventory/sku-form"
+import { toast } from "@/components/ui/use-toast"
 
-import { apiService } from "@/src/services/apiService"
-import { api_url } from "@/src/constants/api_url"
+import { useAuth } from "@/src/utils/AuthContext"
+import { orgUnitsApi, type OrgUnit } from "@/src/services/referenceData/orgUnits"
+import { locationTagsApi } from "@/src/services/referenceData/locationTags"
+import { skusApi, type Sku } from "@/src/services/referenceData/skus"
 
-const SKUS_STORAGE_KEY = "worcoor-skus"
-
-type BackendSkuCategory = "raw_material" | "finished_good"
-type BackendSkuUnit = "kg" | "liters" | "pieces"
-
-interface BackendSku {
-  id: string
+type SkuFormValues = {
   sku_name: string
-  sku_category: BackendSkuCategory
+  sku_category: "raw_material" | "finished_good"
   quantity: number
-  sku_unit: BackendSkuUnit
+  sku_unit: string
   effective_date: string
-  expiry_date?: string
-  location_tag_id?: string
+  expiry_date?: string | null
+  location_tag_id?: string | null
 }
 
-const sampleSkus: BackendSku[] = [
-  {
-    id: "SKU-001",
-    sku_name: "Oak Wood Panel",
-    sku_category: "raw_material",
-    quantity: 150,
-    sku_unit: "pieces",
-    effective_date: "2024-01-15",
-    expiry_date: "",
-    location_tag_id: "",
-  },
-]
+type LocationTagOption = { value: string; label: string }
+
+const mapFormToPayload = (values: SkuFormValues) => ({
+  skuName: values.sku_name,
+  skuCategory: values.sku_category,
+  skuUnit: values.sku_unit,
+  quantity: Number(values.quantity ?? 0),
+  effectiveDate: values.effective_date,
+  expiryDate: values.expiry_date ? values.expiry_date : null,
+  locationTagId: values.location_tag_id ? values.location_tag_id : null,
+})
+
+const skuToFormValues = (sku: Sku): SkuFormValues => ({
+  sku_name: sku.skuName,
+  sku_category: sku.skuCategory,
+  quantity: sku.quantity,
+  sku_unit: sku.skuUnit,
+  effective_date: sku.effectiveDate,
+  expiry_date: sku.expiryDate ?? "",
+  location_tag_id: sku.locationTagId ?? undefined,
+})
 
 export default function SkuManagementPage() {
-  const [skus, setSkus] = useState<BackendSku[]>([])
-  const [locationTags, setLocationTags] = useState<{ value: string; label: string }[]>([])
-
-  const [search, setSearch] = useState("")
-  const [selectedSku, setSelectedSku] = useState<BackendSku | null>(null)
-
+  const [units, setUnits] = useState<OrgUnit[]>([])
+  const [selectedUnitId, setSelectedUnitId] = useState<string>("")
+  const [skus, setSkus] = useState<Sku[]>([])
+  const [locationTags, setLocationTags] = useState<LocationTagOption[]>([])
+  const [searchInput, setSearchInput] = useState("")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedSku, setSelectedSku] = useState<Sku | null>(null)
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [isUnitsLoading, setIsUnitsLoading] = useState(true)
+  const [isTagsLoading, setIsTagsLoading] = useState(false)
+  const [isSkusLoading, setIsSkusLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const { session } = useAuth()
+  const canManage = session?.user.role === "admin"
 
   useEffect(() => {
-    const stored = localStorage.getItem(SKUS_STORAGE_KEY)
-    if (stored) {
-      try {
-        setSkus(JSON.parse(stored))
-        return
-      } catch {
-      }
+    const handle = setTimeout(() => setSearchTerm(searchInput.trim()), 400)
+    return () => clearTimeout(handle)
+  }, [searchInput])
+
+  const loadUnits = useCallback(async () => {
+    setIsUnitsLoading(true)
+    try {
+      const data = await orgUnitsApi.list()
+      setUnits(data)
+      setSelectedUnitId((current) => current || data[0]?.id || "")
+    } catch (error) {
+      toast({
+        title: "Failed to load units",
+        description: "Unable to retrieve organizational units.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUnitsLoading(false)
     }
-    localStorage.setItem(SKUS_STORAGE_KEY, JSON.stringify(sampleSkus))
-    setSkus(sampleSkus)
   }, [])
 
-  useEffect(() => {
-    if (skus.length > 0) {
-      localStorage.setItem(SKUS_STORAGE_KEY, JSON.stringify(skus))
-    }
-  }, [skus])
-
-  useEffect(() => {
-    const fetchLocationTags = async () => {
-      try {
-        const apiId = "68565e75f70897486c46853b"
-        const response = await apiService.get({
-          path: `${api_url.worCoorService.referenceDataTable.listTableEntry}/${apiId}`,
-          isAuth: true,
-        })
-        const rawData = response.data?.data || []
-        const formatted = rawData.map((item: any) => ({
-          value: item.id,
-          label: item.detail?.name || "",
-        }))
-        setLocationTags(formatted)
-      } catch {
+  const loadLocationTags = useCallback(
+    async (unitId: string) => {
+      if (!unitId) {
         setLocationTags([])
+        return
       }
+      setIsTagsLoading(true)
+      try {
+        const tags = await locationTagsApi.listByUnit(unitId)
+        setLocationTags(
+          tags.map((tag) => ({
+            value: tag.id,
+            label: tag.locationTagName,
+          })),
+        )
+      } catch (error) {
+        toast({
+          title: "Failed to load location tags",
+          description: "Please try again later.",
+          variant: "destructive",
+        })
+        setLocationTags([])
+      } finally {
+        setIsTagsLoading(false)
+      }
+    },
+    [],
+  )
+
+  const loadSkus = useCallback(async () => {
+    setIsSkusLoading(true)
+    try {
+      const { items } = await skusApi.list({
+        unitId: selectedUnitId || undefined,
+        search: searchTerm || undefined,
+      })
+      setSkus(items)
+    } catch (error) {
+      toast({
+        title: "Failed to load SKUs",
+        description: "Please refresh the page or try again later.",
+        variant: "destructive",
+      })
+      setSkus([])
+    } finally {
+      setIsSkusLoading(false)
     }
-    fetchLocationTags()
-  }, [])
+  }, [searchTerm, selectedUnitId])
 
-  const getLocationTagNameById = (id?: string) => {
-    if (!id) return "-"
-    const found = locationTags.find((t) => t.value === id)
-    return found?.label || id
-  }
+  useEffect(() => {
+    loadUnits()
+  }, [loadUnits])
 
-  const filteredSkus = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return skus
-    return skus.filter((s) => s.sku_name.toLowerCase().includes(q))
-  }, [search, skus])
-
-  const handleAddSku = (data: Omit<BackendSku, "id"> & Partial<Pick<BackendSku, "id">>) => {
-    const newSku: BackendSku = {
-      id: `SKU-${Date.now()}`,
-      sku_name: data.sku_name,
-      sku_category: data.sku_category,
-      quantity: Number(data.quantity ?? 0),
-      sku_unit: data.sku_unit,
-      effective_date: data.effective_date,
-      expiry_date: data.expiry_date || "",
-      location_tag_id: data.location_tag_id || "",
+  useEffect(() => {
+    if (selectedUnitId) {
+      loadLocationTags(selectedUnitId)
+    } else {
+      setLocationTags([])
     }
-    setSkus((prev) => [newSku, ...prev])
+  }, [loadLocationTags, selectedUnitId])
+
+  useEffect(() => {
+    loadSkus()
+  }, [loadSkus])
+
+  const filteredSkus = useMemo(() => skus, [skus])
+
+  const closeDialog = () => {
     setIsAddOpen(false)
-  }
-
-  const handleEditSku = (data: any) => {
-    if (!selectedSku) return
-    setSkus((prev) =>
-      prev.map((s) =>
-        s.id === selectedSku.id
-          ? {
-              ...s,
-              sku_name: data.sku_name,
-              sku_category: data.sku_category,
-              quantity: Number(data.quantity ?? 0),
-              sku_unit: data.sku_unit,
-              effective_date: data.effective_date,
-              expiry_date: data.expiry_date || "",
-              location_tag_id: data.location_tag_id || "",
-            }
-          : s,
-      ),
-    )
     setIsEditOpen(false)
     setSelectedSku(null)
   }
 
-  const handleDeleteSku = () => {
+  const handleAddSku = async (values: SkuFormValues) => {
+    setIsSubmitting(true)
+    try {
+      await skusApi.create(mapFormToPayload(values))
+      toast({
+        title: "SKU created",
+        description: `${values.sku_name} has been added successfully.`,
+      })
+      setIsAddOpen(false)
+      await loadSkus()
+    } catch (error: any) {
+      toast({
+        title: "Failed to create SKU",
+        description: error?.response?.data?.error ?? "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleEditSku = async (values: SkuFormValues) => {
     if (!selectedSku) return
-    setSkus((prev) => prev.filter((s) => s.id !== selectedSku.id))
-    setIsDeleteOpen(false)
-    setSelectedSku(null)
+    setIsSubmitting(true)
+    try {
+      await skusApi.update(selectedSku.id, mapFormToPayload(values))
+      toast({
+        title: "SKU updated",
+        description: `${values.sku_name} has been updated successfully.`,
+      })
+      setIsEditOpen(false)
+      setSelectedSku(null)
+      await loadSkus()
+    } catch (error: any) {
+      toast({
+        title: "Failed to update SKU",
+        description: error?.response?.data?.error ?? "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteSku = async () => {
+    if (!selectedSku) return
+    setIsDeleting(true)
+    try {
+      await skusApi.remove(selectedSku.id)
+      toast({
+        title: "SKU deleted",
+        description: `${selectedSku.skuName} has been removed.`,
+      })
+      setIsDeleteOpen(false)
+      setSelectedSku(null)
+      await loadSkus()
+    } catch (error: any) {
+      toast({
+        title: "Failed to delete SKU",
+        description: error?.response?.data?.error ?? "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const renderTableBody = () => {
+    if (isSkusLoading) {
+      return (
+        <TableRow>
+          <TableCell colSpan={8} className="h-32 text-center text-sm text-muted-foreground">
+            Loading SKUs…
+          </TableCell>
+        </TableRow>
+      )
+    }
+
+    if (!filteredSkus.length) {
+      return (
+        <TableRow>
+          <TableCell colSpan={8} className="h-32 text-center text-sm text-muted-foreground">
+            No SKUs found.
+          </TableCell>
+        </TableRow>
+      )
+    }
+
+    return filteredSkus.map((sku) => (
+      <TableRow key={sku.id}>
+        <TableCell className="font-medium">{sku.skuName}</TableCell>
+        <TableCell className="capitalize">{sku.skuCategory.replace("_", " ")}</TableCell>
+        <TableCell>{sku.quantity}</TableCell>
+        <TableCell>{sku.skuUnit}</TableCell>
+        <TableCell>{sku.effectiveDate || "-"}</TableCell>
+        <TableCell>{sku.expiryDate ?? "-"}</TableCell>
+        <TableCell>{sku.locationTagName ?? "Unassigned"}</TableCell>
+        <TableCell className="text-right">
+          {canManage ? (
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedSku(sku)
+                  setIsEditOpen(true)
+                }}
+              >
+                <Edit className="h-3 w-3 mr-1" />
+                Edit
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={() => {
+                  setSelectedSku(sku)
+                  setIsDeleteOpen(true)
+                }}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Delete
+              </Button>
+            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground">View only</span>
+          )}
+        </TableCell>
+      </TableRow>
+    ))
   }
 
   return (
     <div className="h-[calc(100vh-3rem)] overflow-hidden">
-      <div className="h-full skus flex flex-col gap-2">
+      <div className="h-full flex flex-col gap-4">
         <div className="flex items-center pb-2 sm:pb-4">
           <PageHeader title="SKU Management" description="Manage SKUs and inventory levels" icon={Tag} />
-          <div className="flex items-center ml-auto gap-2">
-            <Button className="border border-primary bg-darkblue text-white hover:bg-darkblue/90" onClick={() => setIsAddOpen(true)}>
-              <span className="hidden md:block">Add SKU</span>
-              <Plus className="h-4 w-4 block text-white md:hidden" />
-            </Button>
-          </div>
+          {canManage && (
+            <div className="flex items-center ml-auto gap-2">
+              <Button
+                className="border border-primary bg-darkblue text-white hover:bg-darkblue/90"
+                disabled={isUnitsLoading || (!canManage && true)}
+                onClick={() => {
+                  setSelectedSku(null)
+                  setIsEditOpen(false)
+                  setIsAddOpen(true)
+                }}
+              >
+                <span className="hidden md:block">Add SKU</span>
+                <Plus className="h-4 w-4 block text-white md:hidden" />
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 items-center">
@@ -176,10 +331,25 @@ export default function SkuManagementPage() {
             <Input
               type="search"
               placeholder="Search SKUs..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className="h-11 bg-background border-input rounded-xl pl-8 focus:outline-transparent focus:ring-0"
             />
+          </div>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <select
+              className="h-11 w-full md:w-64 rounded-xl border border-input bg-background px-3 text-sm"
+              value={selectedUnitId}
+              onChange={(event) => setSelectedUnitId(event.target.value)}
+              disabled={isUnitsLoading || !units.length}
+            >
+              {!units.length && <option value="">No units available</option>}
+              {units.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.unitName}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -197,61 +367,14 @@ export default function SkuManagementPage() {
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
-              {filteredSkus.length ? (
-                filteredSkus.map((sku) => (
-                  <TableRow key={sku.id}>
-                    <TableCell className="font-medium">{sku.sku_name}</TableCell>
-                    <TableCell>{sku.sku_category}</TableCell>
-                    <TableCell>{sku.quantity}</TableCell>
-                    <TableCell>{sku.sku_unit}</TableCell>
-                    <TableCell>{sku.effective_date || "-"}</TableCell>
-                    <TableCell>{sku.expiry_date || "-"}</TableCell>
-                    <TableCell>{getLocationTagNameById(sku.location_tag_id)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedSku(sku)
-                            setIsEditOpen(true)
-                          }}
-                        >
-                          <Edit className="h-3 w-3 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => {
-                            setSelectedSku(sku)
-                            setIsDeleteOpen(true)
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3 mr-1" />
-                          Delete
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
-                    No SKUs found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
+            <TableBody>{renderTableBody()}</TableBody>
           </Table>
         </div>
 
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <Dialog open={isAddOpen} onOpenChange={(open) => (!open && !isSubmitting ? setIsAddOpen(false) : setIsAddOpen(open))}>
           <DialogContent
             onInteractOutside={(e) => e.preventDefault()}
-            onEscapeKeyDown={() => setIsAddOpen(false)}
+            onEscapeKeyDown={() => !isSubmitting && setIsAddOpen(false)}
             className="max-w-3xl md:max-h-[90dvh] min-h-[60dvh] md:h-[70dvh] h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden dark:bg-modal p-0 gap-0"
           >
             <DialogHeader className="px-2 md:px-6 pt-6 pb-[1.1rem] border-b">
@@ -259,15 +382,19 @@ export default function SkuManagementPage() {
               <DialogDescription>Add a new SKU to the inventory system.</DialogDescription>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto pt-4">
-              <SkuForm onSubmit={handleAddSku as any} onCancel={() => setIsAddOpen(false)} locationTags={locationTags} />
+              <SkuForm
+                onSubmit={handleAddSku as any}
+                onCancel={() => !isSubmitting && setIsAddOpen(false)}
+                locationTags={locationTags}
+              />
             </div>
           </DialogContent>
         </Dialog>
 
-        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <Dialog open={isEditOpen} onOpenChange={(open) => (!open && !isSubmitting ? setIsEditOpen(false) : setIsEditOpen(open))}>
           <DialogContent
             onInteractOutside={(e) => e.preventDefault()}
-            onEscapeKeyDown={() => setIsEditOpen(false)}
+            onEscapeKeyDown={() => !isSubmitting && setIsEditOpen(false)}
             className="max-w-3xl md:max-h-[90dvh] min-h-[60dvh] md:h-[70dvh] h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden dark:bg-modal p-0 gap-0"
           >
             <DialogHeader className="px-2 md:px-6 pt-6 pb-[1.1rem] border-b">
@@ -277,9 +404,10 @@ export default function SkuManagementPage() {
             <div className="flex-1 overflow-y-auto pt-4">
               {selectedSku && (
                 <SkuForm
-                  initialData={selectedSku as any}
-                  onSubmit={handleEditSku}
+                  initialData={skuToFormValues(selectedSku) as any}
+                  onSubmit={handleEditSku as any}
                   onCancel={() => {
+                    if (isSubmitting) return
                     setIsEditOpen(false)
                     setSelectedSku(null)
                   }}
@@ -290,7 +418,7 @@ export default function SkuManagementPage() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <Dialog open={isDeleteOpen} onOpenChange={(open) => (!open && !isDeleting ? setIsDeleteOpen(false) : setIsDeleteOpen(open))}>
           <DialogContent className="dark:bg-modal max-w-full sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Delete SKU</DialogTitle>
@@ -298,17 +426,17 @@ export default function SkuManagementPage() {
             </DialogHeader>
             {selectedSku && (
               <div className="pb-4 pt-2">
-                <p className="text-sm/10 leading-[1.4] mb-3">
-                  You are about to delete: <strong>{selectedSku.sku_name}</strong>
+                <p className="text-sm leading-[1.4] mb-3">
+                  You are about to delete: <strong>{selectedSku.skuName}</strong>
                 </p>
               </div>
             )}
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
+              <Button variant="outline" onClick={() => !isDeleting && setIsDeleteOpen(false)}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={handleDeleteSku}>
-                Delete
+              <Button variant="destructive" onClick={handleDeleteSku} disabled={isDeleting}>
+                {isDeleting ? "Deleting..." : "Delete"}
               </Button>
             </DialogFooter>
           </DialogContent>

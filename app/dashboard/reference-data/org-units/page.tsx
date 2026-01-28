@@ -1,10 +1,10 @@
 "use client"
 
-import { Building2, Plus, Search, Filter, MoreVertical, Pencil, Trash2, ChevronDown } from "lucide-react"
+import { Building2, Plus, Search, MoreVertical, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Table,
   TableBody,
@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import {
   Dialog,
   DialogContent,
@@ -39,15 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -60,21 +52,13 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { toast } from "@/components/ui/use-toast"
-
-// Types
-interface OrgUnit {
-  unit_name: string
-  unit_type: "warehouse" | "office" | "production"
-  status: "LIVE" | "OFFLINE" | "MAINTENANCE" | "PLANNING"
-  description?: string
-}
+import { useAuth } from "@/src/utils/AuthContext"
+import { orgUnitsApi, type OrgUnit } from "@/src/services/referenceData/orgUnits"
 
 // Form schema
 const orgUnitSchema = z.object({
-  unit_name: z.string().min(1, "Unit Name is required").max(100, "Name must be less than 100 characters"),
-  unit_type: z.enum(["warehouse", "office", "production"], {
-    required_error: "Please select a unit type",
-  }),
+  unit_name: z.string().min(1, "Unit Name is required").max(255, "Name must be less than 255 characters"),
+  unit_type: z.string().min(1, "Unit Type is required"),
   status: z.enum(["LIVE", "OFFLINE", "MAINTENANCE", "PLANNING"], {
     required_error: "Please select a status",
   }),
@@ -82,31 +66,13 @@ const orgUnitSchema = z.object({
 })
 
 type OrgUnitFormValues = z.infer<typeof orgUnitSchema>
-
-// Default data
-const defaultOrgUnits: OrgUnit[] = [
-  {
-    unit_name: "Warehouse 1",
-    unit_type: "warehouse",
-    status: "LIVE",
-    description: "Main warehouse for finished goods storage",
-  },
-  {
-    unit_name: "Production Unit 1",
-    unit_type: "production",
-    status: "PLANNING",
-    description: "Primary production line for assembly operations",
-  },
-  {
-    unit_name: "Main Office",
-    unit_type: "office",
-    status: "OFFLINE",
-    description: "Administrative offices and management",
-  },
+const unitTypeOptions = [
+  { value: "WAREHOUSE", label: "Warehouse" },
+  { value: "PRODUCTION", label: "Production" },
+  { value: "OFFICE", label: "Office" },
 ]
 
-// localStorage key
-const ORG_UNITS_STORAGE_KEY = "worcoor-org-units"
+const statusOptions: OrgUnit["status"][] = ["LIVE", "OFFLINE", "MAINTENANCE", "PLANNING"]
 
 export default function OrgUnitsPage() {
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
@@ -118,6 +84,11 @@ export default function OrgUnitsPage() {
   const [editingUnit, setEditingUnit] = useState<OrgUnit | null>(null)
   const [deleteUnit, setDeleteUnit] = useState<OrgUnit | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  const { session } = useAuth()
+  const userRole = session?.user.role
+  const canManageUnits = userRole === "admin"
 
   // Form initialization
   const form = useForm<OrgUnitFormValues>({
@@ -130,120 +101,135 @@ export default function OrgUnitsPage() {
     },
   })
 
-  // Load data from localStorage on mount
-  useEffect(() => {
-    const storedUnits = localStorage.getItem(ORG_UNITS_STORAGE_KEY)
-    if (storedUnits) {
-      try {
-        const parsedUnits = JSON.parse(storedUnits)
-        setOrgUnits(parsedUnits)
-      } catch (error) {
-        console.error("Error parsing stored org units:", error)
-        // Fallback to default data
-        setOrgUnits(defaultOrgUnits)
-        localStorage.setItem(ORG_UNITS_STORAGE_KEY, JSON.stringify(defaultOrgUnits))
-      }
-    } else {
-      // Initialize with default data
-      setOrgUnits(defaultOrgUnits)
-      localStorage.setItem(ORG_UNITS_STORAGE_KEY, JSON.stringify(defaultOrgUnits))
+  const loadOrgUnits = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const data = await orgUnitsApi.list()
+      setOrgUnits(data)
+    } catch (error) {
+      console.error("Failed to load org units", error)
+      toast({
+        title: "Failed to load units",
+        description: "Please try again later.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
   }, [])
 
-  // Save to localStorage whenever orgUnits changes
   useEffect(() => {
-    if (orgUnits.length > 0) {
-      localStorage.setItem(ORG_UNITS_STORAGE_KEY, JSON.stringify(orgUnits))
-    }
-  }, [orgUnits])
+    loadOrgUnits()
+  }, [loadOrgUnits])
 
   // Filter units based on search and filters
-  const filteredUnits = orgUnits.filter((unit) => {
+  const filteredUnits = useMemo(() => {
     const search = searchTerm.toLowerCase()
-    const unitName = (unit.unit_name ?? (unit as any).name ?? "").toString().toLowerCase()
-    const unitDescription = (unit.description ?? "").toString().toLowerCase()
-
-    const matchesSearch = unitName.includes(search) || unitDescription.includes(search)
-
-    const matchesType = filterType === "all" || unit.unit_type === filterType
-    const matchesStatus = filterStatus === "all" || unit.status === filterStatus
-
-    return matchesSearch && matchesType && matchesStatus
-  })
+    return orgUnits.filter((unit) => {
+      const matchesSearch =
+        unit.unitName.toLowerCase().includes(search) ||
+        (unit.description ?? "").toLowerCase().includes(search)
+      const matchesType = filterType === "all" || unit.unitType === filterType
+      const matchesStatus = filterStatus === "all" || unit.status === filterStatus
+      return matchesSearch && matchesType && matchesStatus
+    })
+  }, [filterStatus, filterType, orgUnits, searchTerm])
 
   // Handle add new unit
-  const handleAddUnit = (data: OrgUnitFormValues) => {
+  const handleAddUnit = async (data: OrgUnitFormValues) => {
     setIsSubmitting(true)
+    try {
+      const created = await orgUnitsApi.create({
+        unitName: data.unit_name,
+        unitType: data.unit_type,
+        status: data.status,
+        description: data.description ?? null,
+      })
 
-    const newUnit: OrgUnit = {
-      unit_name: data.unit_name,
-      unit_type: data.unit_type,
-      status: data.status,
-      description: data.description,
+      setOrgUnits((prev) => [...prev, created])
+      setIsAddDialogOpen(false)
+      form.reset()
+
+      toast({
+        title: "Organizational unit created",
+        description: `${created.unitName} has been added successfully.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Failed to create unit",
+        description: error?.response?.data?.error ?? "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
-
-    setOrgUnits((prev) => [...prev, newUnit])
-    setIsAddDialogOpen(false)
-    form.reset()
-
-    toast({
-      title: "Organizational unit created",
-      description: `${newUnit.unit_name} has been added successfully.`,
-    })
-
-    setIsSubmitting(false)
   }
 
   // Handle edit unit
-  const handleEditUnit = (data: OrgUnitFormValues) => {
+  const handleEditUnit = async (data: OrgUnitFormValues) => {
     if (!editingUnit) return
 
     setIsSubmitting(true)
+    try {
+      const updated = await orgUnitsApi.update(editingUnit.id, {
+        unitName: data.unit_name,
+        unitType: data.unit_type,
+        status: data.status,
+        description: data.description ?? null,
+      })
 
-    const updatedUnit: OrgUnit = {
-      ...editingUnit,
-      unit_name: data.unit_name,
-      unit_type: data.unit_type,
-      status: data.status,
-      description: data.description,
+      setOrgUnits((prev) => prev.map((unit) => (unit.id === updated.id ? updated : unit)))
+      setIsEditDialogOpen(false)
+      setEditingUnit(null)
+      form.reset()
+
+      toast({
+        title: "Organizational unit updated",
+        description: `${updated.unitName} has been updated successfully.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Failed to update unit",
+        description: error?.response?.data?.error ?? "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
-
-    setOrgUnits((prev) =>
-      prev.map((unit) => (unit === editingUnit ? updatedUnit : unit))
-    )
-    setIsEditDialogOpen(false)
-    setEditingUnit(null)
-    form.reset()
-
-    toast({
-      title: "Organizational unit updated",
-      description: `${updatedUnit.unit_name} has been updated successfully.`,
-    })
-
-    setIsSubmitting(false)
   }
 
   // Handle delete unit
-  const handleDeleteUnit = () => {
+  const handleDeleteUnit = async () => {
     if (!deleteUnit) return
 
-    setOrgUnits((prev) => prev.filter((unit) => unit !== deleteUnit))
+    setIsSubmitting(true)
+    try {
+      await orgUnitsApi.remove(deleteUnit.id)
+      setOrgUnits((prev) => prev.filter((unit) => unit.id !== deleteUnit.id))
 
-    toast({
-      title: "Organizational unit deleted",
-      description: `${deleteUnit.unit_name} has been deleted successfully.`,
-      variant: "destructive",
-    })
-
-    setDeleteUnit(null)
+      toast({
+        title: "Organizational unit deleted",
+        description: `${deleteUnit.unitName} has been deleted successfully.`,
+        variant: "destructive",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Failed to delete unit",
+        description: error?.response?.data?.error ?? "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setDeleteUnit(null)
+      setIsSubmitting(false)
+    }
   }
 
   // Open edit dialog
   const handleEditClick = (unit: OrgUnit) => {
     setEditingUnit(unit)
     form.reset({
-      unit_name: unit.unit_name,
-      unit_type: unit.unit_type,
+      unit_name: unit.unitName,
+      unit_type: unit.unitType,
       status: unit.status,
       description: unit.description || "",
     })
@@ -276,7 +262,7 @@ export default function OrgUnitsPage() {
             </p>
           </div>
         </div>
-        <Button onClick={() => setIsAddDialogOpen(true)}>
+        <Button onClick={() => setIsAddDialogOpen(true)} disabled={!canManageUnits} variant={canManageUnits ? "default" : "secondary"}>
           <Plus className="mr-2 h-4 w-4" />
           Add New Unit
         </Button>
@@ -304,9 +290,11 @@ export default function OrgUnitsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="Warehouse">Warehouse</SelectItem>
-                <SelectItem value="Production">Production</SelectItem>
-                <SelectItem value="Office">Office</SelectItem>
+                {unitTypeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -315,78 +303,98 @@ export default function OrgUnitsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
+                {statusOptions.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {status}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Unit Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUnits.length > 0 ? (
-                filteredUnits.map((unit, idx) => (
-                  <TableRow key={`${unit.unit_name}-${idx}`}>
-                    <TableCell className="font-medium">{unit.unit_name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="capitalize">
-                        {unit.unit_type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`h-2 w-2 rounded-full ${
-                            unit.status === "LIVE" ? "bg-green-500" : unit.status === "OFFLINE" ? "bg-gray-400" : unit.status === "MAINTENANCE" ? "bg-amber-500" : "bg-blue-500"
-                          }`}
-                        />
-                        <span>{unit.status}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                            <span className="sr-only">Actions</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditClick(unit)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => handleDeleteClick(unit)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+          {isLoading ? (
+            <div className="flex h-40 flex-col items-center justify-center text-sm text-muted-foreground">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900" />
+              <span className="mt-3">Loading organizational units…</span>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Unit Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredUnits.length > 0 ? (
+                  filteredUnits.map((unit) => (
+                    <TableRow key={unit.id}>
+                      <TableCell className="font-medium">{unit.unitName}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="uppercase">
+                          {unit.unitType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`h-2 w-2 rounded-full ${
+                              unit.status === "LIVE"
+                                ? "bg-green-500"
+                                : unit.status === "OFFLINE"
+                                ? "bg-gray-400"
+                                : unit.status === "MAINTENANCE"
+                                ? "bg-amber-500"
+                                : "bg-blue-500"
+                            }`}
+                          />
+                          <span>{unit.status}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {canManageUnits ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="h-4 w-4" />
+                                <span className="sr-only">Actions</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEditClick(unit)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={() => handleDeleteClick(unit)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">View only</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      {orgUnits.length === 0
+                        ? "No organizational units found. Add your first unit to get started."
+                        : "No units match your current filters."}
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center">
-                    {orgUnits.length === 0
-                      ? "No organizational units found. Add your first unit to get started."
-                      : "No units match your current filters."}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -439,9 +447,11 @@ export default function OrgUnitsPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="warehouse">warehouse</SelectItem>
-                        <SelectItem value="office">office</SelectItem>
-                        <SelectItem value="production">production</SelectItem>
+                        {unitTypeOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -462,10 +472,11 @@ export default function OrgUnitsPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="LIVE">LIVE</SelectItem>
-                        <SelectItem value="OFFLINE">OFFLINE</SelectItem>
-                        <SelectItem value="MAINTENANCE">MAINTENANCE</SelectItem>
-                        <SelectItem value="PLANNING">PLANNING</SelectItem>
+                        {statusOptions.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -520,7 +531,7 @@ export default function OrgUnitsPage() {
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the organizational unit
-              "{deleteUnit?.unit_name}" and remove all associated data.
+              "{deleteUnit?.unitName}" and remove all associated data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

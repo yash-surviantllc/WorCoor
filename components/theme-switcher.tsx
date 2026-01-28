@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "./ui/switch"
 import { Label } from "./ui/label"
 
-interface themeSwitcherProps {
-  isOpen: boolean
+interface ThemeSwitcherProps {
+  isOpen?: boolean
 }
 
-export function ThemeSwitcher({ isOpen }: themeSwitcherProps) {
+export function ThemeSwitcher({ isOpen = false }: ThemeSwitcherProps) {
   const [isDark, setIsDark] = useState(false)
 
   useEffect(() => {

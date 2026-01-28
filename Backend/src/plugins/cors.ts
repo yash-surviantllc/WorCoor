@@ -23,5 +23,14 @@ export async function registerCors(app: FastifyInstance, env: AppEnv) {
       cb(new Error(`Origin ${origin} is not allowed by CORS`), false);
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'Accept',
+    ],
+    exposedHeaders: ['Set-Cookie'],
+    maxAge: 24 * 60 * 60,
   });
 }

@@ -1,4 +1,5 @@
 import { apiService } from "@/src/services/apiService";
+import { orgUnitsApi } from "@/src/services/referenceData/orgUnits";
 
 export type LocationTag = {
   id: string;
@@ -19,13 +20,40 @@ export type CreateLocationTagInput = {
 
 export type UpdateLocationTagInput = Partial<CreateLocationTagInput>;
 
+const fetchTagsByUnit = async (unitId: string) => {
+  const response = await apiService.get({
+    path: `/units/${unitId}/location-tags`,
+  });
+
+  return (response.data as unknown as LocationTag[]) ?? [];
+};
+
 export const locationTagsApi = {
-  listByUnit: async (unitId: string) => {
-    const response = await apiService.get({
-      path: `/units/${unitId}/location-tags`,
+  listByUnit: fetchTagsByUnit,
+
+  listAllForOrg: async () => {
+    const units = await orgUnitsApi.list();
+    if (!units?.length) {
+      return [];
+    }
+
+    const tagsByUnit = await Promise.all(
+      units.map(async (unit) => {
+        try {
+          return await fetchTagsByUnit(unit.id);
+        } catch (error) {
+          console.warn(`Failed to load tags for unit ${unit.id}`, error);
+          return [];
+        }
+      }),
+    );
+
+    const dedupedMap = new Map<string, LocationTag>();
+    tagsByUnit.flat().forEach((tag) => {
+      dedupedMap.set(tag.id, tag);
     });
 
-    return (response.data as unknown as LocationTag[]) ?? [];
+    return Array.from(dedupedMap.values());
   },
 
   create: async (payload: CreateLocationTagInput) => {

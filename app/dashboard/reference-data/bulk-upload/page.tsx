@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Upload, FileText, Database, Package, ArrowRight, CheckCircle, AlertCircle, Loader2, RefreshCw, Plus, Edit, Trash2, Building, Save, X, Download, Clock } from "lucide-react"
 import * as XLSX from 'xlsx'
 import Papa from 'papaparse'
@@ -11,7 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PageHeader } from "@/components/dashboard/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import localStorageService from "@/src/services/localStorageService"
 import {
   Select,
   SelectContent,
@@ -20,12 +19,17 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
+import { toast } from "@/components/ui/use-toast"
+import { orgUnitsApi, type OrgUnit } from "@/src/services/referenceData/orgUnits"
+import { skusApi, type CreateSkuInput, type Sku, type UpdateSkuInput } from "@/src/services/referenceData/skus"
+import { locationTagsApi, type CreateLocationTagInput, type LocationTag, type UpdateLocationTagInput } from "@/src/services/referenceData/locationTags"
+import { assetsApi, type Asset, type CreateAssetInput, type UpdateAssetInput } from "@/src/services/referenceData/assets"
 
 // Backend schema definitions
 const BACKEND_SCHEMAS = {
   skus: {
     fields: ['id', 'organization_id', 'sku_name', 'sku_category', 'sku_unit', 'quantity', 'effective_date', 'expiry_date', 'location_tag_id', 'created_at'],
-    required: ['sku_name', 'organization_id'],
+    required: ['sku_name', 'sku_unit'],
     types: {
       id: 'uuid4',
       organization_id: 'uuid4',
@@ -41,7 +45,7 @@ const BACKEND_SCHEMAS = {
   },
   location_tags: {
     fields: ['id', 'organization_id', 'location_tag_name', 'capacity', 'created_at', 'unit_id'],
-    required: ['location_tag_name', 'organization_id'],
+    required: ['location_tag_name'],
     types: {
       id: 'uuid4',
       organization_id: 'uuid4',
@@ -53,7 +57,7 @@ const BACKEND_SCHEMAS = {
   },
   assets: {
     fields: ['id', 'organization_id', 'asset_name', 'asset_type', 'location_tag_id', 'created_at'],
-    required: ['asset_name', 'organization_id'],
+    required: ['asset_name'],
     types: {
       id: 'uuid4',
       organization_id: 'uuid4',
@@ -65,88 +69,267 @@ const BACKEND_SCHEMAS = {
   }
 }
 
-// Demo data for each type
-const DEMO_DATA = {
-  skus: [
-    {
-      id: '123e4567-e89b-12d3-a456-426614174001',
-      organization_id: '223e4567-e89b-12d3-a456-426614174000',
-      sku_name: 'Oak Wood Panel',
-      sku_category: 'Raw Materials',
-      sku_unit: 'pieces',
-      quantity: '150.5',
-      effective_date: '2024-01-15',
-      expiry_date: '2025-01-15',
-      location_tag_id: '323e4567-e89b-12d3-a456-426614174000',
-      created_at: '2024-01-23T10:30:00Z'
-    },
-    {
-      id: '123e4567-e89b-12d3-a456-426614174002',
-      organization_id: '223e4567-e89b-12d3-a456-426614174000',
-      sku_name: 'Steel Beam',
-      sku_category: 'Construction',
-      sku_unit: 'units',
-      quantity: '75',
-      effective_date: '2024-01-10',
-      expiry_date: '2025-01-10',
-      location_tag_id: '323e4567-e89b-12d3-a456-426614174001',
-      created_at: '2024-01-23T10:30:00Z'
-    }
-  ],
-  location_tags: [
-    {
-      id: '423e4567-e89b-12d3-a456-426614174000',
-      organization_id: '223e4567-e89b-12d3-a456-426614174000',
-      location_tag_name: 'Warehouse Zone A',
-      capacity: '1000',
-      created_at: '2024-01-23T10:30:00Z',
-      unit_id: '523e4567-e89b-12d3-a456-426614174000'
-    },
-    {
-      id: '423e4567-e89b-12d3-a456-426614174001',
-      organization_id: '223e4567-e89b-12d3-a456-426614174000',
-      location_tag_name: 'Cold Storage Unit',
-      capacity: '500',
-      created_at: '2024-01-23T10:30:00Z',
-      unit_id: '523e4567-e89b-12d3-a456-426614174001'
-    }
-  ],
-  assets: [
-    {
-      id: '623e4567-e89b-12d3-a456-426614174000',
-      organization_id: '223e4567-e89b-12d3-a456-426614174000',
-      asset_name: 'Forklift Machine',
-      asset_type: 'Equipment',
-      location_tag_id: '423e4567-e89b-12d3-a456-426614174000',
-      created_at: '2024-01-23T10:30:00Z'
-    },
-    {
-      id: '623e4567-e89b-12d3-a456-426614174001',
-      organization_id: '223e4567-e89b-12d3-a456-426614174000',
-      asset_name: 'Conveyor Belt System',
-      asset_type: 'Automation',
-      location_tag_id: '423e4567-e89b-12d3-a456-426614174001',
-      created_at: '2024-01-23T10:30:00Z'
-    }
-  ]
-}
-
-interface OrgUnit {
-  unit_name: string
-  unit_type: "warehouse" | "production" | "office"
-  status: "LIVE" | "OFFLINE" | "MAINTENANCE" | "PLANNING"
-  description?: string
-  organization_id: string
-}
-
+type UploadType = "skus" | "location_tags" | "assets"
 type CrudOperation = "create" | "update" | "delete"
+
+type UploadContext = {
+  unitId?: string
+}
+
+type ParsedRow = {
+  data: Record<string, any>
+  rowNumber: number
+}
+
+type UploadHandler = {
+  list: (context: UploadContext) => Promise<any[]>
+  create: (row: Record<string, any>, context: UploadContext) => Promise<void>
+  update: (row: Record<string, any>, context: UploadContext) => Promise<void>
+  delete: (row: Record<string, any>, context: UploadContext) => Promise<void>
+}
+
+const ID_FIELD_MAP: Record<UploadType, string[]> = {
+  skus: ["id", "sku_id"],
+  location_tags: ["id", "location_tag_id"],
+  assets: ["id", "asset_id"],
+}
+
+const getRowValue = (row: Record<string, any>, keys: string[]) => {
+  for (const key of keys) {
+    if (row[key] !== undefined && row[key] !== null && row[key] !== "") {
+      return row[key]
+    }
+  }
+  return undefined
+}
+
+const toNumber = (value: any, fallback = 0) => {
+  if (value === undefined || value === null || value === "") {
+    return fallback
+  }
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const normalizeSkuCategory = (value: any): Sku["skuCategory"] => {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase() as Sku["skuCategory"]
+    if (normalized === "raw_material" || normalized === "finished_good") {
+      return normalized
+    }
+  }
+  return "raw_material"
+}
+
+const mapSkuToDisplayRow = (sku: Sku) => ({
+  id: sku.id,
+  organization_id: sku.organizationId,
+  sku_name: sku.skuName,
+  sku_category: sku.skuCategory,
+  sku_unit: sku.skuUnit,
+  quantity: sku.quantity,
+  effective_date: sku.effectiveDate,
+  expiry_date: sku.expiryDate ?? "",
+  location_tag_id: sku.locationTagId ?? "",
+  unit_id: sku.unitId ?? "",
+  created_at: sku.createdAt,
+})
+
+const buildSkuCreatePayload = (row: Record<string, any>): CreateSkuInput => {
+  const skuName = getRowValue(row, ["sku_name", "skuName"])
+  if (!skuName) {
+    throw new Error("sku_name is required")
+  }
+
+  const skuUnit = getRowValue(row, ["sku_unit", "skuUnit"])
+  if (!skuUnit) {
+    throw new Error("sku_unit is required")
+  }
+
+  const quantity = toNumber(getRowValue(row, ["quantity", "qty", "current_quantity"]))
+
+  return {
+    skuName: String(skuName),
+    skuCategory: normalizeSkuCategory(getRowValue(row, ["sku_category", "skuCategory"])),
+    skuUnit: String(skuUnit),
+    quantity,
+    effectiveDate: String(getRowValue(row, ["effective_date", "effectiveDate"]) ?? new Date().toISOString()),
+    expiryDate: getRowValue(row, ["expiry_date", "expiryDate"]) ?? null,
+    locationTagId: getRowValue(row, ["location_tag_id", "locationTagId"]) ?? null,
+  }
+}
+
+const buildSkuUpdatePayload = (row: Record<string, any>): UpdateSkuInput => {
+  const payload: UpdateSkuInput = {}
+  const skuName = getRowValue(row, ["sku_name", "skuName"])
+  if (skuName) payload.skuName = String(skuName)
+  const skuCategory = getRowValue(row, ["sku_category", "skuCategory"])
+  if (skuCategory) payload.skuCategory = normalizeSkuCategory(skuCategory)
+  const skuUnit = getRowValue(row, ["sku_unit", "skuUnit"])
+  if (skuUnit) payload.skuUnit = String(skuUnit)
+  const quantity = getRowValue(row, ["quantity", "qty", "current_quantity"])
+  if (quantity !== undefined) payload.quantity = toNumber(quantity)
+  const effectiveDate = getRowValue(row, ["effective_date", "effectiveDate"])
+  if (effectiveDate) payload.effectiveDate = String(effectiveDate)
+  const expiryDate = getRowValue(row, ["expiry_date", "expiryDate"])
+  if (expiryDate !== undefined) payload.expiryDate = expiryDate ? String(expiryDate) : null
+  const locationTagId = getRowValue(row, ["location_tag_id", "locationTagId"])
+  if (locationTagId !== undefined) payload.locationTagId = locationTagId ? String(locationTagId) : null
+  return payload
+}
+
+const mapLocationTagToDisplayRow = (tag: LocationTag) => ({
+  id: tag.id,
+  organization_id: tag.organizationId,
+  location_tag_name: tag.locationTagName,
+  capacity: tag.capacity,
+  unit_id: tag.unitId,
+  created_at: tag.createdAt,
+})
+
+const buildLocationTagCreatePayload = (
+  row: Record<string, any>,
+  context: UploadContext,
+): CreateLocationTagInput => {
+  if (!context.unitId) {
+    throw new Error("Unit ID is required to create location tags")
+  }
+  const name = getRowValue(row, ["location_tag_name", "locationTagName"])
+  if (!name) {
+    throw new Error("location_tag_name is required")
+  }
+  const capacity = toNumber(getRowValue(row, ["capacity"]), 0)
+  return {
+    unitId: context.unitId,
+    locationTagName: String(name),
+    capacity,
+  }
+}
+
+const buildLocationTagUpdatePayload = (
+  row: Record<string, any>,
+  context: UploadContext,
+): UpdateLocationTagInput => {
+  const payload: UpdateLocationTagInput = {}
+  const name = getRowValue(row, ["location_tag_name", "locationTagName"])
+  if (name) payload.locationTagName = String(name)
+  const capacity = getRowValue(row, ["capacity"])
+  if (capacity !== undefined) payload.capacity = toNumber(capacity)
+  const unitId = getRowValue(row, ["unit_id", "unitId"])
+  if (unitId) payload.unitId = String(unitId)
+  // default to selected unit if payload still empty for unitId but other fields provided
+  if (!payload.unitId && context.unitId && (payload.locationTagName || payload.capacity !== undefined)) {
+    payload.unitId = context.unitId
+  }
+  return payload
+}
+
+const mapAssetToDisplayRow = (asset: Asset) => ({
+  id: asset.id,
+  organization_id: asset.organizationId ?? "",
+  asset_name: asset.assetName,
+  asset_type: asset.assetType,
+  location_tag_id: asset.locationTagId ?? "",
+  unit_id: asset.unitId ?? "",
+  created_at: asset.createdAt,
+})
+
+const buildAssetCreatePayload = (row: Record<string, any>): CreateAssetInput => {
+  const assetName = getRowValue(row, ["asset_name", "assetName"])
+  if (!assetName) {
+    throw new Error("asset_name is required")
+  }
+  const assetType = getRowValue(row, ["asset_type", "assetType"]) ?? "equipment"
+  const locationTagId = getRowValue(row, ["location_tag_id", "locationTagId"])
+  return {
+    assetName: String(assetName),
+    assetType: String(assetType),
+    locationTagId: locationTagId ? String(locationTagId) : undefined,
+  }
+}
+
+const buildAssetUpdatePayload = (row: Record<string, any>): UpdateAssetInput => {
+  const payload: UpdateAssetInput = {}
+  const assetName = getRowValue(row, ["asset_name", "assetName"])
+  if (assetName) payload.assetName = String(assetName)
+  const assetType = getRowValue(row, ["asset_type", "assetType"])
+  if (assetType) payload.assetType = String(assetType)
+  const locationTagId = getRowValue(row, ["location_tag_id", "locationTagId"])
+  if (locationTagId !== undefined) payload.locationTagId = locationTagId ? String(locationTagId) : undefined
+  return payload
+}
+
+const uploadHandlers: Record<UploadType, UploadHandler> = {
+  skus: {
+    list: async ({ unitId }) => {
+      const { items } = await skusApi.list({ unitId: unitId || undefined, limit: 100 })
+      return items.map(mapSkuToDisplayRow)
+    },
+    create: async (row) => {
+      const payload = buildSkuCreatePayload(row)
+      await skusApi.create(payload)
+    },
+    update: async (row) => {
+      const id = getRowValue(row, ["id", "sku_id"])
+      if (!id) throw new Error("id is required for update")
+      const payload = buildSkuUpdatePayload(row)
+      await skusApi.update(String(id), payload)
+    },
+    delete: async (row) => {
+      const id = getRowValue(row, ["id", "sku_id"])
+      if (!id) throw new Error("id is required for delete")
+      await skusApi.remove(String(id))
+    },
+  },
+  location_tags: {
+    list: async ({ unitId }) => {
+      if (!unitId) return []
+      const tags = await locationTagsApi.listByUnit(unitId)
+      return tags.map(mapLocationTagToDisplayRow)
+    },
+    create: async (row, context) => {
+      const payload = buildLocationTagCreatePayload(row, context)
+      await locationTagsApi.create(payload)
+    },
+    update: async (row, context) => {
+      const id = getRowValue(row, ["id", "location_tag_id"])
+      if (!id) throw new Error("id is required for update")
+      const payload = buildLocationTagUpdatePayload(row, context)
+      await locationTagsApi.update(String(id), payload)
+    },
+    delete: async () => {
+      throw new Error("Deleting location tags is not supported yet")
+    },
+  },
+  assets: {
+    list: async ({ unitId }) => {
+      const response = await assetsApi.list({ unitId: unitId || undefined, limit: 100 })
+      return response.items.map(mapAssetToDisplayRow)
+    },
+    create: async (row) => {
+      const payload = buildAssetCreatePayload(row)
+      await assetsApi.create(payload)
+    },
+    update: async (row) => {
+      const id = getRowValue(row, ["id", "asset_id"])
+      if (!id) throw new Error("id is required for update")
+      const payload = buildAssetUpdatePayload(row)
+      await assetsApi.update(String(id), payload)
+    },
+    delete: async (row) => {
+      const id = getRowValue(row, ["id", "asset_id"])
+      if (!id) throw new Error("id is required for delete")
+      await assetsApi.remove(String(id))
+    },
+  },
+}
 
 export default function BulkUploadPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [uploadType, setUploadType] = useState<string>("skus")
+  const [uploadType, setUploadType] = useState<UploadType>("skus")
   const [isDragOver, setIsDragOver] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
-  const [parsedData, setParsedData] = useState<any[]>([])
+  const [parsedData, setParsedData] = useState<ParsedRow[]>([])
   const [uploadResults, setUploadResults] = useState<{
     success: number
     errors: string[]
@@ -156,60 +339,95 @@ export default function BulkUploadPage() {
   const [importResults, setImportResults] = useState<{
     imported: number
     failed: number
+    total: number
     errors: string[]
   } | null>(null)
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
-  const [selectedOrgUnit, setSelectedOrgUnit] = useState<string>("")
+  const [isOrgUnitsLoading, setIsOrgUnitsLoading] = useState(true)
+  const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<string>("")
   const [crudOperation, setCrudOperation] = useState<CrudOperation>("create")
   const [isOperationConfirmed, setIsOperationConfirmed] = useState(false)
-  const [isCreatingOrgUnit, setIsCreatingOrgUnit] = useState(false)
-  const [newOrgUnitName, setNewOrgUnitName] = useState("")
-  const [newOrgUnitType, setNewOrgUnitType] = useState<"warehouse" | "production" | "office">("warehouse")
-  const [newOrgUnitDescription, setNewOrgUnitDescription] = useState("")
-  const [newOrgUnitOrganizationId, setNewOrgUnitOrganizationId] = useState("")
   const [displayedData, setDisplayedData] = useState<any[]>([])
+  const [isDataLoading, setIsDataLoading] = useState(false)
 
-  // Load displayed data whenever uploadType or selectedOrgUnit changes
-  useEffect(() => {
-    loadDisplayedData()
-  }, [uploadType, selectedOrgUnit])
+  const selectedOrgUnit = useMemo(
+    () => orgUnits.find((unit) => unit.id === selectedOrgUnitId) ?? null,
+    [orgUnits, selectedOrgUnitId],
+  )
 
-  // Reset operation confirmation when org unit or operation changes
-  useEffect(() => {
-    setIsOperationConfirmed(false)
-  }, [selectedOrgUnit, crudOperation])
+  const uploadContext = useMemo<UploadContext>(
+    () => ({ unitId: selectedOrgUnitId || undefined }),
+    [selectedOrgUnitId],
+  )
 
-  const loadDisplayedData = () => {
-    if (!selectedOrgUnit) {
-      setDisplayedData(DEMO_DATA[uploadType as keyof typeof DEMO_DATA])
-      return
+  const requiresUnitSelection = uploadType === "location_tags"
+  const canDisplayData = !requiresUnitSelection || !!uploadContext.unitId
+
+  const tableDescription = useMemo(() => {
+    if (!canDisplayData) {
+      return "Select an organizational unit to load data."
     }
-
-    const storageKey = `${uploadType}_${selectedOrgUnit}`
-    const storedData = localStorageService.getItem<any[]>(storageKey)
-    
-    if (storedData && storedData.length > 0) {
-      setDisplayedData(storedData)
-    } else {
-      setDisplayedData(DEMO_DATA[uploadType as keyof typeof DEMO_DATA])
+    if (isDataLoading) {
+      return "Loading latest records..."
     }
-  }
+    if (displayedData.length === 0) {
+      return "No records found yet. Import data to see it here."
+    }
+    return `Showing ${displayedData.length} record${displayedData.length === 1 ? "" : "s"}.`
+  }, [canDisplayData, displayedData.length, isDataLoading])
 
-  useEffect(() => {
-    const storedUnits = localStorage.getItem("worcoor-org-units")
-    if (storedUnits) {
-      try {
-        const parsedUnits = JSON.parse(storedUnits)
-        setOrgUnits(parsedUnits)
-        const activeUnit = parsedUnits.find((unit: OrgUnit) => unit.status === "LIVE")
-        if (activeUnit) {
-          setSelectedOrgUnit(activeUnit.unit_name)
-        }
-      } catch (error) {
-        console.error("Error parsing stored org units:", error)
-      }
+  const loadOrgUnits = useCallback(async () => {
+    setIsOrgUnitsLoading(true)
+    try {
+      const units = await orgUnitsApi.list()
+      setOrgUnits(units)
+      setSelectedOrgUnitId((current) => current || units[0]?.id || "")
+    } catch (error) {
+      console.error("Failed to load org units", error)
+      toast({
+        title: "Unable to load organizational units",
+        description: "Please refresh the page or try again later.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsOrgUnitsLoading(false)
     }
   }, [])
+
+  const refreshDisplayedData = useCallback(async () => {
+    const handler = uploadHandlers[uploadType]
+    if (!handler) return
+    if (requiresUnitSelection && !uploadContext.unitId) {
+      setDisplayedData([])
+      return
+    }
+    setIsDataLoading(true)
+    try {
+      const data = await handler.list(uploadContext)
+      setDisplayedData(data)
+    } catch (error) {
+      console.error("Failed to load existing data", error)
+      toast({
+        title: "Failed to load data",
+        description: "We couldn't load the latest records. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDataLoading(false)
+    }
+  }, [uploadContext, requiresUnitSelection, uploadType])
+
+  useEffect(() => {
+    loadOrgUnits()
+  }, [loadOrgUnits])
+
+  useEffect(() => {
+    refreshDisplayedData()
+  }, [refreshDisplayedData])
+
+  useEffect(() => {
+    setIsOperationConfirmed(false)
+  }, [selectedOrgUnitId, crudOperation, uploadType])
 
   const validateDataType = (value: any, type: string, fieldName: string): { valid: boolean; error?: string } => {
     if (value === null || value === undefined || value === '') {
@@ -281,34 +499,6 @@ export default function BulkUploadPage() {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-  }
-
-  const handleCreateOrgUnit = () => {
-    if (!newOrgUnitName.trim() || !newOrgUnitOrganizationId.trim()) return
-
-    try {
-      const newOrgUnit: OrgUnit = {
-        unit_name: newOrgUnitName.trim(),
-        unit_type: newOrgUnitType,
-        status: "LIVE",
-        description: newOrgUnitDescription.trim(),
-        organization_id: newOrgUnitOrganizationId.trim()
-      }
-
-      const updatedOrgUnits = [...orgUnits, newOrgUnit]
-      setOrgUnits(updatedOrgUnits)
-      localStorageService.setItem("worcoor-org-units", updatedOrgUnits)
-      
-      setSelectedOrgUnit(newOrgUnit.unit_name)
-      
-      setNewOrgUnitName("")
-      setNewOrgUnitType("warehouse")
-      setNewOrgUnitDescription("")
-      setNewOrgUnitOrganizationId("")
-      setIsCreatingOrgUnit(false)
-    } catch (error) {
-      console.error("Error creating org unit:", error)
-    }
   }
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -388,18 +578,17 @@ export default function BulkUploadPage() {
     })
   }
 
-  const validateData = (data: any[], type: string, operation: CrudOperation, orgUnitId: string): { valid: any[], errors: string[] } => {
+  const validateData = (data: any[], type: UploadType, operation: CrudOperation): { valid: ParsedRow[]; errors: string[] } => {
     const errors: string[] = []
-    const valid: any[] = []
+    const valid: ParsedRow[] = []
 
-    const schema = BACKEND_SCHEMAS[type as keyof typeof BACKEND_SCHEMAS]
+    const schema = BACKEND_SCHEMAS[type]
     if (!schema) {
       errors.push(`Unknown upload type: ${type}`)
       return { valid: [], errors }
     }
 
-    const storageKey = `${type}_${orgUnitId}`
-    const existingData = localStorageService.getItem<any[]>(storageKey) || []
+    const idFields = ID_FIELD_MAP[type]
 
     data.forEach((row, index) => {
       let isValid = true
@@ -430,17 +619,14 @@ export default function BulkUploadPage() {
         }
       }
 
-      if (operation === 'delete' || operation === 'update') {
-        const idField = 'id'
-        if (!row[idField]) {
-          rowErrors.push(`Missing ${idField} for ${operation} operation`)
+      if ((operation === 'update' || operation === 'delete') && idFields?.length) {
+        const hasIdentifier = idFields.some((field) => {
+          const value = row[field]
+          return value !== undefined && value !== null && String(value).trim() !== ''
+        })
+        if (!hasIdentifier) {
+          rowErrors.push(`Missing identifier (${idFields.join(', ')}) for ${operation} operation`)
           isValid = false
-        } else {
-          const exists = existingData.some(item => item.id === row[idField])
-          if (!exists) {
-            rowErrors.push(`Record with ${idField} ${row[idField]} not found for ${operation} operation`)
-            isValid = false
-          }
         }
       }
 
@@ -449,128 +635,117 @@ export default function BulkUploadPage() {
       }
 
       if (isValid) {
-        valid.push(row)
+        valid.push({ data: row, rowNumber: index + 1 })
       }
     })
 
     return { valid, errors }
   }
 
-  const importData = async (data: any[], type: string, orgUnitId: string, operation: CrudOperation): Promise<{ imported: number; failed: number; errors: string[] }> => {
+  const importData = async (
+    rows: ParsedRow[],
+    type: UploadType,
+    operation: CrudOperation,
+    context: UploadContext,
+  ): Promise<{ imported: number; failed: number; errors: string[] }> => {
+    const handler = uploadHandlers[type]
+    if (!handler) {
+      return {
+        imported: 0,
+        failed: rows.length,
+        errors: [`No handler configured for ${type}`],
+      }
+    }
+
     const errors: string[] = []
     let imported = 0
     let failed = 0
 
-    const storageKey = `${type}_${orgUnitId}`
-    console.log("Import starting with storageKey:", storageKey)
-
-    try {
-      let existingData = localStorageService.getItem<any[]>(storageKey) || []
-      console.log("Existing data count:", existingData.length)
-
-      // Add demo data if this is the first time
-      if (existingData.length === 0 && DEMO_DATA[type as keyof typeof DEMO_DATA]) {
-        existingData = [...DEMO_DATA[type as keyof typeof DEMO_DATA]]
-        console.log("Added demo data, new count:", existingData.length)
-      }
-
-      if (operation === 'delete') {
-        const initialCount = existingData.length
-        existingData = existingData.filter(item => {
-          const shouldDelete = data.some(row => row.id === item.id)
-          if (shouldDelete) imported++
-          return !shouldDelete
-        })
-        failed = data.length - imported
-      } else if (operation === 'update') {
-        for (const row of data) {
-          const existingIndex = existingData.findIndex(item => item.id === row.id)
-          if (existingIndex >= 0) {
-            existingData[existingIndex] = {
-              ...existingData[existingIndex],
-              ...row,
-              updated_at: new Date().toISOString()
-            }
-            imported++
-          } else {
-            errors.push(`Record with ID ${row.id} not found for update`)
-            failed++
+    for (const { data: row, rowNumber } of rows) {
+      try {
+        if (operation === "create") {
+          await handler.create(row, context)
+        } else if (operation === "update") {
+          const idValue = ID_FIELD_MAP[type]
+            .map((key) => row[key])
+            .find((value) => value !== undefined && value !== null && value !== "")
+          if (!idValue) {
+            throw new Error("Missing ID for update operation")
           }
-        }
-      } else if (operation === 'create') {
-        console.log("Creating new records, count:", data.length)
-        for (const row of data) {
-          try {
-            const newRecord = {
-              ...row,
-              id: row.id || crypto.randomUUID(),
-              created_at: row.created_at || new Date().toISOString()
-            }
-            console.log("Creating record:", newRecord.id)
-
-            const duplicate = existingData.find(item => item.id === newRecord.id)
-            if (duplicate) {
-              errors.push(`Record with ID ${newRecord.id} already exists`)
-              failed++
-              continue
-            }
-
-            existingData.push(newRecord)
-            imported++
-          } catch (error) {
-            errors.push(`Failed to import record: ${error instanceof Error ? error.message : 'Unknown error'}`)
-            failed++
+          await handler.update(row, context)
+        } else if (operation === "delete") {
+          const idValue = ID_FIELD_MAP[type]
+            .map((key) => row[key])
+            .find((value) => value !== undefined && value !== null && value !== "")
+          if (!idValue) {
+            throw new Error("Missing ID for delete operation")
           }
+          await handler.delete(row, context)
         }
-        console.log("After create - imported:", imported, "failed:", failed)
+        imported++
+      } catch (error) {
+        failed++
+        errors.push(
+          `Row ${rowNumber} failed: ${
+            error instanceof Error ? error.message : "Unknown error while importing"
+          }`,
+        )
       }
-
-      console.log("Saving to localStorage, total records:", existingData.length)
-      localStorageService.setItem(storageKey, existingData)
-      console.log("Updating displayedData state")
-      setDisplayedData([...existingData])
-      console.log("Import complete")
-    } catch (error) {
-      console.error("Import error:", error)
-      errors.push(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
 
     return { imported, failed, errors }
   }
 
   const handleImport = async () => {
-    if (parsedData.length === 0 || !selectedOrgUnit) {
-      console.log("Import blocked: parsedData empty or no org unit selected")
+    if (parsedData.length === 0) {
+      toast({
+        title: "No data to import",
+        description: "Upload a file and validate it before importing.",
+        variant: "destructive",
+      })
       return
     }
 
-    console.log("Starting import with:", {
-      dataCount: parsedData.length,
-      uploadType,
-      selectedOrgUnit,
-      operation: crudOperation
-    })
+    if (requiresUnitSelection && !uploadContext.unitId) {
+      toast({
+        title: "Select an organizational unit",
+        description: "Choose a unit before importing location tags.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const totalRows = parsedData.length
 
     setIsImporting(true)
     setImportResults(null)
 
     try {
-      const results = await importData(parsedData, uploadType, selectedOrgUnit, crudOperation)
-      console.log("Import results:", results)
-      setImportResults(results)
+      const results = await importData(parsedData, uploadType, crudOperation, uploadContext)
+      setImportResults({ ...results, total: totalRows })
 
       if (results.imported > 0) {
-        console.log("Import successful, clearing form")
         setSelectedFile(null)
         setParsedData([])
         setUploadResults(null)
+        await refreshDisplayedData()
+        toast({
+          title: "Import completed",
+          description: `${results.imported} records processed successfully.`,
+        })
       }
     } catch (error) {
       console.error("Import error:", error)
       setImportResults({
         imported: 0,
-        failed: parsedData.length,
-        errors: [error instanceof Error ? error.message : 'Import failed']
+        failed: totalRows,
+        total: totalRows,
+        errors: [error instanceof Error ? error.message : "Import failed"],
+      })
+      toast({
+        title: "Import failed",
+        description: error instanceof Error ? error.message : "Unknown error occurred.",
+        variant: "destructive",
       })
     } finally {
       setIsImporting(false)
@@ -586,7 +761,7 @@ export default function BulkUploadPage() {
 
     try {
       const data = await parseFile(selectedFile)
-      const { valid, errors } = validateData(data, uploadType, crudOperation, selectedOrgUnit)
+      const { valid, errors } = validateData(data, uploadType, crudOperation)
 
       setParsedData(valid)
       setUploadResults({
@@ -693,97 +868,25 @@ export default function BulkUploadPage() {
             <CardTitle className="text-sm font-medium">Target Org Unit</CardTitle>
           </CardHeader>
           <CardContent>
-            {!isCreatingOrgUnit ? (
-              <div className="space-y-3">
-                <Select value={selectedOrgUnit} onValueChange={setSelectedOrgUnit}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select org unit" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {orgUnits.filter(unit => unit.status === "LIVE").map((unit, index) => (
-                      <SelectItem key={index} value={unit.unit_name}>
-                        {unit.unit_name} ({unit.unit_type})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsCreatingOrgUnit(true)}
-                  className="w-full"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create New Org Unit
-                </Button>
-                {orgUnits.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    No org units available. Create one to get started.
-                  </p>
-                )}
-              </div>
+            {isOrgUnitsLoading ? (
+              <div className="text-sm text-muted-foreground">Loading units…</div>
+            ) : orgUnits.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No organizational units found. Create one in the Org Units section first.
+              </p>
             ) : (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-medium">Create New Org Unit</h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setIsCreatingOrgUnit(false)
-                      setNewOrgUnitName("")
-                      setNewOrgUnitType("warehouse")
-                      setNewOrgUnitDescription("")
-                      setNewOrgUnitOrganizationId("")
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                <Input
-                  placeholder="Org Unit Name"
-                  value={newOrgUnitName}
-                  onChange={(e) => setNewOrgUnitName(e.target.value)}
-                  className="w-full"
-                />
-                <Input
-                  placeholder="Organization ID"
-                  value={newOrgUnitOrganizationId}
-                  onChange={(e) => setNewOrgUnitOrganizationId(e.target.value)}
-                  className="w-full"
-                />
-                <Input
-                  placeholder="Description (optional)"
-                  value={newOrgUnitDescription}
-                  onChange={(e) => setNewOrgUnitDescription(e.target.value)}
-                  className="w-full"
-                />
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={handleCreateOrgUnit}
-                    disabled={!newOrgUnitName.trim() || !newOrgUnitOrganizationId.trim()}
-                    className="flex-1"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    Save
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsCreatingOrgUnit(false)
-                      setNewOrgUnitName("")
-                      setNewOrgUnitType("warehouse")
-                      setNewOrgUnitDescription("")
-                      setNewOrgUnitOrganizationId("")
-                    }}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
+              <Select value={selectedOrgUnitId} onValueChange={(value) => setSelectedOrgUnitId(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select org unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  {orgUnits.map((unit) => (
+                    <SelectItem key={unit.id} value={unit.id}>
+                      {unit.unitName} ({unit.unitType})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </CardContent>
         </Card>
@@ -823,20 +926,24 @@ export default function BulkUploadPage() {
                 className={`w-full ${isOperationConfirmed ? "bg-green-600 hover:bg-green-700" : ""}`}
                 onClick={() => {
                   // Confirm operation - could trigger validation or proceed to next step
-                  if (!selectedOrgUnit) {
-                    alert('Please select an organizational unit first.')
+                  if (requiresUnitSelection && !uploadContext.unitId) {
+                    toast({
+                      title: "Select an organizational unit",
+                      description: "Choose a unit before confirming this action.",
+                      variant: "destructive",
+                    })
                     return
                   }
                   if (!isOperationConfirmed) {
                     setIsOperationConfirmed(true)
                     console.log('Operation confirmed:', {
-                      unit: selectedOrgUnit,
+                      unit: uploadContext.unitId,
                       type: uploadType,
                       operation: crudOperation
                     })
                   }
                 }}
-                disabled={!selectedOrgUnit}
+                disabled={requiresUnitSelection && !uploadContext.unitId}
               >
                 {isOperationConfirmed ? (
                   <>
@@ -863,7 +970,7 @@ export default function BulkUploadPage() {
               <div className="flex justify-between text-sm">
                 <span>Unit:</span>
                 <Badge variant="outline">
-                  {selectedOrgUnit || "None"}
+                  {selectedOrgUnit?.unitName || "None"}
                 </Badge>
               </div>
               <div className="flex justify-between text-sm">
@@ -908,7 +1015,7 @@ export default function BulkUploadPage() {
                 ? "ring-2 ring-blue-500 border-blue-500"
                 : "hover:shadow-md"
             }`}
-            onClick={() => setUploadType(type.id)}
+            onClick={() => setUploadType(type.id as UploadType)}
           >
             <CardContent className="p-6 flex flex-col items-center text-center">
               <div className={`h-12 w-12 rounded-xl bg-gradient-to-br from-${type.color}-500 to-${type.color}-600 flex items-center justify-center text-white shadow-sm mb-4`}>
@@ -1075,7 +1182,7 @@ export default function BulkUploadPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {Object.keys(parsedData[0]).map((key) => (
+                      {Object.keys(parsedData[0].data).map((key) => (
                         <TableHead key={key}>
                           {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                         </TableHead>
@@ -1085,9 +1192,9 @@ export default function BulkUploadPage() {
                   <TableBody>
                     {parsedData.slice(0, 5).map((row, index) => (
                       <TableRow key={index}>
-                        {Object.values(row).map((value: any, cellIndex) => (
+                        {Object.values(row.data).map((value: any, cellIndex) => (
                           <TableCell key={cellIndex}>
-                            {formatCellValue(value, Object.keys(parsedData[0])[cellIndex])}
+                            {formatCellValue(value, Object.keys(parsedData[0].data)[cellIndex])}
                           </TableCell>
                         ))}
                       </TableRow>
@@ -1145,7 +1252,7 @@ export default function BulkUploadPage() {
               Import Results
             </CardTitle>
             <CardDescription>
-              Import completed for {parsedData.length} records
+              Import completed for {importResults.total} records
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -1159,7 +1266,7 @@ export default function BulkUploadPage() {
                 <div className="text-sm text-red-700">Failed to Import</div>
               </div>
               <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">{parsedData.length}</div>
+                <div className="text-2xl font-bold text-blue-600">{importResults.total}</div>
                 <div className="text-sm text-blue-700">Total Processed</div>
               </div>
             </div>
@@ -1220,9 +1327,7 @@ export default function BulkUploadPage() {
         <div className="mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{getTableTitle()}</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            {displayedData.length > 2 
-              ? `Showing ${displayedData.length} records (including 2 demo records)` 
-              : 'Demo sample data - your imported data will appear below'}
+            {tableDescription}
           </p>
         </div>
         
@@ -1238,20 +1343,19 @@ export default function BulkUploadPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {displayedData.length > 0 ? (
-                displayedData.map((row, index) => (
-                  <TableRow 
-                    key={index} 
-                    className={index < 2 ? 'bg-blue-50/30 dark:bg-blue-900/20' : ''}
-                  >
-                    {BACKEND_SCHEMAS[uploadType as keyof typeof BACKEND_SCHEMAS].fields.map((field) => (
-                      <TableCell key={field} className="font-medium">
-                        {formatCellValue((row as any)[field], field)}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : (
+              {!canDisplayData ? (
+                <TableRow>
+                  <TableCell colSpan={BACKEND_SCHEMAS[uploadType as keyof typeof BACKEND_SCHEMAS].fields.length} className="h-24 text-center text-gray-500 dark:text-gray-400">
+                    Select an organizational unit to view {uploadType.replace('_', ' ')} data.
+                  </TableCell>
+                </TableRow>
+              ) : isDataLoading ? (
+                <TableRow>
+                  <TableCell colSpan={BACKEND_SCHEMAS[uploadType as keyof typeof BACKEND_SCHEMAS].fields.length} className="h-24 text-center text-gray-500 dark:text-gray-400">
+                    Loading data...
+                  </TableCell>
+                </TableRow>
+              ) : displayedData.length === 0 ? (
                 <TableRow>
                   <TableCell 
                     colSpan={BACKEND_SCHEMAS[uploadType as keyof typeof BACKEND_SCHEMAS].fields.length} 
@@ -1260,6 +1364,16 @@ export default function BulkUploadPage() {
                     No data available. Upload a file to get started.
                   </TableCell>
                 </TableRow>
+              ) : (
+                displayedData.map((row, index) => (
+                  <TableRow key={index}>
+                    {BACKEND_SCHEMAS[uploadType as keyof typeof BACKEND_SCHEMAS].fields.map((field) => (
+                      <TableCell key={field} className="font-medium">
+                        {formatCellValue((row as any)[field], field)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>

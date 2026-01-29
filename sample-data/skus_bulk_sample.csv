@@ -1,0 +1,4 @@
+sku_name,sku_category,sku_unit,quantity,effective_date,expiry_date,location_tag_id
+Steel Beam Type C,raw_material,kg,350,2026-02-01,2027-02-01,50903375-add2-4df8-85d6-2ce30c726ed5
+Aluminum Sheet Type A,finished_good,sheet,200,2026-02-05,2026-11-30,6dfeb573-61a4-4081-9dae-d41eb1af3d7b
+Concrete Mix Batch 42,raw_material,bag,400,2026-02-10,,6f792ed3-c4fb-4221-be88-bcfff64d845a

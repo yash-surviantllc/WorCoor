@@ -50,26 +50,27 @@ export default function NewOrgUnitPage() {
           <CardContent className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="unitId">Org Unit ID <span className="text-red-500">*</span></Label>
+                <Label htmlFor="unitId" className="text-white">Org Unit ID <span className="text-red-500">*</span></Label>
                 <Input 
                   id="unitId" 
                   placeholder="e.g. WH-001" 
                   required 
-                  className="font-mono"
+                  className="font-mono text-white"
                 />
-                <p className="text-xs text-muted-foreground">Unique identifier for the organizational unit</p>
+                <p className="text-xs text-white">Unique identifier for the organizational unit</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="name">Org Unit Name <span className="text-red-500">*</span></Label>
+                <Label htmlFor="name" className="text-white">Org Unit Name <span className="text-red-500">*</span></Label>
                 <Input 
                   id="name" 
                   placeholder="e.g. Warehouse 1" 
                   required 
+                  className="text-white"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="type">Unit Type</Label>
+              <Label htmlFor="type" className="text-white">Unit Type</Label>
               <Select>
                 <SelectTrigger id="type">
                   <SelectValue placeholder="Select type" />
@@ -84,19 +85,19 @@ export default function NewOrgUnitPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="location">Location</Label>
-              <Input id="location" placeholder="e.g. Building A, Floor 1" />
+              <Label htmlFor="location" className="text-white">Location</Label>
+              <Input id="location" placeholder="e.g. Building A, Floor 1" className="text-white" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Description (Optional)</Label>
+              <Label htmlFor="description" className="text-white">Description (Optional)</Label>
               <Textarea
                 id="description"
                 placeholder="Enter a brief description of this unit..."
-                className="min-h-[100px]"
+                className="min-h-[100px] text-white"
               />
             </div>
             <div className="space-y-2">
-              <Label>Status</Label>
+              <Label className="text-white">Status</Label>
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <input
@@ -107,7 +108,7 @@ export default function NewOrgUnitPage() {
                     className="h-4 w-4 text-primary"
                     defaultChecked
                   />
-                  <Label htmlFor="status-active" className="font-normal">
+                  <Label htmlFor="status-active" className="font-normal text-white">
                     Active
                   </Label>
                 </div>
@@ -119,7 +120,7 @@ export default function NewOrgUnitPage() {
                     value="inactive"
                     className="h-4 w-4 text-primary"
                   />
-                  <Label htmlFor="status-inactive" className="font-normal">
+                  <Label htmlFor="status-inactive" className="font-normal text-white">
                     Inactive
                   </Label>
                 </div>

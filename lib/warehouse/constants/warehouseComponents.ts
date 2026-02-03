@@ -4,19 +4,19 @@ import { COMPONENT_TYPES } from './componentTypes';
 // Re-export for other files
 export { COMPONENT_TYPES };
 
-// Storage category colors for different storage types
-export const STORAGE_CATEGORY_COLORS = {
-  'general-storage': '#4CAF50',      // Green
-  'dry-storage': '#FF9800',          // Orange  
-  'cold-storage': '#2196F3',         // Blue
-  'hazardous': '#F44336',            // Red
-  'perishable': '#9C27B0',          // Purple
-  'fragile': '#FF5722',              // Deep Orange
-  'high-value': '#FFC107',          // Amber
-  'bulk-storage': '#795548',         // Brown
-  'climate-controlled': '#00BCD4',   // Cyan
-  'secure-storage': '#607D8B'        // Blue Grey
-};
+// Storage category colors for different storage types (COMMENTED OUT - NOT USED)
+// export const STORAGE_CATEGORY_COLORS = {
+//   'general-storage': '#4CAF50',      // Green
+//   'dry-storage': '#FF9800',          // Orange  
+//   'cold-storage': '#2196F3',         // Blue
+//   'hazardous': '#F44336',            // Red
+//   'perishable': '#9C27B0',          // Purple
+//   'fragile': '#FF5722',              // Deep Orange
+//   'high-value': '#FFC107',          // Amber
+//   'bulk-storage': '#795548',         // Brown
+//   'climate-controlled': '#00BCD4',   // Cyan
+//   'secure-storage': '#607D8B'        // Blue Grey
+// };
 
 // Drag and drop types
 export const DRAG_TYPES = {
@@ -454,7 +454,7 @@ export const WAREHOUSE_COMPONENTS = [
       {
         type: COMPONENT_TYPES.FIRE_EXIT_MARKING,
         name: "Fire Exit Marking",
-        icon: "/assets/images/icons/Fire Exit Markings.png",
+        icon: "/assets/images/icons/Fire-Exit-Markings.png",
         color: getComponentPanelColor(COMPONENT_TYPES.FIRE_EXIT_MARKING),
         defaultSize: { width: 120, height: 60 }, // 2×1 grid blocks
         description: "Fire exit safety marking for emergency evacuation routes",
@@ -471,7 +471,7 @@ export const WAREHOUSE_COMPONENTS = [
       {
         type: COMPONENT_TYPES.SECURITY_AREA,
         name: "Security Area",
-        icon: "/assets/images/icons/security area.png",
+        icon: "/assets/images/icons/security-area.png",
         color: getComponentPanelColor(COMPONENT_TYPES.SECURITY_AREA),
         defaultSize: { width: 180, height: 60 }, // 3×1 grid blocks
         description: "Security monitoring and access control area",
@@ -490,7 +490,7 @@ export const WAREHOUSE_COMPONENTS = [
       {
         type: COMPONENT_TYPES.RESTROOMS_AREA,
         name: "Restrooms Area",
-        icon: "/assets/images/icons/restroom area.png",
+        icon: "/assets/images/icons/restroom-area.png",
         color: getComponentPanelColor(COMPONENT_TYPES.RESTROOMS_AREA),
         defaultSize: { width: 120, height: 60 }, // 2×1 grid blocks
         description: "Restroom facilities area for warehouse personnel",
@@ -509,7 +509,7 @@ export const WAREHOUSE_COMPONENTS = [
       {
         type: COMPONENT_TYPES.PATHWAYS_ARROWS,
         name: "Pathways Arrows",
-        icon: "/assets/images/icons/Pathways arrows.png",
+        icon: "/assets/images/icons/Pathways-arrows.png",
         color: getComponentPanelColor(COMPONENT_TYPES.PATHWAYS_ARROWS),
         defaultSize: { width: 180, height: 60 }, // 3×1 grid blocks
         description: "Directional arrows for pathway and traffic flow guidance",
@@ -534,7 +534,7 @@ export const WAREHOUSE_COMPONENTS = [
       {
         type: COMPONENT_TYPES.CONFERENCE_ROOM,
         name: "Conference Room",
-        icon: "/assets/images/icons/Conference room.png",
+        icon: "/assets/images/icons/Conference-room.png",
         color: getComponentPanelColor(COMPONENT_TYPES.CONFERENCE_ROOM),
         defaultSize: { width: 300, height: 240 }, // 5×4 grid blocks
         description: "Large conference room for meetings and presentations",
@@ -553,7 +553,7 @@ export const WAREHOUSE_COMPONENTS = [
       {
         type: COMPONENT_TYPES.MEETING_ROOMS,
         name: "Meeting Rooms",
-        icon: "/assets/images/icons/Meeting Rooms.png",
+        icon: "/assets/images/icons/Meeting-Rooms.png",
         color: getComponentPanelColor(COMPONENT_TYPES.MEETING_ROOMS),
         defaultSize: { width: 180, height: 180 }, // 3×3 grid blocks
         description: "Small meeting rooms for team discussions",
@@ -572,7 +572,7 @@ export const WAREHOUSE_COMPONENTS = [
       {
         type: COMPONENT_TYPES.PANTRY_AREA,
         name: "Pantry Area",
-        icon: "/assets/images/icons/Pantry Area.png",
+        icon: "/assets/images/icons/Pantry-Area.png",
         color: getComponentPanelColor(COMPONENT_TYPES.PANTRY_AREA),
         defaultSize: { width: 120, height: 120 }, // 2×2 grid blocks
         description: "Kitchen and refreshment area for staff",
@@ -591,7 +591,7 @@ export const WAREHOUSE_COMPONENTS = [
       {
         type: COMPONENT_TYPES.OPEN_STAGE,
         name: "Open Stage",
-        icon: "/assets/images/icons/Open Stage.png",
+        icon: "/assets/images/icons/Open-Stage.png",
         color: getComponentPanelColor(COMPONENT_TYPES.OPEN_STAGE),
         defaultSize: { width: 360, height: 240 }, // 6×4 grid blocks
         description: "Open stage area for presentations and performances",
@@ -610,7 +610,7 @@ export const WAREHOUSE_COMPONENTS = [
       {
         type: COMPONENT_TYPES.SEATING_AREA,
         name: "Seating Area",
-        icon: "/assets/images/icons/Seating Area.png",
+        icon: "/assets/images/icons/Seating-Area.png",
         color: getComponentPanelColor(COMPONENT_TYPES.SEATING_AREA),
         defaultSize: { width: 240, height: 60 }, // 4×1 grid blocks
         description: "General seating area for informal gatherings",
@@ -648,7 +648,7 @@ export const WAREHOUSE_COMPONENTS = [
       {
         type: COMPONENT_TYPES.GENERAL_AREA,
         name: "General Area",
-        icon: "/assets/images/icons/General Area.png",
+        icon: "/assets/images/icons/General-Area.png",
         color: getComponentPanelColor(COMPONENT_TYPES.GENERAL_AREA),
         defaultSize: { width: 180, height: 180 }, // 3×3 grid blocks
         description: "Multipurpose area for various activities",

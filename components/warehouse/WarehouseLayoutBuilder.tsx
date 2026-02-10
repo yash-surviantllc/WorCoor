@@ -23,6 +23,7 @@ import FullscreenMap from '@/components/warehouse/FullscreenMap';
 import SkuIdSelector from '@/components/warehouse/SkuIdSelector';
 import MultiLocationSelector from '@/components/warehouse/MultiLocationSelector';
 import OrgUnitSelector from '@/components/warehouse/OrgUnitSelector';
+import { locationTagService, type LocationTag } from '@/src/services/locationTags';
 import { STACK_MODES, STACKABLE_COMPONENTS, OCCUPANCY_STATUS, STORAGE_ORIENTATION, COMPONENT_TYPES } from '@/lib/warehouse/constants/warehouseComponents';
 import { getComponentColor, forceRefreshStorageUnitColors } from '@/lib/warehouse/utils/componentColors';
 import { generateStorageUnitLabel, generateStorageComponentLabel, applyEnhancedLabeling } from '@/lib/warehouse/utils/componentLabeling';
@@ -46,7 +47,6 @@ import showMessage from '@/lib/warehouse/utils/showMessage';
 interface OrgUnit {
   id: string;
   name: string;
-  location: string;
 }
 
 interface LayoutData {
@@ -82,13 +82,16 @@ function App({ initialOrgUnit = null, initialLayout = null }: AppProps) {
   const [selectedFacility, setSelectedFacility] = useState<any>(null);
   const [showMainDashboard, setShowMainDashboard] = useState<boolean>(false);
   const [gridVisible, setGridVisible] = useState<boolean>(true);
-  const [snapEnabled, setSnapEnabled] = useState<boolean>(true);
+  const [snapEnabled, setSnapEnabled] = useState<boolean>(false);
   const [undoStack, setUndoStack] = useState<any[]>([]);
   const [redoStack, setRedoStack] = useState<any[]>([]);
   const [layoutName, setLayoutName] = useState<string>('Warehouse Management System');
   const [layoutNameSet, setLayoutNameSet] = useState<boolean>(false);
+  const [originalLayoutId, setOriginalLayoutId] = useState<string | null>(null); // Track original layout ID for editing
   const [selectedOrgUnit, setSelectedOrgUnit] = useState<OrgUnit | null>(initialOrgUnit);
   const [selectedOrgMap, setSelectedOrgMap] = useState<any>(null);
+  const [locationTags, setLocationTags] = useState<LocationTag[]>([]);
+  const [isLoadingLocationTags, setIsLoadingLocationTags] = useState(false);
   const [skuIdSelectorVisible, setSkuIdSelectorVisible] = useState<boolean>(false);
   const [multiLocationSelectorVisible, setMultiLocationSelectorVisible] = useState<boolean>(false);
   const [pendingSkuRequest, setPendingSkuRequest] = useState<any>(null);
@@ -105,6 +108,50 @@ function App({ initialOrgUnit = null, initialLayout = null }: AppProps) {
     setSelectedOrgMap(null); // Reset map selection when org unit changes
     setLayoutName(layoutName);
     setLayoutNameSet(true);
+    
+    // Fetch location tags for the selected org unit
+    fetchLocationTagsForOrgUnit(orgUnit);
+  }, []);
+
+  // Fetch location tags for a specific org unit
+  const fetchLocationTagsForOrgUnit = useCallback(async (orgUnit: any) => {
+    if (!orgUnit) {
+      setLocationTags([]);
+      setIsLoadingLocationTags(false);
+      return;
+    }
+
+    try {
+      setIsLoadingLocationTags(true);
+      console.log(`🏷️ WarehouseLayoutBuilder - Fetching location tags for org unit: ${orgUnit.name} (ID: ${orgUnit.id})`);
+      
+      const tags = await locationTagService.listByUnit(orgUnit.id);
+      
+      console.log(`✅ WarehouseLayoutBuilder - Successfully fetched ${tags.length} location tags for ${orgUnit.name}:`);
+      console.table(tags);
+      
+      setLocationTags(tags);
+      
+      // Additional detailed logging
+      tags.forEach((tag, index) => {
+        console.log(`📍 Location Tag ${index + 1}:`, {
+          id: tag.id,
+          name: tag.locationTagName,
+          capacity: tag.capacity,
+          currentItems: tag.currentItems,
+          utilization: tag.utilizationPercentage,
+          dimensions: tag.length && tag.breadth && tag.height 
+            ? `${tag.length}×${tag.breadth}×${tag.height} ${tag.unitOfMeasurement}`
+            : 'N/A'
+        });
+      });
+      
+    } catch (error) {
+      console.error(`❌ WarehouseLayoutBuilder - Failed to fetch location tags for org unit ${orgUnit.name}:`, error);
+      setLocationTags([]);
+    } finally {
+      setIsLoadingLocationTags(false);
+    }
   }, []);
 
   // Initialize org unit and layout when editing
@@ -121,6 +168,18 @@ function App({ initialOrgUnit = null, initialLayout = null }: AppProps) {
     
     if (initialLayout && initialLayout.items) {
       console.log('Setting warehouse items from initialLayout:', initialLayout.items);
+      
+      // Check if this is an existing layout by looking for it in saved layouts
+      const savedLayouts = JSON.parse(localStorage.getItem('warehouseLayouts') || '[]');
+      const existingLayout = savedLayouts.find((layout: any) => 
+        layout.name === initialLayout.name && 
+        layout.orgUnit === (initialOrgUnit?.name || 'Unknown')
+      );
+      
+      if (existingLayout) {
+        setOriginalLayoutId(existingLayout.id);
+        console.log('📝 Found existing layout ID for editing:', existingLayout.id);
+      }
       
       // Auto-center components in the canvas
       const items = initialLayout.items;
@@ -268,6 +327,12 @@ function App({ initialOrgUnit = null, initialLayout = null }: AppProps) {
           setWarehouseItems(layoutData.items);
           setLayoutName(layoutData.name || 'Loaded Layout');
           setLayoutNameSet(true);
+          
+          // Store the original layout ID for editing
+          if (layoutData.id) {
+            setOriginalLayoutId(layoutData.id);
+            console.log('📝 Editing existing layout with ID:', layoutData.id);
+          }
           
           // Clear the temporary load data
           localStorage.removeItem('loadLayoutData');
@@ -858,6 +923,13 @@ function App({ initialOrgUnit = null, initialLayout = null }: AppProps) {
   // Handle organization mapping selection
   const handleOrgMapSelect = useCallback((orgMap: any) => {
     if (!selectedOrgUnit) return;
+
+    if (!orgMap) {
+      setSelectedOrgMap(null);
+      setLayoutName(`${selectedOrgUnit.name} Layout`);
+      setLayoutNameSet(true);
+      return;
+    }
     
     const layoutName = `${selectedOrgUnit.name} - ${orgMap.name}`;
     
@@ -1163,21 +1235,64 @@ function App({ initialOrgUnit = null, initialLayout = null }: AppProps) {
     
     // Save to localStorage for warehouse maps integration
     const savedLayouts = JSON.parse(localStorage.getItem('warehouseLayouts') || '[]');
-    const layoutForMaps = {
-      id: `layout-${Date.now()}`,
-      name: layoutName,
-      status: operationalStatus,
-      location: selectedOrgUnit?.location || 'Unknown',
-      orgUnit: selectedOrgUnit?.name || 'Unknown',
-      size: `${operationalMetadata.croppedDimensions.width}x${operationalMetadata.croppedDimensions.height}`,
-      items: warehouseItems.length,
-      zones: warehouseItems.filter(item => item.type && (item.type.includes('zone') || item.type.includes('storage'))).length,
-      utilization: Math.floor(Math.random() * 40) + 60, // Random utilization 60-100%
-      lastActivity: new Date().toISOString(),
-      layoutData: layoutData
-    };
     
-    savedLayouts.push(layoutForMaps);
+    // Check if we're editing an existing layout
+    if (originalLayoutId) {
+      // Find and update existing layout
+      const existingIndex = savedLayouts.findIndex((layout: any) => layout.id === originalLayoutId);
+      if (existingIndex !== -1) {
+        // Update existing layout
+        savedLayouts[existingIndex] = {
+          ...savedLayouts[existingIndex],
+          name: layoutName,
+          status: operationalStatus,
+          location: savedLayouts[existingIndex].location || 'Unknown',
+          orgUnit: selectedOrgUnit?.name || savedLayouts[existingIndex].orgUnit || 'Unknown',
+          size: `${operationalMetadata.croppedDimensions.width}x${operationalMetadata.croppedDimensions.height}`,
+          items: warehouseItems.length,
+          zones: warehouseItems.filter(item => item.type && (item.type.includes('zone') || item.type.includes('storage'))).length,
+          utilization: Math.floor(Math.random() * 40) + 60, // Random utilization 60-100%
+          lastActivity: new Date().toISOString(),
+          layoutData: layoutData
+        };
+        console.log('✅ Updated existing layout:', originalLayoutId);
+      } else {
+        // Fallback: Create new layout if original not found
+        const layoutForMaps = {
+          id: originalLayoutId,
+          name: layoutName,
+          status: operationalStatus,
+          location: 'Unknown',
+          orgUnit: selectedOrgUnit?.name || 'Unknown',
+          size: `${operationalMetadata.croppedDimensions.width}x${operationalMetadata.croppedDimensions.height}`,
+          items: warehouseItems.length,
+          zones: warehouseItems.filter(item => item.type && (item.type.includes('zone') || item.type.includes('storage'))).length,
+          utilization: Math.floor(Math.random() * 40) + 60, // Random utilization 60-100%
+          lastActivity: new Date().toISOString(),
+          layoutData: layoutData
+        };
+        savedLayouts.push(layoutForMaps);
+        console.log('⚠️ Original layout not found, created new with original ID:', originalLayoutId);
+      }
+    } else {
+      // Create new layout
+      const layoutForMaps = {
+        id: `layout-${Date.now()}`,
+        name: layoutName,
+        status: operationalStatus,
+        location: 'Unknown',
+        orgUnit: selectedOrgUnit?.name || 'Unknown',
+        size: `${operationalMetadata.croppedDimensions.width}x${operationalMetadata.croppedDimensions.height}`,
+        items: warehouseItems.length,
+        zones: warehouseItems.filter(item => item.type && (item.type.includes('zone') || item.type.includes('storage'))).length,
+        utilization: Math.floor(Math.random() * 40) + 60, // Random utilization 60-100%
+        lastActivity: new Date().toISOString(),
+        layoutData: layoutData
+      };
+      
+      savedLayouts.push(layoutForMaps);
+      console.log('🆕 Created new layout:', layoutForMaps.id);
+    }
     localStorage.setItem('warehouseLayouts', JSON.stringify(savedLayouts));
     
     // Trigger custom event to update warehouse maps
@@ -1205,7 +1320,7 @@ function App({ initialOrgUnit = null, initialLayout = null }: AppProps) {
       ? `\n\nUltra-tight optimization: Removed ${operationalMetadata.whitespaceRemoved.x}px × ${operationalMetadata.whitespaceRemoved.y}px of white space\nFinal size: ${operationalMetadata.croppedDimensions.width}px × ${operationalMetadata.croppedDimensions.height}px\nZero padding applied for maximum focus`
       : '';
     
-    showMessage.success(`Layout "${layoutName}" saved successfully!\n\nOrganizational Unit: ${selectedOrgUnit?.name || 'Unknown'} (${selectedOrgUnit?.location || 'Unknown'})\nStatus: ${statusLabels[operationalStatus as keyof typeof statusLabels] || 'Unknown'}${croppingInfo}\n\nThis layout is now available in the Live Warehouse Maps section.`);
+    showMessage.success(`Layout "${layoutName}" saved successfully!\n\nOrganizational Unit: ${selectedOrgUnit?.name || 'Unknown'}\nStatus: ${statusLabels[operationalStatus as keyof typeof statusLabels] || 'Unknown'}${croppingInfo}\n\nThis layout is now available in the Live Warehouse Maps section.`);
     
     // Close the map type selector modal
     setMapTypeSelectorVisible(false);
@@ -1388,6 +1503,8 @@ function App({ initialOrgUnit = null, initialLayout = null }: AppProps) {
               onOrgUnitSelect={handleOrgUnitSelect}
               selectedOrgMap={selectedOrgMap}
               onOrgMapSelect={handleOrgMapSelect}
+              locationTags={locationTags}
+              isLoadingLocationTags={isLoadingLocationTags}
               onFacilityManager={handleFacilityManager}
               onMeasurementTools={handleMeasurementTools}
               onSave={handleSave}
@@ -1545,15 +1662,16 @@ function App({ initialOrgUnit = null, initialLayout = null }: AppProps) {
             setPendingSkuRequest(null);
           }}
           onSave={handleLocationIdSelect}
-          existingLocationIds={pendingSkuRequest ? getExistingLocationIds(pendingSkuRequest.itemId) : []}
-          showCategories={pendingSkuRequest && pendingSkuRequest.compartmentId === 'single-sku'}
-          allowCustomIds={pendingSkuRequest && pendingSkuRequest.compartmentId === 'single-sku'}
-          allowMultipleIds={pendingSkuRequest ? (() => {
-            const item = warehouseItems.find(i => i.id === pendingSkuRequest.itemId);
-            const allowMultiple = item && item.type === 'storage_unit' && item.supportsMultipleLocationIds;
-            console.log('WarehouseLayoutBuilder allowMultipleIds check:', { itemId: pendingSkuRequest.itemId, itemType: item?.type, supportsMultipleLocationIds: item?.supportsMultipleLocationIds, allowMultiple }); // Debug log
-            return allowMultiple;
-          })() : false}
+          existingLocationIds={warehouseItems
+            .filter(item => item.locationId || item.locationData?.locationIds)
+            .flatMap(item => 
+              item.locationData?.locationIds || [item.locationId].filter(Boolean)
+            )}
+          showCategories={pendingSkuRequest?.compartmentId === 'single-sku'}
+          allowCustomIds={pendingSkuRequest?.compartmentId === 'single-sku'}
+          allowMultipleIds={pendingSkuRequest?.compartmentalized}
+          locationTags={locationTags}
+          isLoadingLocationTags={isLoadingLocationTags}
         />
 
         {/* Multi Location ID Selector Modal for Vertical Storage Racks */}
@@ -1572,6 +1690,8 @@ function App({ initialOrgUnit = null, initialLayout = null }: AppProps) {
             }
             return [];
           })() : []}
+          locationTags={locationTags}
+          isLoadingLocationTags={isLoadingLocationTags}
         />
 
         {/* Map Type Selector Modal - Select operational status before saving */}

@@ -596,15 +596,17 @@ const handleCompartmentHover = useCallback((event: any, compartmentData: any, ro
               />
               {/* Show office-space image for Office Space Area components */}
               {isOfficeSpace && (
-                <image
-                  x={x + cellWidth * 0.1}
-                  y={y + cellHeight * 0.1}
-                  width={cellWidth * 0.8}
-                  height={cellHeight * 0.8}
-                  href="/assets/images/icons/office-space.png"
-                  preserveAspectRatio="xMidYMid meet"
-                  style={{ pointerEvents: 'none' }}
-                />
+                <>
+                  <image
+                    x={x + cellWidth * 0.05}
+                    y={y + cellHeight * 0.05}
+                    width={cellWidth * 0.9}
+                    height={cellHeight * 0.9}
+                    href="/assets/images/icons/office-space.png"
+                    preserveAspectRatio="xMidYMid meet"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                </>
               )}
               {/* Show text label for non-office-space components or when compartment has data */}
               {(!isOfficeSpace || compartmentData) && (
@@ -1513,8 +1515,34 @@ const handleCompartmentHover = useCallback((event: any, compartmentData: any, ro
         isReadOnly={isReadOnly}
       />
 
+      {/* Storage Components - Text Below Box (No Background) */}
+      {(item.type === 'storage_unit' || item.type === 'open_storage_space') && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 2px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'transparent',
+            color: '#000000',
+            padding: '0px',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            zIndex: 99999,
+            textShadow: '1px 1px 2px rgba(255,255,255,0.8)'
+          }}
+        >
+          {item.name}
+        </div>
+      )}
+
       {/* Component Type Label - Shown below the component */}
-      {(item.type === 'sku_holder' || item.type === 'vertical_sku_holder' || item.type === 'storage_unit' || item.type === 'spare_unit' || item.type === 'open_storage_space') && (() => {
+      {(item.type === 'sku_holder' || item.type === 'vertical_sku_holder' || item.type === 'storage_unit' || item.type === 'spare_unit' || item.type === 'open_storage_space' || item.type === 'office_space_area') && (() => {
+        console.log('External label rendering for:', item.type, item.name); // Debug log
+        
         // Determine the label text - use item.label if available, otherwise use default component type
         let labelText = '';
         
@@ -1538,6 +1566,9 @@ const handleCompartmentHover = useCallback((event: any, compartmentData: any, ro
             labelText = 'Spare Unit';
           } else if (item.type === 'open_storage_space') {
             labelText = 'Open Storage';
+          } else if (item.type === 'office_space_area') {
+            labelText = item.name || 'Office Space Area';
+            console.log('Office Space Area label:', labelText); // Debug log
           } else {
             labelText = 'Storage Component';
           }
@@ -1550,18 +1581,19 @@ const handleCompartmentHover = useCallback((event: any, compartmentData: any, ro
               top: '100%',
               left: '50%',
               transform: 'translateX(-50%)',
-              marginTop: '6px',
-              backgroundColor: 'transparent',
+              marginTop: '8px',
+              backgroundColor: 'rgba(255,255,255,0.9)',
               color: '#000000',
-              padding: '0px',
-              borderRadius: '0px',
+              padding: '2px 4px',
+              borderRadius: '2px',
               fontSize: '12px',
-              fontWeight: '700',
+              fontWeight: 'bold',
               whiteSpace: 'nowrap',
               pointerEvents: 'none',
               userSelect: 'none',
-              zIndex: 10000,
-              textShadow: 'none'
+              zIndex: 10001,
+              textShadow: '1px 1px 2px rgba(255,255,255,0.8)',
+              border: '1px solid #ccc'
             }}
           >
             {labelText}

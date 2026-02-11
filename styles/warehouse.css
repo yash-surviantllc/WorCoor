@@ -4366,12 +4366,9 @@ div.warehouse-item[data-type="sku_holder"]:hover * {
 
   -webkit-backdrop-filter: none !important;
 
-  position: relative;
+  background: transparent !important;
 
-  overflow: visible;
-
-}
-
+} 
 
 
 /* Vertical Storage Rack - Orange color scheme */

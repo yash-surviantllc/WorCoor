@@ -572,7 +572,7 @@ export const WAREHOUSE_COMPONENTS = [
       {
         type: COMPONENT_TYPES.PANTRY_AREA,
         name: "Pantry Area",
-        icon: "/assets/images/icons/Pantry Area .png",
+        icon: "/assets/images/icons/Pantry Area.png",
         color: getComponentPanelColor(COMPONENT_TYPES.PANTRY_AREA),
         defaultSize: { width: 120, height: 120 }, // 2×2 grid blocks
         description: "Kitchen and refreshment area for staff",

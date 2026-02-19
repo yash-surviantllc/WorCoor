@@ -74,6 +74,7 @@ const WarehouseCanvas = ({
       case 'Enter': {
         e.preventDefault();
         if (keyboardFocusedId) {
+          console.log('Space pressed, selecting:', keyboardFocusedId);
           onSelectItem(keyboardFocusedId, true); // additive select
         }
         break;
@@ -443,6 +444,7 @@ const WarehouseCanvas = ({
   });
 
   const handleCanvasClick = (e) => {
+    canvasRef.current?.focus();
     if (e.target === e.currentTarget) {
       // Don't clear selection if in drawing mode
       if (!drawingMode) {

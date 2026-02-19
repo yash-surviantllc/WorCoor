@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import WarehouseLayoutBuilder from '@/components/warehouse/WarehouseLayoutBuilder';
 import LocationDetailsPanel from '@/components/warehouse/LocationDetailsPanel';
+import WarehouseOverviewPanel from '@/components/warehouse/WarehouseOverviewPanel';
 import SavedLayoutRenderer, { getLayoutItemKey } from '@/components/warehouse/SavedLayoutRenderer';
 import summarizeStorageComponents from '@/lib/warehouse/utils/layoutComponentSummary';
 import layoutComponentsMock from '@/lib/warehouse/data/layoutComponentsMock.json';
@@ -11,8 +12,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import { locationTagService } from '@/src/services/locationTags';
 
 // TypeScript interfaces
 interface WarehouseLayout {
@@ -135,6 +137,64 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
       setSavedLayouts([]);
     }
   }, []);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [autoRefreshMinutes, setAutoRefreshMinutes] = useState<number>(0);
+
+  const refreshLiveData = useCallback(async () => {
+    console.log('WarehouseMapView - Refresh triggered', { selectedUnitForDemo });
+    setIsRefreshing(true);
+    try {
+      refreshSavedLayouts();
+      window.dispatchEvent(new Event('layoutSaved'));
+
+      if (!selectedUnitForDemo) {
+        console.warn('WarehouseMapView - Refresh skipped: no selectedUnitForDemo');
+        return;
+      }
+
+      const storedLayouts = localStorage.getItem('warehouseLayouts');
+      if (!storedLayouts) {
+        console.warn('WarehouseMapView - Refresh skipped: no warehouseLayouts in localStorage');
+        return;
+      }
+
+      const parsedLayouts = JSON.parse(storedLayouts) as any[];
+      const selectedLayout = parsedLayouts.find((layout) => layout?.id === selectedUnitForDemo);
+      const unitId: string | undefined = selectedLayout?.orgUnit?.id || selectedLayout?.unitId;
+
+      if (!unitId) {
+        console.warn('WarehouseMapView - Refresh skipped: selected layout missing unitId/orgUnit.id', {
+          selectedUnitForDemo,
+          selectedLayout,
+        });
+        return;
+      }
+
+      const tags = await locationTagService.listByUnit(unitId);
+      const tagNames = tags.map((tag) => tag.locationTagName).filter(Boolean);
+      setAvailableLocationTags(tagNames);
+    } catch (error) {
+      console.error('Failed to refresh live map data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshSavedLayouts, selectedUnitForDemo]);
+
+  useEffect(() => {
+    if (!autoRefreshMinutes) {
+      return;
+    }
+
+    const intervalMs = autoRefreshMinutes * 60 * 1000;
+    const id = window.setInterval(() => {
+      void refreshLiveData();
+    }, intervalMs);
+
+    return () => {
+      window.clearInterval(id);
+    };
+  }, [autoRefreshMinutes, refreshLiveData]);
 
   useEffect(() => {
     setMounted(true);
@@ -1413,14 +1473,42 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
                 </div>
                 
                 <div className="demo-map-controls">
+                  <div className="dropdown-filter">
+                    <select
+                      value={autoRefreshMinutes}
+                      onChange={(e) => setAutoRefreshMinutes(Number(e.target.value) || 0)}
+                      className="search-dropdown"
+                      title="Auto Refresh"
+                      disabled={isRefreshing}
+                    >
+                      <option value={0}>Off</option>
+                      <option value={1}>1 min</option>
+                      <option value={5}>5 min</option>
+                      <option value={10}>10 min</option>
+                    </select>
+                  </div>
+                  <button
+                    className="demo-map-fullscreen-btn"
+                    onClick={() => {
+                      console.log('WarehouseMapView - Refresh button clicked');
+                      void refreshLiveData();
+                    }}
+                    title="Refresh"
+                    type="button"
+                    disabled={isRefreshing}
+                    style={{ opacity: isRefreshing ? 0.6 : 1 }}
+                  >
+                    <RefreshCw size={16} />
+                  </button>
                   <button 
                     className="demo-map-fullscreen-btn" 
                     onClick={handleOpenFullscreenTab}
                     title="Fullscreen Preview"
+                    type="button"
                   >
                     ⛶
                   </button>
-                  <button className="demo-map-close-btn" onClick={handleCloseModal}>×</button>
+                  <button className="demo-map-close-btn" onClick={handleCloseModal} type="button">×</button>
                 </div>
               </div>
               
@@ -1833,7 +1921,8 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
                     const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
                     const demoData = demoMapsData[selectedUnitForDemo];
                     
-                    // Show zone info for demo units
+                    // Show zone info for demo units - COMMENTED OUT (not using demo maps)
+                    /*
                     if (unit && !unit.isCustomLayout && demoData) {
                       return (
                         <>
@@ -1883,6 +1972,7 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
                         </>
                       );
                     }
+                    */
                     
                     // Show Location Details Panel if an item is selected
                     if (showLocationDetails && selectedItem) {
@@ -1900,8 +1990,18 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
                       );
                     }
                     
-                    // Don't show Layout Components panel - only show when item is clicked
-                    return null;
+                    // Show Warehouse Overview Panel by default (no component selected)
+                    const currentLayout = savedLayouts.find(layout => layout.id === selectedUnitForDemo);
+                    return (
+                      <div className="demo-map-info overview-container">
+                        <WarehouseOverviewPanel 
+                          layoutData={{
+                            items: currentLayout?.layoutData?.items || [],
+                            name: currentLayout?.name
+                          }} 
+                        />
+                      </div>
+                    );
                   })()}
                 </div>
               </div>

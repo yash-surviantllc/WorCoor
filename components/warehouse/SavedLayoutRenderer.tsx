@@ -8,7 +8,7 @@ import WarehouseItem from './WarehouseItem';
 const noop = () => {};
 const DEFAULT_PADDING = 0;
 
-export const getLayoutItemKey = (item) => {
+export const getLayoutItemKey = (item: any) => {
   if (!item) {
     return '';
   }
@@ -99,7 +99,7 @@ const SavedLayoutRenderer = ({
       };
     }
 
-    const applyRotationBounds = (item) => {
+    const applyRotationBounds = (item: any) => {
       const width = item.width || 0;
       const height = item.height || 0;
       const angle = item.rotation || 0;
@@ -187,7 +187,7 @@ const SavedLayoutRenderer = ({
     }
 
     // Apply gentle adjustment for padding
-    scaleValue *= 0.90;
+    // scaleValue *= 0.90; // Removed - allow full fill in fullscreen
 
     // Ensure reasonable bounds
     scaleValue = Math.max(0.1, Math.min(scaleValue, 2));
@@ -292,7 +292,7 @@ const SavedLayoutRenderer = ({
               
               // Create a select handler that passes the full item to onItemClick
               // Also handles compartment-specific clicks
-              const handleItemSelect = onItemClick ? (itemId, compartmentInfo) => {
+              const handleItemSelect = onItemClick ? (itemId: any, compartmentInfo: any) => {
                 if (compartmentInfo && compartmentInfo.compartmentData) {
                   // Compartment was clicked - create a modified item with compartment data
                   const modifiedItem = {
@@ -334,7 +334,6 @@ const SavedLayoutRenderer = ({
                     onInfoClick={null}
                     stackMode={false}
                     isReadOnly
-                    showLabels={showLabels}
                     isHighlighted={highlightedKeySet.has(itemKey)}
                     highlightedCompartments={highlightedCompartmentsMap[itemKey] || null}
                   />

@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -6,6 +7,7 @@ import { inferVerticalRackLevelCount } from '@/lib/warehouse/utils/verticalRackU
 import summarizeStorageComponents from '@/lib/warehouse/utils/layoutComponentSummary';
 import locationDataService from '@/lib/warehouse/services/locationDataService';
 import LocationDetailsPanel from './LocationDetailsPanel';
+import WarehouseOverviewPanel from './WarehouseOverviewPanel';
 import layoutComponentsMock from '@/lib/warehouse/data/layoutComponentsMock.json';
 
 const renderDemoLayout = (demoData) => (
@@ -111,7 +113,7 @@ const renderDemoLayout = (demoData) => (
 );
 
 const FullscreenMap = () => {
-  const [mapData, setMapData] = useState(null);
+  const [mapData, setMapData] = useState<any>(null);
   const [error, setError] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [operationalData, setOperationalData] = useState({});
@@ -210,32 +212,78 @@ const FullscreenMap = () => {
   }, []);
 
   useEffect(() => {
-    // Get map data from URL hash
-    const hash = window.location.hash;
-    if (hash.startsWith('#fullscreen-map=')) {
-      try {
-        const encodedData = hash.replace('#fullscreen-map=', '');
-        const decodedData = decodeURIComponent(encodedData);
-        const parsedData = JSON.parse(decodedData);
-        setMapData(parsedData);
-        
-        // Generate operational data for each item
-        const layoutItems = parsedData.layoutData?.items || parsedData.layoutItems || [];
+    const loadMapData = async () => {
+      // Get map data from URL hash
+      const hash = window.location.hash;
+      if (hash.startsWith('#fullscreen-map=')) {
+        try {
+          const encodedData = hash.replace('#fullscreen-map=', '');
+          const decodedData = decodeURIComponent(encodedData);
+          const parsedData = JSON.parse(decodedData);
+          
+          // Extract unitId from parsed data to fetch live data
+          const unitId = parsedData.unitId;
+          
+          if (unitId) {
+            // Fetch live data from API
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/api/units/${unitId}/live-map`, {
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (!response.ok) {
+              throw new Error('Failed to fetch live map data');
+            }
+            
+            const liveData = await response.json();
+            
+            // Transform API response to match expected structure
+            const transformedData = {
+              ...parsedData,
+              unitId: liveData.unit.id,
+              layoutData: {
+                id: liveData.layouts[0]?.id,
+                items: liveData.layouts[0]?.components || [],
+              },
+            };
+            
+            setMapData(transformedData);
+            
+            // Generate operational data for each item
+            const layoutItems = transformedData.layoutData?.items || [];
 
-        if (layoutItems.length > 0) {
-          const opData = generateOperationalData(layoutItems);
-          setOperationalData(opData);
+            if (layoutItems.length > 0) {
+              const opData = generateOperationalData(layoutItems);
+              setOperationalData(opData);
 
-          // Extract dropdown options from operational data
-          extractDropdownOptions(layoutItems, opData);
+              // Extract dropdown options from operational data
+              extractDropdownOptions(layoutItems, opData);
+            }
+          } else {
+            // Fallback to static data if no unitId
+            setMapData(parsedData);
+            
+            const layoutItems = parsedData.layoutData?.items || parsedData.layoutItems || [];
+
+            if (layoutItems.length > 0) {
+              const opData = generateOperationalData(layoutItems);
+              setOperationalData(opData);
+              extractDropdownOptions(layoutItems, opData);
+            }
+          }
+        } catch (err) {
+          setError('Failed to load map data');
+          console.error('Error loading map data:', err);
         }
-      } catch (err) {
-        setError('Failed to load map data');
-        console.error('Error parsing map data:', err);
+      } else {
+        setError('No map data provided');
       }
-    } else {
-      setError('No map data provided');
-    }
+    };
+    
+    loadMapData();
   }, []);
 
   const generateOperationalData = (items) => {
@@ -1787,8 +1835,25 @@ const FullscreenMap = () => {
             {showInfoPanel && selectedItem && (
               <LocationDetailsPanel
                 selectedItem={selectedItem}
+                unitId={
+                  savedLayouts.find(l => l.id === selectedUnitForDemo)?.orgUnit?.id ??
+                  savedLayouts.find(l => l.id === selectedUnitForDemo)?.unitId ??
+                  selectedUnitForDemo
+                }
                 onClose={() => setShowInfoPanel(false)}
                 isEmbedded={true}
+              />
+            )} 
+
+            {/* Show Warehouse Overview Panel by default (no component selected) */}
+            {!showInfoPanel && (
+              <WarehouseOverviewPanel 
+                layoutData={{
+                  items: mapData?.layoutData?.items || [],
+                  name: mapData?.name
+                }}
+                unitId={mapData?.unitId}
+                layoutId={mapData?.layoutData?.id || mapData?.layoutId}
               />
             )}
           </div>

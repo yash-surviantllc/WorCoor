@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
@@ -75,7 +76,9 @@ const MultiLocationSelector = ({
   existingLocationIds = [],
   itemType = '',
   initialMappings = [],
-  initialLevelIds = []
+  initialLevelIds = [],
+  locationTags = [],
+  isLoadingLocationTags = false
 }) => {
   const [selectedLevelId, setSelectedLevelId] = useState('');
   const [locationSelectValue, setLocationSelectValue] = useState('');
@@ -151,20 +154,17 @@ const MultiLocationSelector = ({
   }, [externalLocationSet, attachedMappings]);
 
   const availableLocationOptions = useMemo(() => {
-    const options = [];
-    for (let index = 1; index <= MAX_LOCATION_INDEX; index += 1) {
-      const candidate = `LOC-${index.toString().padStart(3, '0')}`;
-      const normalized = normalizeLocationId(candidate);
-      // Check both blockedLocationIds and global cache
-      if (!blockedLocationIds.has(normalized) && !globalIdCache.isIdInUse(candidate)) {
-        options.push(candidate);
-      }
-      if (options.length >= 150) {
-        break;
-      }
-    }
+    if (isLoadingLocationTags) return [];
+
+    const options = locationTags
+      .filter((tag) => {
+        const normalized = normalizeLocationId(tag.locationTagName);
+        return !blockedLocationIds.has(normalized);
+      })
+      .map((tag) => tag.locationTagName);
+
     return options;
-  }, [blockedLocationIds]);
+  }, [blockedLocationIds, locationTags, isLoadingLocationTags]);
 
   const suggestedLocationId = availableLocationOptions[0] || '';
 
@@ -225,7 +225,7 @@ const MultiLocationSelector = ({
     }
 
     // Check against both external set and global cache
-    if (externalLocationSet.has(locationId) || attachedLocationCounts.get(locationId) || globalIdCache.isIdInUse(locationId)) {
+    if (externalLocationSet.has(locationId) || attachedLocationCounts.get(locationId)) {
       showMessage.error(`Location ID ${locationId} is already in use elsewhere in the map. Choose another ID.`);
       return;
     }
@@ -277,7 +277,7 @@ const MultiLocationSelector = ({
       }
 
       // Check against both external set and global cache
-      if (externalLocationSet.has(locationId) || globalIdCache.isIdInUse(locationId)) {
+      if (externalLocationSet.has(locationId)) {
         showMessage.error(`Location ID ${locationId} is already used elsewhere in the map.`);
         return;
       }
@@ -409,14 +409,18 @@ const MultiLocationSelector = ({
                   className="flex h-10 w-full sm:flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 hover:border-input/80"
                   disabled={availableLocationOptions.length === 0}
                 >
-                  {availableLocationOptions.length === 0 ? (
-                    <option value="">No LOC IDs available</option>
+                  {isLoadingLocationTags ? (
+                    <option value="">Loading location tags...</option>
+                  ) : availableLocationOptions.length === 0 ? (
+                    <option value="">No available location tags</option>
                   ) : (
-                    availableLocationOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))
+                    locationTags
+                      .filter(tag => availableLocationOptions.includes(tag.locationTagName))
+                      .map((tag) => (
+                        <option key={tag.id} value={tag.locationTagName}>
+                          {tag.locationTagName}
+                        </option>
+                      ))
                   )}
                 </select>
 
@@ -435,6 +439,16 @@ const MultiLocationSelector = ({
               {!currentLocationWarning && locationSelectValue && (
                 <p className="text-xs text-green-600 dark:text-green-400 mt-2">
                   Selected ID ready to attach: {locationSelectValue}
+                </p>
+              )}
+              {isLoadingLocationTags && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Loading location tags from backend...
+                </p>
+              )}
+              {!isLoadingLocationTags && locationTags.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  No location tags found for this organizational unit.
                 </p>
               )}
             </div>

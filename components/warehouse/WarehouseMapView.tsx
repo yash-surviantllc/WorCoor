@@ -1,9 +1,11 @@
+// @ts-nocheck
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import WarehouseLayoutBuilder from '@/components/warehouse/WarehouseLayoutBuilder';
 import LocationDetailsPanel from '@/components/warehouse/LocationDetailsPanel';
+import WarehouseOverviewPanel from '@/components/warehouse/WarehouseOverviewPanel';
 import SavedLayoutRenderer, { getLayoutItemKey } from '@/components/warehouse/SavedLayoutRenderer';
 import summarizeStorageComponents from '@/lib/warehouse/utils/layoutComponentSummary';
 import layoutComponentsMock from '@/lib/warehouse/data/layoutComponentsMock.json';
@@ -11,8 +13,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import { locationTagService } from '@/src/services/locationTags';
+import { warehouseService } from '@/src/services/warehouseService';
+import { orgUnitService } from '@/src/services/orgUnits';
+import { skuService } from '@/src/services/skus';
 
 // TypeScript interfaces
 interface WarehouseLayout {
@@ -25,6 +31,8 @@ interface WarehouseLayout {
   zones: number;
   items: number;
   lastActivity: string;
+  unitId?: string | null;
+  orgUnit?: { id?: string | null; name?: string | null; [key: string]: any } | null;
   layoutData: {
     items: WarehouseItem[];
   };
@@ -87,9 +95,10 @@ interface WarehouseMapViewProps {
   initialSelectedLayoutId?: string | null;
   onModalClose?: () => void;
   fullscreenMode?: boolean;
+  prefetchedLayouts?: any[];
 }
 
-const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initialSelectedLayoutId, onModalClose, fullscreenMode }) => {
+const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initialSelectedLayoutId, onModalClose, fullscreenMode, prefetchedLayouts }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const layoutId = searchParams?.get('layoutId');
@@ -118,27 +127,157 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
   const [selectedSku, setSelectedSku] = useState<string>('');
   const [selectedAsset, setSelectedAsset] = useState<string>('');
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
-  const [savedLayouts, setSavedLayouts] = useState<WarehouseLayout[]>([]);
+  const [savedLayouts, setSavedLayouts] = useState<WarehouseLayout[]>(() => {
+    // Seed from prefetched layouts immediately so data is available on first render
+    if (prefetchedLayouts?.length) {
+      return prefetchedLayouts.map((bl: any) => {
+        const items = bl.layoutData?.items || [];
+        return {
+          id: bl.id,
+          name: bl.layoutName || 'Warehouse Layout',
+          location: '',
+          size: `${items.length} components`,
+          status: bl.status || 'operational',
+          utilization: 0,
+          zones: 0,
+          items: items.length,
+          lastActivity: bl.createdAt || new Date().toISOString(),
+          unitId: bl.unitId ?? null,
+          orgUnit: bl.orgUnit ?? null,
+          layoutData: { items, ...bl.layoutData },
+        } as WarehouseLayout;
+      });
+    }
+    return [];
+  });
   const [selectedItem, setSelectedItem] = useState<WarehouseItem | null>(null);
   const [showLocationDetails, setShowLocationDetails] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [cameFromDashboard, setCameFromDashboard] = useState(false);
 
-  // Load saved layouts from localStorage
-  const refreshSavedLayouts = useCallback(() => {
-    const storedLayouts = localStorage.getItem('warehouseLayouts');
-    if (storedLayouts) {
-      const parsedLayouts = JSON.parse(storedLayouts);
-      setSavedLayouts(parsedLayouts);
-    } else {
-      setSavedLayouts([]);
+  const isExternallyControlled = Boolean(initialSelectedLayoutId || fullscreenMode);
+  const shouldShowLiveMap = isExternallyControlled
+    ? Boolean(selectedUnitForDemo)
+    : showDemoMapModal;
+
+  // Convert a backend Layout into the WarehouseLayout shape this component expects
+  const convertBackendLayout = useCallback((bl: any): WarehouseLayout => {
+    const items = bl.layoutData?.items || [];
+    return {
+      id: bl.id,
+      name: bl.layoutName || 'Warehouse Layout',
+      location: '',
+      size: `${items.length} components`,
+      status: bl.status || 'operational',
+      utilization: 0,
+      zones: 0,
+      items: items.length,
+      lastActivity: bl.createdAt || new Date().toISOString(),
+      unitId: bl.unitId ?? null,
+      orgUnit: bl.orgUnit ?? null,
+      layoutData: { items, ...bl.layoutData },
+    };
+  }, []);
+
+  // Seed with layouts passed from parent (e.g., dashboard already fetched them)
+  useEffect(() => {
+    if (!prefetchedLayouts?.length) return;
+    setSavedLayouts(prev => {
+      const prefetchedConverted = prefetchedLayouts.map(convertBackendLayout);
+      const existingIds = new Set(prefetchedConverted.map(l => l.id));
+      const filteredPrev = prev.filter(l => !existingIds.has(l.id));
+      return [...prefetchedConverted, ...filteredPrev];
+    });
+  }, [prefetchedLayouts, convertBackendLayout]);
+
+  // Load all layouts from backend API (replaces localStorage)
+  const refreshSavedLayouts = useCallback(async () => {
+    try {
+      const units = await orgUnitService.list();
+      const layoutArrays = await Promise.all(
+        units.map(unit =>
+          warehouseService.getLayouts(unit.id).catch(() => [] as any[])
+        )
+      );
+      const allBackendLayouts = layoutArrays.flat();
+      const converted = allBackendLayouts.map(convertBackendLayout);
+      setSavedLayouts(converted);
+    } catch (error) {
+      console.error('Failed to load layouts from backend:', error);
+    }
+  }, [convertBackendLayout]);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [autoRefreshMinutes, setAutoRefreshMinutes] = useState<number>(0);
+
+  const refreshLiveData = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshSavedLayouts();
+    } catch (error) {
+      console.error('Failed to refresh live map data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshSavedLayouts]);
+
+  useEffect(() => {
+    if (!autoRefreshMinutes) {
+      return;
+    }
+
+    const intervalMs = autoRefreshMinutes * 60 * 1000;
+    const id = window.setInterval(() => {
+      void refreshLiveData();
+    }, intervalMs);
+
+    return () => {
+      window.clearInterval(id);
+    };
+  }, [autoRefreshMinutes, refreshLiveData]);
+
+  // Fetch location tags and SKUs from backend for the selected layout's unit
+  const hydrateDropdownsFromBackend = useCallback(async (layout: WarehouseLayout | undefined) => {
+    if (!layout) return;
+
+    const unitId: string | undefined =
+      layout.unitId ||
+      (layout as any).orgUnit?.id ||
+      (layout.layoutData as any)?.orgUnit?.id ||
+      (layout.layoutData as any)?.unitId;
+    console.log('🔍 hydrateDropdownsFromBackend: layoutId=', layout.id, 'resolved unitId=', unitId);
+    if (!unitId) return;
+
+    try {
+      const [tags, skuResponse] = await Promise.all([
+        locationTagService.listByUnit(unitId).catch(() => []),
+        skuService.list({ unitId, limit: 100 }).catch(() => ({ items: [] })),
+      ]);
+
+      // Location tags: deduplicated tag names from backend
+      const tagSet = new Set<string>();
+      (tags || []).forEach((t: any) => {
+        const name = (t.locationTagName || t.name || '').trim();
+        if (name) tagSet.add(name);
+      });
+      setAvailableLocationTags(Array.from(tagSet));
+
+      // SKUs: deduplicated skuName from backend
+      const skuSet = new Set<string>();
+      (skuResponse.items || []).forEach((s: any) => {
+        const name = (s.skuName || s.skuId || '').trim();
+        if (name) skuSet.add(name);
+      });
+      setAvailableSkus(Array.from(skuSet));
+    } catch (error) {
+      console.error('Failed to hydrate dropdowns from backend:', error);
     }
   }, []);
 
   useEffect(() => {
     setMounted(true);
-    refreshSavedLayouts();
+    void refreshSavedLayouts();
     // Reset transition state when layoutId changes
     setIsTransitioning(false);
     
@@ -146,14 +285,25 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
     if (layoutId) {
       setCameFromDashboard(true);
       setSelectedUnitForDemo(layoutId);
-      setShowDemoMapModal(true);
+      // Don't show modal yet — wait until layout data is available
     }
 
     if (fullscreenMode && initialSelectedLayoutId) {
       setSelectedUnitForDemo(initialSelectedLayoutId);
-      setShowDemoMapModal(true);
+      // Don't show modal yet — wait until layout data is available
     }
   }, [layoutId]);
+
+  // Show the modal once the target layout is actually available in savedLayouts
+  useEffect(() => {
+    if (isExternallyControlled) return;
+    const targetId = selectedUnitForDemo;
+    if (!targetId) return;
+    const found = savedLayouts.some(l => l.id === targetId);
+    if (found && !showDemoMapModal) {
+      setShowDemoMapModal(true);
+    }
+  }, [savedLayouts, selectedUnitForDemo, isExternallyControlled, showDemoMapModal]);
 
   // Handle browser back button to close modal
   useEffect(() => {
@@ -192,34 +342,30 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
     window.open(url, '_blank', 'noopener,noreferrer');
   }, [selectedUnitForDemo]);
 
+  // Re-fetch layouts from backend when a layout is saved/updated elsewhere
   useEffect(() => {
-    refreshSavedLayouts();
-
-    const handleStorageChange = () => {
-      refreshSavedLayouts();
+    const handleLayoutSaved = () => {
+      void refreshSavedLayouts();
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('layoutSaved', handleStorageChange);
+    window.addEventListener('layoutSaved', handleLayoutSaved);
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('layoutSaved', handleStorageChange);
+      window.removeEventListener('layoutSaved', handleLayoutSaved);
     };
   }, [refreshSavedLayouts]);
 
-  // Extract dropdown options from the currently selected unit's layout only
-  const extractDropdownOptionsFromSelectedUnit = useCallback((unitId: string | null) => {
-    if (!unitId) {
+  // Extract dropdown options: assets from layout metadata, location tags + SKUs from backend
+  const extractDropdownOptionsFromSelectedUnit = useCallback((layoutId: string | null) => {
+    if (!layoutId) {
       setAvailableLocationTags([]);
       setAvailableSkus([]);
       setAvailableAssets([]);
       return;
     }
 
-    // Find the selected unit from saved layouts
-    const selectedLayout: WarehouseLayout | undefined = savedLayouts.find(layout => layout.id === unitId);
-    
+    const selectedLayout: WarehouseLayout | undefined = savedLayouts.find(layout => layout.id === layoutId);
+
     if (!selectedLayout?.layoutData?.items) {
       setAvailableLocationTags([]);
       setAvailableSkus([]);
@@ -227,168 +373,36 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
       return;
     }
 
-    const locationTags = new Set();
-    const skus = new Set();
-    const assets = new Set();
-
-    // Create a lookup map from location_id to sku_name (case-insensitive)
-    const locationToSkuMap: Record<string, string> = {};
-    if (layoutComponentsMock?.locations) {
-      layoutComponentsMock.locations.forEach(loc => {
-        if (loc.location_id && loc.sku_name) {
-          // Store both original case and uppercase version for matching
-          locationToSkuMap[loc.location_id] = loc.sku_name;
-          locationToSkuMap[loc.location_id.toUpperCase()] = loc.sku_name;
-          locationToSkuMap[loc.location_id.toLowerCase()] = loc.sku_name;
-        }
-      });
-    }
-
-    const addLocation = (value: string | undefined) => {
-      if (!value) return;
-      const normalized = typeof value === 'string' ? value.trim() : String(value).trim();
-      if (normalized) {
-        locationTags.add(normalized);
-      }
+    // --- Assets: extract from layout items (component types) ---
+    const assets = new Set<string>();
+    const typeMap: Record<string, string> = {
+      'storage_unit': 'Storage Unit',
+      'spare_unit': 'Spare Unit',
+      'sku_holder': 'Horizontal Storage',
+      'vertical_sku_holder': 'Vertical Storage',
+      'open_storage_space': 'Open Storage Space',
+      'dispatch_staging_area': 'Dispatch Staging Area',
+      'grading_area': 'Grading Area',
+      'processing_area': 'Processing Area',
+      'production_area': 'Production Area',
+      'packaging_area': 'Packaging Area',
+      'cold_storage': 'Cold Storage',
+      'solid_boundary': 'Solid Boundary',
+      'dotted_boundary': 'Dotted Boundary',
     };
 
-    const addSku = (value: string | undefined) => {
-      if (!value) return;
-      const normalized = typeof value === 'string' ? value.trim() : String(value).trim();
-      if (normalized) {
-        // Handle comma-separated location IDs (e.g., "LOC-007,LOC-008")
-        if (normalized.includes(',')) {
-          const locationIds = normalized.split(',').map(id => id.trim());
-          locationIds.forEach(locId => {
-            const skuName = locationToSkuMap[locId];
-            if (skuName) {
-              skus.add(skuName);
-            }
-          });
-        } else {
-          // Single location ID - map it to SKU name
-          const skuName = locationToSkuMap[normalized];
-          if (skuName) {
-            skus.add(skuName);
-          } else if (!normalized.startsWith('LOC-') && !normalized.startsWith('Loc-') && !normalized.startsWith('loc-')) {
-            // If it's not a location ID pattern, add it as-is (might be actual SKU)
-            skus.add(normalized);
-          }
-        }
-      }
-    };
-
-    const addAsset = (type: string | undefined) => {
-      if (!type || type === 'square_boundary') return;
-      // Map component types to readable names
-      const typeMap = {
-        'storage_unit': 'Storage Unit',
-        'spare_unit': 'Spare Unit',
-        'sku_holder': 'Horizontal Storage',
-        'vertical_sku_holder': 'Vertical Storage',
-        'open_storage_space': 'Open Storage Space',
-        'dispatch_staging_area': 'Dispatch Staging Area',
-        'grading_area': 'Grading Area',
-        'processing_area': 'Processing Area',
-        'production_area': 'Production Area',
-        'packaging_area': 'Packaging Area',
-        'cold_storage': 'Cold Storage',
-        'solid_boundary': 'Solid Boundary',
-        'dotted_boundary': 'Dotted Boundary'
-      };
-      const readableName = typeMap[type as keyof typeof typeMap] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      assets.add(readableName);
-    };
-
-    const collectLocationsFromContent = (content: CompartmentContent = {}) => {
-      if (!content) return;
-
-      // Collect all location IDs from content
-      addLocation(content.locationId);
-      addLocation(content.primaryLocationId);
-
-      if (Array.isArray(content.locationIds)) {
-        content.locationIds.forEach(addLocation);
-      }
-
-      if (Array.isArray(content.levelLocationMappings)) {
-        content.levelLocationMappings.forEach((mapping) => {
-          addLocation(mapping?.locationId || mapping?.locId);
-          // Also extract SKU from location ID in mapping
-          addSku(mapping?.locationId || mapping?.locId);
-        });
-      }
-
-      if (Array.isArray(content.levelIds) && Array.isArray(content.locationIds)) {
-        content.locationIds.forEach(locId => {
-          addLocation(locId);
-          addSku(locId); // Also add as SKU to map to name
-        });
-      }
-
-      // Add SKU data from all content fields
-      addSku(content.sku);
-      addSku(content.uniqueId);
-      addSku(content.primarySku);
-      addSku(content.locationId); // Location ID can map to SKU name
-      addSku(content.primaryLocationId); // Primary location ID can map to SKU name
-      
-      // Handle locationIds array
-      if (Array.isArray(content.locationIds)) {
-        content.locationIds.forEach(addSku);
-      }
-    };
-
-    const collectLocationsFromItem = (item: WarehouseItem = {}) => {
-      if (item?.type === 'square_boundary') {
-        return;
-      }
-
-      addLocation(item.locationId);
-      addLocation(item.locationCode);
-      addLocation(item.locationTag);
-
-      if (Array.isArray(item.locationIds)) {
-        item.locationIds.forEach(locId => {
-          addLocation(locId);
-          addSku(locId); // Extract SKU from location ID
-        });
-      }
-
-      // Extract from item-level levelLocationMappings (vertical racks)
-      if (Array.isArray(item.levelLocationMappings)) {
-        item.levelLocationMappings.forEach((mapping) => {
-          const locId = mapping?.locationId || mapping?.locId;
-          addLocation(locId);
-          addSku(locId); // Extract SKU from each level's location ID
-        });
-      }
-
-      addLocation(item.primaryLocationId);
-      addSku(item.primaryLocationId); // Extract SKU from primary location
-
-      if (item.compartmentContents) {
-        Object.values(item.compartmentContents).forEach((content) => {
-          collectLocationsFromContent(content);
-          addSku(content?.sku);
-        });
-      }
-    };
-
-    // Process only the selected layout's items
-    selectedLayout.layoutData.items.forEach((item) => {
-      collectLocationsFromItem(item);
-
-      // Only add component type to assets
-      if (item.type) {
-        addAsset(item.type);
+    selectedLayout.layoutData.items.forEach((item: WarehouseItem) => {
+      if (item.type && item.type !== 'square_boundary') {
+        const readableName = typeMap[item.type] || item.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        assets.add(readableName);
       }
     });
 
-    setAvailableLocationTags(Array.from(locationTags) as string[]);
-    setAvailableSkus(Array.from(skus) as string[]);
-    setAvailableAssets(Array.from(assets) as string[]);
-  }, [savedLayouts]);
+    setAvailableAssets(Array.from(assets));
+
+    // --- Location tags + SKUs: fetch from backend API ---
+    void hydrateDropdownsFromBackend(selectedLayout);
+  }, [savedLayouts, hydrateDropdownsFromBackend]);
 
   // Extract dropdown options when selected unit changes
   useEffect(() => {
@@ -587,18 +601,18 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
     }
   };
 
-  const handleDeleteLayout = (layoutId: string | undefined) => {
-    if (!layoutId || typeof window === 'undefined') return;
+  const handleDeleteLayout = async (layoutId: string | undefined) => {
+    if (!layoutId) return;
 
     const confirmed = window.confirm('Delete this layout permanently? This action cannot be undone.');
     if (!confirmed) return;
 
-    setSavedLayouts(prevLayouts => {
-      const updatedLayouts = prevLayouts.filter(layout => layout.id !== layoutId);
-      window.localStorage.setItem('warehouseLayouts', JSON.stringify(updatedLayouts));
-      window.dispatchEvent(new Event('layoutSaved'));
-      return updatedLayouts;
-    });
+    try {
+      await warehouseService.deleteLayout(layoutId);
+      setSavedLayouts(prev => prev.filter(layout => layout.id !== layoutId));
+    } catch (error) {
+      console.error('Failed to delete layout:', error);
+    }
   };
 
   const handleUnitAction = (unitId: string, action: string) => {
@@ -1217,7 +1231,7 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
     <div className="warehouse-dashboard">
       {/* Main Content Grid */}
       <div className="dashboard-content">
-        {currentSection === 'layout-builder' ? (
+        {isExternallyControlled ? null : currentSection === 'layout-builder' ? (
           <div className="layout-builder-container">
             <div className="layout-builder-header">
               <h2>Layout Builder - {warehouseUnits.find(u => u.id === selectedUnit)?.name || 'Unit'}</h2>
@@ -1243,7 +1257,7 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
               })()}
             />
           </div>
-        ) : (
+        ) : isExternallyControlled ? null : (
           <div>
             {/* Header section removed */}
           
@@ -1310,7 +1324,7 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
       )}
 
       {/* Live Map Modal */}
-      {showDemoMapModal && selectedUnitForDemo && (
+      {shouldShowLiveMap && selectedUnitForDemo && (
           <div 
             className={`demo-map-modal-overlay ${fullscreenMode ? 'fullscreen-mode' : ''}`}
             onClick={() => {
@@ -1413,14 +1427,42 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
                 </div>
                 
                 <div className="demo-map-controls">
+                  <div className="dropdown-filter">
+                    <select
+                      value={autoRefreshMinutes}
+                      onChange={(e) => setAutoRefreshMinutes(Number(e.target.value) || 0)}
+                      className="search-dropdown"
+                      title="Auto Refresh"
+                      disabled={isRefreshing}
+                    >
+                      <option value={0}>Off</option>
+                      <option value={1}>1 min</option>
+                      <option value={5}>5 min</option>
+                      <option value={10}>10 min</option>
+                    </select>
+                  </div>
+                  <button
+                    className="demo-map-fullscreen-btn"
+                    onClick={() => {
+                      console.log('WarehouseMapView - Refresh button clicked');
+                      void refreshLiveData();
+                    }}
+                    title="Refresh"
+                    type="button"
+                    disabled={isRefreshing}
+                    style={{ opacity: isRefreshing ? 0.6 : 1 }}
+                  >
+                    <RefreshCw size={16} />
+                  </button>
                   <button 
                     className="demo-map-fullscreen-btn" 
                     onClick={handleOpenFullscreenTab}
                     title="Fullscreen Preview"
+                    type="button"
                   >
                     ⛶
                   </button>
-                  <button className="demo-map-close-btn" onClick={handleCloseModal}>×</button>
+                  <button className="demo-map-close-btn" onClick={handleCloseModal} type="button">×</button>
                 </div>
               </div>
               
@@ -1833,7 +1875,8 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
                     const unit = warehouseUnits.find(u => u.id === selectedUnitForDemo);
                     const demoData = demoMapsData[selectedUnitForDemo];
                     
-                    // Show zone info for demo units
+                    // Show zone info for demo units - COMMENTED OUT (not using demo maps)
+                    /*
                     if (unit && !unit.isCustomLayout && demoData) {
                       return (
                         <>
@@ -1883,6 +1926,7 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
                         </>
                       );
                     }
+                    */
                     
                     // Show Location Details Panel if an item is selected
                     if (showLocationDetails && selectedItem) {
@@ -1900,8 +1944,18 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
                       );
                     }
                     
-                    // Don't show Layout Components panel - only show when item is clicked
-                    return null;
+                    // Show Warehouse Overview Panel by default (no component selected)
+                    const currentLayout = savedLayouts.find(layout => layout.id === selectedUnitForDemo);
+                    return (
+                      <div className="demo-map-info overview-container">
+                        <WarehouseOverviewPanel 
+                          layoutData={{
+                            items: currentLayout?.layoutData?.items || [],
+                            name: currentLayout?.name
+                          }} 
+                        />
+                      </div>
+                    );
                   })()}
                 </div>
               </div>

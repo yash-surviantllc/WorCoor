@@ -52,6 +52,96 @@ export type UnitData = any;
 export type ZoneData = any;
 export type OperationalData = any;
 
+// Backend-integrated types used by warehouseService and dashboard pages
+export interface Layout {
+  id: string;
+  unitId: string;
+  layoutName: string;
+  status: string;
+  items: any;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt?: string;
+  [key: string]: any;
+}
+
+export interface Component {
+  id: string;
+  layoutId: string;
+  organizationId: string;
+  componentType: string;
+  displayName: string;
+  positionX: number;
+  positionY: number;
+  width: number;
+  height: number;
+  locationTagId?: string | null;
+  color?: string | null;
+  label?: string | null;
+  metadata?: Record<string, any> | null;
+  createdAt: string;
+  [key: string]: any;
+}
+
+export interface LiveMapResponse {
+  layout: Layout;
+  components: Component[];
+  locationTags: any[];
+  [key: string]: any;
+}
+
+export interface SearchResponse {
+  results: any[];
+}
+
+export interface CreateLayoutInput {
+  layoutName: string;
+  status?: string;
+  layoutData?: Record<string, any>;
+  metadata?: Record<string, any>;
+}
+
+export interface UpdateLayoutInput {
+  layoutName?: string;
+  status?: string;
+  layoutData?: Record<string, any>;
+  metadata?: Record<string, any>;
+}
+
+export interface CreateComponentInput {
+  componentType: string;
+  displayName: string;
+  positionX: number;
+  positionY: number;
+  width: number;
+  height: number;
+  color?: string | null;
+  locationTagId?: string | null;
+  label?: string | null;
+  metadata?: Record<string, any> | null;
+}
+
+export interface UpdateComponentInput {
+  componentType?: string;
+  displayName?: string;
+  positionX?: number;
+  positionY?: number;
+  width?: number;
+  height?: number;
+  color?: string | null;
+  locationTagId?: string | null;
+  label?: string | null;
+  metadata?: Record<string, any> | null;
+}
+
+export interface WarehouseMapDashboardProps {
+  orgUnits: any[];
+  layouts: Layout[];
+  isLoading: boolean;
+  onMapSelect: (layoutId: string) => void;
+  onEditLayout: (layoutId: string) => void;
+}
+
 // Component Type Definitions
 export const COMPONENT_TYPES = {
   STORAGE_UNIT: 'storage_unit',

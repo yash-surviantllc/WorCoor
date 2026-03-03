@@ -1,12 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-
-// TypeScript interfaces
-interface OrgUnit {
-  id: string;
-  name: string;
-}
+import React, { useState, useEffect } from 'react';
+import { orgUnitService, type OrgUnit } from '@/src/services/orgUnits';
+import { locationTagService, type LocationTag } from '@/src/services/locationTags';
 
 interface TopNavbarProps {
   // Layout Info
@@ -16,45 +12,31 @@ interface TopNavbarProps {
   selectedOrgMap?: any;
   onOrgMapSelect?: (map: any) => void;
   
-  // Facility Management
-  onFacilityManager?: () => void;
-  onMeasurementTools?: () => void;
+  // Location Tags
+  locationTags?: any[];
+  isLoadingLocationTags?: boolean;
   
   // File Operations
   onSave?: () => void;
   onLoad?: () => void;
   onClear?: () => void;
-  onImportCAD?: () => void;
-  onExportLayout?: (format: string) => void;
   
   // View Controls
-  zoomLevel?: number;
-  onZoomIn?: () => void;
-  onZoomOut?: () => void;
   onZoomReset?: () => void;
-  onZoomFit?: () => void;
-  
-  // Grid & Snap
-  gridVisible?: boolean;
-  onToggleGrid?: () => void;
-  snapEnabled?: boolean;
-  onToggleSnap?: () => void;
   
   onUndo?: () => void;
   onRedo?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
   
-  // Search & Dashboard
-  onSearch?: () => void;
-  onToggleDashboard?: () => void;
-  onNavigateToDashboard?: () => void;
-  
   // Boundary
   onAutoGenerateBoundary?: () => void;
   
   // Status
   itemCount?: number;
+  
+  // Navigation
+  onNavigateToDashboard?: () => void;
 }
 
 const TopNavbar: React.FC<TopNavbarProps> = ({
@@ -65,55 +47,60 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
   selectedOrgMap,
   onOrgMapSelect,
   
-  // Facility Management
-  onFacilityManager,
-  onMeasurementTools,
+  // Location Tags
+  locationTags,
+  isLoadingLocationTags,
   
   // File Operations
   onSave,
   onLoad,
   onClear,
-  onImportCAD,
-  onExportLayout,
   
   // View Controls
-  zoomLevel,
-  onZoomIn,
-  onZoomOut,
   onZoomReset,
-  onZoomFit,
-  
-  // Grid & Snap
-  gridVisible,
-  onToggleGrid,
-  snapEnabled,
-  onToggleSnap,
   
   onUndo,
   onRedo,
   canUndo,
   canRedo,
   
-  // Search & Dashboard
-  onSearch,
-  onToggleDashboard,
-  onNavigateToDashboard,
-  
   // Boundary
   onAutoGenerateBoundary,
   
   // Status
-  itemCount
+  itemCount,
+  
+  // Navigation
+  onNavigateToDashboard
 }) => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
+  const [isLoadingOrgUnits, setIsLoadingOrgUnits] = useState(true);
 
-  // Flat org unit list shown in dropdown (per latest requirements)
-  const orgUnitOptions = [
-    { id: 'unit-1', name: 'Unit 1' },
-    { id: 'production-unit-1', name: 'Production Unit 1' },
-    { id: 'asset-storing-facility', name: 'Asset Storing Facility' },
-    { id: 'main-office', name: 'Main Office' }
-  ];
+  // Fetch org units from Reference Data Management
+  useEffect(() => {
+    const fetchOrgUnits = async () => {
+      try {
+        setIsLoadingOrgUnits(true);
+        const data = await orgUnitService.list();
+        setOrgUnits(data);
+      } catch (error) {
+        console.error('Failed to fetch org units:', error);
+      } finally {
+        setIsLoadingOrgUnits(false);
+      }
+    };
+
+    fetchOrgUnits();
+  }, []);
+
+  // Log location tags when they change (for debugging)
+  useEffect(() => {
+    if (locationTags && locationTags.length > 0) {
+      console.log(`🏷️ TopNavbar - Location tags updated: ${locationTags.length} tags`);
+      console.table(locationTags);
+    }
+  }, [locationTags]);
 
   const toggleDropdown = (dropdown: string | null) => {
     setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
@@ -125,9 +112,14 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
 
   const handleOrgUnitSelectInternal = (option: OrgUnit) => {
     if (onOrgUnitSelect) {
-      // Properly structure the selection object with orgUnit property
+      // Convert the OrgUnit from service to match expected interface
+      const adaptedOrgUnit = {
+        id: option.id,
+        name: option.unitName
+      };
+      
       onOrgUnitSelect({ 
-        orgUnit: option, 
+        orgUnit: adaptedOrgUnit, 
         status: { id: 'operational', name: 'Operational' } 
       });
     }
@@ -135,6 +127,19 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
       onOrgMapSelect(null);
     }
     closeDropdowns();
+  };
+
+  // Debug function to manually trigger location tags fetch
+  const debugFetchLocationTags = () => {
+    if (selectedOrgUnit) {
+      console.log(`🔍 DEBUG: Manual trigger for location tags fetch - Org Unit: ${selectedOrgUnit.name}`);
+      console.log(`📍 Current location tags count: ${locationTags?.length || 0}`);
+      if (locationTags) {
+        console.table(locationTags);
+      }
+    } else {
+      console.log('⚠️ DEBUG: No org unit selected');
+    }
   };
 
   const getDropdownLabel = () => {
@@ -190,18 +195,28 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
                     <div className="group-title">Name</div>
                   </div>
                   <div className="dropdown-group-options">
-                    {orgUnitOptions.map(option => {
-                      const isSelected = selectedOrgUnit?.id === option.id;
-                      return (
-                        <button
-                          key={option.id}
-                          className={`dropdown-option ${isSelected ? 'selected' : ''}`}
-                          onClick={() => handleOrgUnitSelectInternal(option)}
-                        >
-                          <span className="option-text">{option.name}</span>
-                        </button>
-                      );
-                    })}
+                    {isLoadingOrgUnits ? (
+                      <div className="dropdown-option disabled">
+                        <span className="option-text">Loading org units...</span>
+                      </div>
+                    ) : orgUnits.length > 0 ? (
+                      orgUnits.map(option => {
+                        const isSelected = selectedOrgUnit?.id === option.id;
+                        return (
+                          <button
+                            key={option.id}
+                            className={`dropdown-option ${isSelected ? 'selected' : ''}`}
+                            onClick={() => handleOrgUnitSelectInternal(option)}
+                          >
+                            <span className="option-text">{option.unitName}</span>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="dropdown-option disabled">
+                        <span className="option-text">No org units available</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -287,6 +302,40 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
             <span className="status-count">{itemCount}</span>
             <span className="status-label">items</span>
           </div>
+          
+          {/* Location Tags Status */}
+          {selectedOrgUnit && (
+            <div className="status-badge" style={{ marginLeft: '8px' }}>
+              {isLoadingLocationTags ? (
+                <span className="status-label">🏷️ Loading...</span>
+              ) : (
+                <>
+                  <span className="status-count">{locationTags?.length || 0}</span>
+                  <span className="status-label">tags</span>
+                </>
+              )}
+            </div>
+          )}
+          
+          {/* Debug Button - Remove in production */}
+          {process.env.NODE_ENV === 'development' && selectedOrgUnit && (
+            <button 
+              onClick={debugFetchLocationTags}
+              style={{ 
+                marginLeft: '8px', 
+                padding: '2px 6px', 
+                fontSize: '10px', 
+                backgroundColor: '#ff6b6b', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '3px',
+                cursor: 'pointer'
+              }}
+              title="Debug: Refresh location tags"
+            >
+              🔄
+            </button>
+          )}
         </div>
       </div>
     </nav>

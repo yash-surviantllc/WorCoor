@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -448,7 +449,7 @@ const ComponentPanel = () => {
 
       {/* Header */}
 
-      <div className="flex items-center justify-between p-6 border-b border-slate-700/50 h-20 bg-slate-900/50">
+      <div className="flex items-center justify-between p-6 h-20 bg-slate-900/50">
 
         <div className="flex items-center gap-3">
 

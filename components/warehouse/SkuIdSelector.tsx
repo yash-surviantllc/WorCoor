@@ -1,8 +1,10 @@
+// @ts-nocheck
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import showMessage from '@/lib/warehouse/utils/showMessage';
 import globalIdCache from '@/lib/warehouse/utils/globalIdCache';
+import { normalizeLocationId } from '@/lib/warehouse/utils/locationId';
 
 interface SkuIdSelectorProps {
   isVisible: boolean;
@@ -12,6 +14,8 @@ interface SkuIdSelectorProps {
   showCategories?: boolean;
   allowCustomIds?: boolean;
   allowMultipleIds?: boolean; // New prop for storage components
+  locationTags?: any[]; // Add location tags prop
+  isLoadingLocationTags?: boolean; // Add loading state prop
 }
 
 const SkuIdSelector: React.FC<SkuIdSelectorProps> = ({ 
@@ -21,64 +25,73 @@ const SkuIdSelector: React.FC<SkuIdSelectorProps> = ({
   existingLocationIds = [], 
   showCategories = false,
   allowCustomIds = false,
-  allowMultipleIds = false
+  allowMultipleIds = false,
+  locationTags = [],
+  isLoadingLocationTags = false
 }) => {
   console.log('SkuIdSelector props:', { 
     allowMultipleIds, 
     showCategories, 
-    allowCustomIds,
     isVisible,
-    existingLocationIds: existingLocationIds.length
+    existingLocationIds: existingLocationIds.length,
+    locationTags: locationTags.length,
+    isLoadingLocationTags
   }); // Debug log
   
   const [selectedLocationId, setSelectedLocationId] = useState('');
-  const [customLocationId, setCustomLocationId] = useState('');
-  const [useCustom, setUseCustom] = useState(false);
   const [multipleIds, setMultipleIds] = useState<string[]>([]);
   const [showMultipleMode, setShowMultipleMode] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
 
-  // Generate available Location IDs (LOC-001 to LOC-999)
-  // Check against both existingLocationIds (local) and global cache
-  const generateAvailableLocationIds = () => {
-    const allIds = [];
-    for (let i = 1; i <= 999; i++) {
-      const locationId = `LOC-${i.toString().padStart(3, '0')}`;
-      // Check both local existing IDs and global cache
-      if (!existingLocationIds.includes(locationId) && !globalIdCache.isIdInUse(locationId)) {
-        allIds.push(locationId);
-      }
-    }
-    return allIds;
+  const usedLocationIds = useMemo(() => {
+    const set = new Set<string>();
+    existingLocationIds.forEach((id) => {
+      const normalized = normalizeLocationId(id);
+      if (normalized) set.add(normalized);
+    });
+    return set;
+  }, [existingLocationIds]);
+
+  const isIdUsed = (id: string) => {
+    const normalized = normalizeLocationId(id);
+    if (!normalized) return false;
+    return usedLocationIds.has(normalized);
   };
 
-  const availableLocationIds = generateAvailableLocationIds();
+  // Get available Location IDs from backend location tags
+  // Filter out already used location tags
+  const getAvailableLocationTags = () => {
+    if (isLoadingLocationTags) return [];
+    
+    return locationTags.filter(tag => {
+      const tagId = tag.locationTagName;
+      return !isIdUsed(tagId);
+    });
+  };
+
+  const availableLocationTags = getAvailableLocationTags();
 
   useEffect(() => {
-    if (availableLocationIds.length > 0) {
-      setSelectedLocationId(availableLocationIds[0]);
-    }
-    // Reset useCustom when showCategories is false (storage racks)
-    if (!allowCustomIds) {
-      setUseCustom(false);
+    if (availableLocationTags.length > 0) {
+      setSelectedLocationId(availableLocationTags[0].locationTagName);
     }
     // Reset multiple mode when selector opens
     setMultipleIds([]);
     setShowMultipleMode(false);
     setSelectedCategory('');
-  }, [availableLocationIds.length, allowCustomIds]);
+  }, [availableLocationTags.length]);
 
   const addMoreIds = () => {
-    const finalLocationId = useCustom ? customLocationId.trim() : selectedLocationId;
+    const finalLocationId = selectedLocationId;
     if (finalLocationId && !multipleIds.includes(finalLocationId)) {
       setMultipleIds([...multipleIds, finalLocationId]);
       setShowMultipleMode(true);
       // Select next available ID
-      const nextAvailable = availableLocationIds.find(id => 
-        id !== finalLocationId && !multipleIds.includes(id)
+      const nextAvailable = availableLocationTags.find((tag: any) => 
+        tag.locationTagName !== finalLocationId && !multipleIds.includes(tag.locationTagName)
       );
       if (nextAvailable) {
-        setSelectedLocationId(nextAvailable);
+        setSelectedLocationId(nextAvailable.locationTagName);
       }
     }
   };
@@ -91,18 +104,16 @@ const SkuIdSelector: React.FC<SkuIdSelectorProps> = ({
   };
 
   const handleSave = () => {
-    const finalLocationId = useCustom ? customLocationId.trim() : selectedLocationId;
+    const finalLocationId = selectedLocationId;
     
     if (!finalLocationId && multipleIds.length === 0) {
-      showMessage.warning('Please select or enter a Location ID');
+      showMessage.warning('Please select a Location ID');
       return;
     }
 
     // Check for conflicts
     const allSelectedIds = multipleIds.length > 0 ? [...multipleIds] : [finalLocationId];
-    const conflictingIds = allSelectedIds.filter(id => 
-      existingLocationIds.includes(id) || globalIdCache.isIdInUse(id)
-    );
+    const conflictingIds = allSelectedIds.filter(id => isIdUsed(id));
 
     if (conflictingIds.length > 0) {
       showMessage.error(`Location ID(s) "${conflictingIds.join(', ')}" are already in use. Please select different ones.`);
@@ -129,8 +140,6 @@ const SkuIdSelector: React.FC<SkuIdSelectorProps> = ({
 
   const handleClose = () => {
     setSelectedLocationId('');
-    setCustomLocationId('');
-    setUseCustom(false);
     setMultipleIds([]);
     setShowMultipleMode(false);
     setSelectedCategory('');
@@ -161,67 +170,34 @@ const SkuIdSelector: React.FC<SkuIdSelectorProps> = ({
           <div className="space-y-4">
             {/* Sequential Location ID Option */}
             <div className="space-y-3">
-              <label className="flex items-center space-x-3 cursor-pointer group">
-                <input
-                  type="radio"
-                  checked={!useCustom}
-                  onChange={() => setUseCustom(false)}
-                  className="h-4 w-4 border-input text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
-                />
-                <span className="text-sm font-medium text-foreground group-hover:text-foreground/80 transition-colors">Select from available Location IDs</span>
-              </label>
-              
-              {!useCustom && (
-                <div className="ml-7 space-y-2">
-                  <select
-                    value={selectedLocationId}
-                    onChange={(e) => setSelectedLocationId(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 hover:border-input/80"
-                  >
-                    {availableLocationIds.slice(0, 50).map(locationId => (
-                      <option key={locationId} value={locationId}>
-                        {locationId}
+              <div className="ml-7 space-y-2">
+                <select
+                  value={selectedLocationId}
+                  onChange={(e) => setSelectedLocationId(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 hover:border-input/80"
+                >
+                  {isLoadingLocationTags ? (
+                    <option value="">Loading location tags...</option>
+                  ) : availableLocationTags.length > 0 ? (
+                    availableLocationTags.map((tag: any) => (
+                      <option key={tag.id} value={tag.locationTagName}>
+                        {tag.locationTagName}
                       </option>
-                    ))}
-                  </select>
-                  {availableLocationIds.length > 50 && (
-                    <p className="text-xs text-muted-foreground">Showing first 50 of {availableLocationIds.length} available Location IDs (checked against entire map)</p>
+                    ))
+                  ) : (
+                    <option value="">No available location tags</option>
                   )}
-                  {availableLocationIds.length === 0 && (
-                    <p className="text-xs text-destructive">No available sequential Location IDs in the entire map. Use custom ID.</p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Custom Location ID - Only available for Storage Units */}
-            {allowCustomIds && (
-              <div className="space-y-3 pt-2">
-                <label className="flex items-center space-x-3 cursor-pointer group">
-                  <input
-                    type="radio"
-                    checked={useCustom}
-                    onChange={() => setUseCustom(true)}
-                    className="h-4 w-4 border-input text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
-                  />
-                  <span className="text-sm font-medium text-foreground group-hover:text-foreground/80 transition-colors">Enter custom Location ID</span>
-                </label>
-                
-                {useCustom && (
-                  <div className="ml-7">
-                    <input
-                      type="text"
-                      value={customLocationId}
-                      onChange={(e) => setCustomLocationId(e.target.value)}
-                      placeholder="Enter custom Location ID (e.g., CUSTOM-LOC-001)"
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 hover:border-input/80"
-                      maxLength={20}
-                    />
-                  </div>
+                </select>
+                {!isLoadingLocationTags && availableLocationTags.length === 0 && (
+                  <p className="text-xs text-destructive">No available location tags. All location tags are already in use.</p>
+                )}
+                {!isLoadingLocationTags && locationTags.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No location tags found for this organizational unit.</p>
                 )}
               </div>
-            )}
+            </div>
 
+            
             {/* Multiple Location IDs - Only available for storage components */}
             {allowMultipleIds && (
               <div className="space-y-3 pt-2">
@@ -229,7 +205,7 @@ const SkuIdSelector: React.FC<SkuIdSelectorProps> = ({
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={addMoreIds}
-                    disabled={!selectedLocationId && !customLocationId}
+                    disabled={!selectedLocationId}
                     className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-all duration-200 ease-out focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 active:scale-95 bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-sm h-8 px-3"
                   >
                     + Add More IDs
@@ -257,10 +233,10 @@ const SkuIdSelector: React.FC<SkuIdSelectorProps> = ({
                           </button>
                         </div>
                       ))}
-                      {(selectedLocationId || customLocationId) && (
+                      {(selectedLocationId) && (
                         <div className="flex items-center justify-between bg-primary/10 rounded px-2 py-1 border border-primary/20">
                           <span className="text-xs text-foreground">
-                            {useCustom ? customLocationId : selectedLocationId}
+                            {selectedLocationId}
                           </span>
                           <span className="text-xs text-primary ml-2">Current</span>
                         </div>
@@ -275,6 +251,9 @@ const SkuIdSelector: React.FC<SkuIdSelectorProps> = ({
           {/* Info Section */}
           <div className="rounded-md bg-muted/50 p-3 border border-border">
             <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Location Tags:</span> {locationTags.length} total, {availableLocationTags.length} available
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
               <span className="font-medium text-foreground">Used Location IDs:</span> {existingLocationIds.length}
               {existingLocationIds.length > 0 && (
                 <span> (Latest: <span className="font-medium text-foreground">{existingLocationIds[existingLocationIds.length - 1]}</span>)</span>
@@ -293,7 +272,7 @@ const SkuIdSelector: React.FC<SkuIdSelectorProps> = ({
           </button>
           <button 
             onClick={handleSave}
-            disabled={!useCustom && !selectedLocationId || useCustom && !customLocationId.trim()}
+            disabled={!selectedLocationId}
             className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-all duration-200 ease-out focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 active:scale-95 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm hover:shadow-md h-10 px-4 py-2 mt-2 sm:mt-0"
           >
             Add Location

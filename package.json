@@ -2,6 +2,9 @@
   "name": "my-v0-project",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -48,7 +51,7 @@
     "jwt-decode": "^4.0.0",
     "lucide-react": "^0.454.0",
     "multiselect-react-dropdown": "^2.0.25",
-    "next": "15.2.4",
+    "next": "15.2.8",
     "next-themes": "latest",
     "papaparse": "^5.5.3",
     "react": "^18.3.1",
@@ -60,6 +63,7 @@
     "react-hook-form": "latest",
     "react-resizable-panels": "^2.1.7",
     "recharts": "latest",
+    "socket.io-client": "^4.8.3",
     "sonner": "^1.7.1",
     "styled-components": "^6.1.19",
     "tailwind-merge": "^2.5.5",

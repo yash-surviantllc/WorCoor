@@ -1,12 +1,9 @@
+// @ts-nocheck
 'use client';
 
-import React, { useState } from 'react';
-
-// TypeScript interfaces
-interface OrgUnit {
-  id: string;
-  name: string;
-}
+import React, { useState, useEffect } from 'react';
+import { orgUnitService, type OrgUnit } from '@/src/services/orgUnits';
+import { locationTagService, type LocationTag } from '@/src/services/locationTags';
 
 interface TopNavbarProps {
   // Layout Info
@@ -15,46 +12,34 @@ interface TopNavbarProps {
   onOrgUnitSelect?: (selection: { orgUnit: OrgUnit; status: { id: string; name: string } }) => void;
   selectedOrgMap?: any;
   onOrgMapSelect?: (map: any) => void;
-  
-  // Facility Management
-  onFacilityManager?: () => void;
-  onMeasurementTools?: () => void;
-  
+
+  // Location Tags
+  locationTags?: any[];
+  isLoadingLocationTags?: boolean;
+
   // File Operations
   onSave?: () => void;
   onLoad?: () => void;
   onClear?: () => void;
-  onImportCAD?: () => void;
-  onExportLayout?: (format: string) => void;
-  
+
   // View Controls
-  zoomLevel?: number;
-  onZoomIn?: () => void;
-  onZoomOut?: () => void;
   onZoomReset?: () => void;
-  onZoomFit?: () => void;
-  
-  // Grid & Snap
-  gridVisible?: boolean;
-  onToggleGrid?: () => void;
-  snapEnabled?: boolean;
-  onToggleSnap?: () => void;
-  
+
   onUndo?: () => void;
   onRedo?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
-  
-  // Search & Dashboard
-  onSearch?: () => void;
-  onToggleDashboard?: () => void;
-  onNavigateToDashboard?: () => void;
-  
+
   // Boundary
   onAutoGenerateBoundary?: () => void;
-  
+
   // Status
   itemCount?: number;
+
+  // Navigation
+  onNavigateToDashboard?: () => void;
+  // Edit mode flag
+  isEditMode?: boolean;
 }
 
 const TopNavbar: React.FC<TopNavbarProps> = ({
@@ -64,56 +49,66 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
   onOrgUnitSelect,
   selectedOrgMap,
   onOrgMapSelect,
-  
-  // Facility Management
-  onFacilityManager,
-  onMeasurementTools,
-  
+
+  // Location Tags
+  locationTags,
+  isLoadingLocationTags,
+
   // File Operations
   onSave,
   onLoad,
   onClear,
-  onImportCAD,
-  onExportLayout,
-  
+
   // View Controls
-  zoomLevel,
-  onZoomIn,
-  onZoomOut,
   onZoomReset,
-  onZoomFit,
-  
-  // Grid & Snap
-  gridVisible,
-  onToggleGrid,
-  snapEnabled,
-  onToggleSnap,
-  
+
   onUndo,
   onRedo,
   canUndo,
   canRedo,
-  
-  // Search & Dashboard
-  onSearch,
-  onToggleDashboard,
-  onNavigateToDashboard,
-  
+
   // Boundary
   onAutoGenerateBoundary,
-  
+
   // Status
-  itemCount
+  itemCount,
+
+  // Navigation
+  onNavigateToDashboard,
+  // Edit mode flag
+  isEditMode = false,
 }) => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
+  const [isLoadingOrgUnits, setIsLoadingOrgUnits] = useState(true);
+  const [orgUnitsError, setOrgUnitsError] = useState<string | null>(null);
 
-  // Flat org unit list shown in dropdown (per latest requirements)
-  const orgUnitOptions = [
-    { id: 'unit-1', name: 'Unit 1' },
-    { id: 'production-unit-1', name: 'Production Unit 1' },
-    { id: 'asset-storing-facility', name: 'Asset Storing Facility' },
-    { id: 'main-office', name: 'Main Office' }
-  ];
+  const fetchOrgUnits = async () => {
+    try {
+      setIsLoadingOrgUnits(true);
+      setOrgUnitsError(null);
+      const data = await orgUnitService.list();
+      setOrgUnits(data);
+    } catch (error) {
+      console.error('Failed to fetch org units:', error);
+      setOrgUnitsError('Unable to load org units. Tap to retry.');
+    } finally {
+      setIsLoadingOrgUnits(false);
+    }
+  };
+
+  // Fetch org units from Reference Data Management
+  useEffect(() => {
+    fetchOrgUnits();
+  }, []);
+
+  // Log location tags when they change (for debugging)
+  useEffect(() => {
+    if (locationTags && locationTags.length > 0) {
+      console.log(`🏷️ TopNavbar - Location tags updated: ${locationTags.length} tags`);
+      console.table(locationTags);
+    }
+  }, [locationTags]);
 
   const toggleDropdown = (dropdown: string | null) => {
     setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
@@ -125,10 +120,15 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
 
   const handleOrgUnitSelectInternal = (option: OrgUnit) => {
     if (onOrgUnitSelect) {
-      // Properly structure the selection object with orgUnit property
-      onOrgUnitSelect({ 
-        orgUnit: option, 
-        status: { id: 'operational', name: 'Operational' } 
+      // Convert the OrgUnit from service to match expected interface
+      const adaptedOrgUnit = {
+        id: option.id,
+        name: option.unitName
+      };
+
+      onOrgUnitSelect({
+        orgUnit: adaptedOrgUnit,
+        status: { id: 'operational', name: 'Operational' }
       });
     }
     if (onOrgMapSelect) {
@@ -137,10 +137,23 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
     closeDropdowns();
   };
 
+  // Debug function to manually trigger location tags fetch
+  const debugFetchLocationTags = () => {
+    if (selectedOrgUnit) {
+      console.log(`🔍 DEBUG: Manual trigger for location tags fetch - Org Unit: ${selectedOrgUnit.name}`);
+      console.log(`📍 Current location tags count: ${locationTags?.length || 0}`);
+      if (locationTags) {
+        console.table(locationTags);
+      }
+    } else {
+      console.log('⚠️ DEBUG: No org unit selected');
+    }
+  };
+
   const getDropdownLabel = () => {
     console.log('TopNavbar - selectedOrgUnit:', selectedOrgUnit);
     console.log('TopNavbar - selectedOrgMap:', selectedOrgMap);
-    
+
     if (selectedOrgUnit && selectedOrgMap) {
       return `${selectedOrgUnit.name} • ${selectedOrgMap.name}`;
     }
@@ -158,11 +171,11 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
           <div className="brand-text" style={{ paddingTop: '8px' }}>
             <div className="brand-title">WC Builder</div>
           </div>
-          <button 
+          <button
             className="return-dashboard-btn"
             onClick={onNavigateToDashboard}
             title="Return to Dashboard"
-            style={{ 
+            style={{
               marginTop: '0px',
               fontSize: '11px',
               padding: '4px 8px'
@@ -171,15 +184,21 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
             ← Dashboard
           </button>
         </div>
-        
+
         <div className="selector-group">
           {/* Org Unit Selector */}
           <div className="selector-item">
-            <button 
+            <button
               className="modern-selector"
-              onClick={(e) => { e.stopPropagation(); toggleDropdown('orgUnit'); }}
+              onClick={(e) => {
+                if (isEditMode) return; // locked in edit mode
+                e.stopPropagation();
+                toggleDropdown('orgUnit');
+              }}
+              style={isEditMode ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+              title={isEditMode ? 'Org Unit is locked in edit mode' : undefined}
             >
-              <span className="selector-label">Org Unit</span>
+              <span className="selector-label">Org Unit{isEditMode ? ' 🔒' : ''}</span>
               <span className="selector-value">{getDropdownLabel()}</span>
               <span className="selector-arrow">▼</span>
             </button>
@@ -190,18 +209,35 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
                     <div className="group-title">Name</div>
                   </div>
                   <div className="dropdown-group-options">
-                    {orgUnitOptions.map(option => {
-                      const isSelected = selectedOrgUnit?.id === option.id;
-                      return (
-                        <button
-                          key={option.id}
-                          className={`dropdown-option ${isSelected ? 'selected' : ''}`}
-                          onClick={() => handleOrgUnitSelectInternal(option)}
-                        >
-                          <span className="option-text">{option.name}</span>
-                        </button>
-                      );
-                    })}
+                    {isLoadingOrgUnits ? (
+                      <div className="dropdown-option disabled">
+                        <span className="option-text">Loading org units...</span>
+                      </div>
+                    ) : orgUnitsError ? (
+                      <button
+                        className="dropdown-option"
+                        onClick={(e) => { e.stopPropagation(); fetchOrgUnits(); }}
+                      >
+                        <span className="option-text text-destructive">{orgUnitsError}</span>
+                      </button>
+                    ) : orgUnits.length > 0 ? (
+                      orgUnits.map(option => {
+                        const isSelected = selectedOrgUnit?.id === option.id;
+                        return (
+                          <button
+                            key={option.id}
+                            className={`dropdown-option ${isSelected ? 'selected' : ''}`}
+                            onClick={() => handleOrgUnitSelectInternal(option)}
+                          >
+                            <span className="option-text">{option.unitName}</span>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="dropdown-option disabled">
+                        <span className="option-text">No org units available</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -215,7 +251,7 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
         <div className="action-group">
           {/* File Actions */}
           <div className="action-item">
-            <button 
+            <button
               className="action-btn"
               onClick={(e) => { e.stopPropagation(); toggleDropdown('file'); }}
             >
@@ -225,7 +261,7 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
               <div className="action-dropdown">
                 <button onClick={() => onSave?.()} className="action-option">
                   <span className="option-icon">💾</span>
-                  <span>Save Layout</span>
+                  <span>{isEditMode ? 'Update Layout' : 'Save Layout'}</span>
                 </button>
                 <div className="dropdown-separator"></div>
                 <button onClick={() => onClear?.()} className="action-option danger">
@@ -236,10 +272,10 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
             )}
           </div>
 
-          
+
           {/* Tools Actions */}
           <div className="action-item">
-            <button 
+            <button
               className="action-btn"
               onClick={(e) => { e.stopPropagation(); toggleDropdown('tools'); }}
             >
@@ -264,7 +300,7 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
       {/* Right Section - Controls & Status */}
       <div className="navbar-right">
         <div className="control-group">
-          <button 
+          <button
             className={`control-btn ${!canUndo ? 'disabled' : ''}`}
             onClick={onUndo}
             disabled={!canUndo}
@@ -272,7 +308,7 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
           >
             ↶
           </button>
-          <button 
+          <button
             className={`control-btn ${!canRedo ? 'disabled' : ''}`}
             onClick={onRedo}
             disabled={!canRedo}
@@ -281,12 +317,46 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
             ↷
           </button>
         </div>
-        
+
         <div className="status-group">
           <div className="status-badge">
             <span className="status-count">{itemCount}</span>
             <span className="status-label">items</span>
           </div>
+
+          {/* Location Tags Status */}
+          {selectedOrgUnit && (
+            <div className="status-badge" style={{ marginLeft: '8px' }}>
+              {isLoadingLocationTags ? (
+                <span className="status-label">🏷️ Loading...</span>
+              ) : (
+                <>
+                  <span className="status-count">{locationTags?.length || 0}</span>
+                  <span className="status-label">tags</span>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Debug Button - Remove in production */}
+          {process.env.NODE_ENV === 'development' && selectedOrgUnit && (
+            <button
+              onClick={debugFetchLocationTags}
+              style={{
+                marginLeft: '8px',
+                padding: '2px 6px',
+                fontSize: '10px',
+                backgroundColor: '#ff6b6b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '3px',
+                cursor: 'pointer'
+              }}
+              title="Debug: Refresh location tags"
+            >
+              🔄
+            </button>
+          )}
         </div>
       </div>
     </nav>

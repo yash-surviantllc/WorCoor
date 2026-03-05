@@ -21,6 +21,24 @@
  * Border Format: CSS border string (e.g., '1px solid #000000')
  */
 
+// Import the LocationTagWithSkus type for vertical rack color functions
+type LocationTagWithSkus = {
+  id: string;
+  tagName: string;
+  levelNumber: number;
+  capacity: number;
+  currentItems: number;
+  utilizationPercentage: number;
+  skus: Array<{
+    id: string;
+    skuName: string;
+    quantity: number;
+    skuUnit: string;
+    effectiveDate: string;
+    expiryDate: string | null;
+  }>;
+};
+
 /**
  * Storage capacity status types
  */
@@ -163,10 +181,10 @@ export const getAllStorageComponentStatusColors = (): Record<string, string> => 
  * @param hasSkusAssigned - Whether SKUs are assigned to those location tags
  * @returns CapacityStatus based on the new logic
  */
-export const determineCapacityStatus = (
+export function determineCapacityStatus(
   hasLocationTags: boolean,
   hasSkusAssigned: boolean
-): CapacityStatus => {
+): CapacityStatus {
   // No location tags attached - default state in layout editor
   if (!hasLocationTags) {
     return 'unknown';
@@ -182,3 +200,42 @@ export const determineCapacityStatus = (
   
   // Note: 'partial' status is currently not in use (commented out)
 };
+
+/**
+ * Get the color for a vertical rack level based on its utilization
+ * @param levelTag - The location tag with SKU data for this level
+ * @returns Hex color code for the level
+ */
+export function getVerticalRackLevelColor(
+  levelTag: LocationTagWithSkus | undefined
+): string {
+  if (!levelTag) return '#000000';           // Black — no tag
+  if (levelTag.currentItems === 0) return '#F44336';  // Red — empty
+  if (levelTag.utilizationPercentage >= 90) return '#FF9800'; // Orange — near full
+  return '#4CAF50';                          // Green — has stock
+}
+
+/**
+ * Get the overall color for a vertical rack based on aggregate utilization
+ * @param locationTags - Array of location tags with SKU data
+ * @returns Hex color code for the overall rack
+ */
+export function getVerticalRackOverallColor(
+  locationTags: LocationTagWithSkus[]
+): string {
+  if (!locationTags || locationTags.length === 0) return '#000000';
+  
+  const totalCapacity = locationTags.reduce(
+    (sum, lt) => sum + lt.capacity, 0
+  );
+  const totalItems = locationTags.reduce(
+    (sum, lt) => sum + lt.currentItems, 0
+  );
+  
+  if (totalCapacity === 0) return '#000000';
+  if (totalItems === 0) return '#F44336';
+  
+  const utilization = (totalItems / totalCapacity) * 100;
+  if (utilization >= 90) return '#FF9800';
+  return '#4CAF50';
+}

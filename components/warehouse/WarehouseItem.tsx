@@ -327,7 +327,9 @@ const WarehouseItem = ({
 
     rows.push(['Type', toTitleCase(nicelyFormattedType)]);
 
-    if (item.locationTag) {
+    if (item.locationTags?.[0]?.tagName) {
+      rows.push(['Location Tag', item.locationTags[0].tagName]);
+    } else if (item.locationTag) {
       rows.push(['Location Tag', item.locationTag]);
     }
 
@@ -968,7 +970,59 @@ const handleCompartmentHover = useCallback((event: any, compartmentData: any, ro
           return null;
         }
 
-        // For storage racks
+        // For storage racks - check if multi-level vertical rack
+        if (item.type === 'vertical_sku_holder' && item.locationTags && item.locationTags.length > 1) {
+          // Multi-level vertical rack - render compartments
+          const levelCount = item.locationTags.length;
+          const compartmentHeight = item.height / levelCount;
+          
+          return (
+            <>
+              {item.locationTags
+                .sort((a, b) => a.levelNumber - b.levelNumber)
+                .map((levelTag, index) => {
+                  // Get color for this level
+                  const levelColor = levelTag.currentItems === 0 
+                    ? '#F44336'  // Red - empty
+                    : levelTag.utilizationPercentage >= 90 
+                    ? '#FF9800'  // Orange - near full  
+                    : '#4CAF50'; // Green - has stock
+                  
+                  return (
+                    <div
+                      key={levelTag.id}
+                      style={{
+                        position: 'absolute',
+                        top: index * compartmentHeight,
+                        left: 0,
+                        width: item.width,
+                        height: compartmentHeight,
+                        backgroundColor: levelColor,
+                        border: '1px solid #000000',
+                        boxSizing: 'border-box',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        pointerEvents: 'none',
+                        userSelect: 'none'
+                      }}
+                    >
+                      <div style={{
+                        color: '#FFFFFF',
+                        fontSize: '10px',
+                        fontWeight: 'bold',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.8)'
+                      }}>
+                        L{levelTag.levelNumber}
+                      </div>
+                    </div>
+                  );
+                })}
+            </>
+          );
+        }
+
+        // Single level or horizontal rack - existing behavior
         const totalLevels = inferVerticalRackLevelCount(item);
         let displayText = null;
 

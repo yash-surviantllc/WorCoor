@@ -177,7 +177,18 @@ const WarehouseOverviewPanel = ({ layoutData, unitId, layoutId }: WarehouseOverv
       if (item.sku) allSkus.add(item.sku);
       if (item.primarySku) allSkus.add(item.primarySku);
       
-      // Extract SKUs from locationTag.skus[] (backend API format)
+      // Extract SKUs from locationTags.skus[] (new backend API format)
+      if (item.locationTags && Array.isArray(item.locationTags)) {
+        item.locationTags.forEach((locationTag: any) => {
+          if (Array.isArray(locationTag.skus)) {
+            locationTag.skus.forEach((sku: any) => {
+              if (sku.skuName) allSkus.add(sku.skuName);
+            });
+          }
+        });
+      }
+      
+      // Extract SKUs from locationTag.skus[] (legacy format for backward compatibility)
       if (item.locationTag && Array.isArray(item.locationTag.skus)) {
         item.locationTag.skus.forEach((sku: any) => {
           if (sku.skuName) allSkus.add(sku.skuName);
@@ -217,9 +228,9 @@ const WarehouseOverviewPanel = ({ layoutData, unitId, layoutId }: WarehouseOverv
 
     items.forEach((item: any) => {
       const { maxCapacity, usedCapacity } = deriveItemCapacity(item);
-      // Prefer explicit locationTag, fall back to locationId, then a generic label
+      // Prefer explicit locationTags[0].tagName, fall back to locationTag, then locationId, then a generic label
       const tag: string =
-        (item.locationTag || item.locationCode || item.locationId || item.primaryLocationId || '').toString().trim();
+        (item.locationTags?.[0]?.tagName || item.locationTag || item.locationCode || item.locationId || item.primaryLocationId || '').toString().trim();
       const sku: string | undefined = (item.sku || item.primarySku || undefined);
 
       if (tag) {

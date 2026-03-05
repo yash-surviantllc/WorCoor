@@ -281,6 +281,7 @@ const WarehouseItem = ({
 
       // Fallback for components without a name
       if (item.label) return item.label;
+      if (item.locationTags?.[0]?.tagName) return item.locationTags[0].tagName;
       if (item.locationTag) return item.locationTag;
       if (item.locationId) return item.locationId;
 

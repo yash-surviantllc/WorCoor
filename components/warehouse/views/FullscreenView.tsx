@@ -307,7 +307,7 @@ const FullscreenMap = () => {
           utilization: item.utilization || null,
           capacity: item.capacity || null,
           location: {
-            zone: item.zoneId || item.locationTag || item.locationId || 'ZONE-UNKNOWN',
+            zone: item.zoneId || item.locationTags?.[0]?.tagName || item.locationTag || item.locationId || 'ZONE-UNKNOWN',
             aisle: item.aisle || null,
             position: item.position || null
           },
@@ -323,7 +323,7 @@ const FullscreenMap = () => {
 
       data[itemId] = {
         type: 'zone',
-        zoneId: item.locationId || item.locationTag || item.label || item.name || `ZONE-${index + 1}`,
+        zoneId: item.locationId || item.locationTags?.[0]?.tagName || item.locationTag || item.label || item.name || `ZONE-${index + 1}`,
         occupancy: item.occupancy || null,
         throughput: item.throughput || null,
         location: {
@@ -494,6 +494,7 @@ const FullscreenMap = () => {
       addLocation(item.locationId);
       addLocation(item.locationCode);
       addLocation(item.locationTag);
+      addLocation(item.locationTags?.[0]?.tagName);
       addLocation(item.primaryLocationId);
 
       addSku(item.skuId);
@@ -616,7 +617,7 @@ const FullscreenMap = () => {
 
         // Check location tag filter
         if (selectedLocationTag) {
-          const itemLevelMatch = [item.locationId, item.locationCode, item.locationTag, item.primaryLocationId]
+          const itemLevelMatch = [item.locationId, item.locationCode, item.locationTag, item.locationTags?.[0]?.tagName, item.primaryLocationId]
             .some((value) => typeof value === 'string' && value.trim() === selectedLocationTag);
 
           // Check item-level locationIds array
@@ -757,6 +758,7 @@ const FullscreenMap = () => {
         } else {
           // Fallback when no operational data
           if (item.locationId) subtitle = `Location: ${item.locationId}`;
+          else if (item.locationTags?.[0]?.tagName) subtitle = `Tag: ${item.locationTags[0].tagName}`;
           else if (item.locationTag) subtitle = `Tag: ${item.locationTag}`;
         }
 

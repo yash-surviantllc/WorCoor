@@ -77,6 +77,10 @@ export function componentToItem(c: Component): Record<string, any> {
     color: c.color ?? meta.color ?? 'transparent',
     label: c.label ?? meta.label ?? c.displayName,
     locationTagId: c.locationTagId ?? null,
+    // Preserve multi-level fields from backend response
+    locationTags: c.locationTags,
+    isMultiLevel: c.isMultiLevel,
+    overallUtilization: c.overallUtilization,
   };
 }
 

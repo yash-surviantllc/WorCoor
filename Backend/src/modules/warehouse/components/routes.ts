@@ -27,6 +27,37 @@ const componentResponseSchema = {
     label: { type: ['string', 'null'] },
     metadata: { type: ['object', 'null'], additionalProperties: true },
     createdAt: { type: 'string', format: 'date-time' },
+    // New fields for multi-level support
+    locationTags: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          tagName: { type: 'string' },
+          levelNumber: { type: 'integer' },
+          capacity: { type: 'integer' },
+          currentItems: { type: 'integer' },
+          utilizationPercentage: { type: 'number' },
+          skus: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', format: 'uuid' },
+                skuName: { type: 'string' },
+                quantity: { type: 'integer' },
+                skuUnit: { type: 'string' },
+                effectiveDate: { type: 'string', format: 'date-time' },
+                expiryDate: { oneOf: [{ type: 'string', format: 'date-time' }, { type: 'null' }] },
+              },
+            },
+          },
+        },
+      },
+    },
+    overallUtilization: { type: 'number' },
+    isMultiLevel: { type: 'boolean' },
   },
 };
 

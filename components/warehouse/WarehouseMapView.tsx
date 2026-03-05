@@ -1165,7 +1165,7 @@ const WarehouseMapView: React.FC<WarehouseMapViewProps> = ({ facilityData, initi
       const skuCompartmentMatches: string[] = [];
 
       if (selectedLocationTag) {
-        const itemLevelMatch = [item.locationId, item.locationCode, item.locationTag, item.primaryLocationId]
+        const itemLevelMatch = [item.locationId, item.locationCode, item.locationTag, item.locationTags?.[0]?.tagName, item.primaryLocationId]
           .some((value) => typeof value === 'string' && value.trim() === selectedLocationTag);
 
         // Check item-level locationIds array

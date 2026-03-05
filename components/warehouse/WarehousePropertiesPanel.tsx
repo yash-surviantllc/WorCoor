@@ -87,7 +87,7 @@ const WarehousePropertiesPanel = ({
         name: selectedItem.name || '',
         label: selectedItem.label || '',
         locationId: selectedItem.locationId || '',
-        locationTag: selectedItem.locationTag || '',
+        locationTag: selectedItem.locationTags?.[0]?.tagName || selectedItem.locationTag || '',
         type: selectedItem.type || '',
         color: selectedItem.color || '#00BCD4',
         width: selectedItem.width || 0,

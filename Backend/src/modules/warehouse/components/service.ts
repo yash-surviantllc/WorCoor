@@ -2,8 +2,8 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { and, eq } from 'drizzle-orm';
 
 import { db } from '../../../config/database.js';
-import { layouts, locationTags } from '../../../database/schema/index.js';
-import { ComponentsRepository } from './repository.js';
+import { layouts, locationTags as locationTagsTable, skus } from '../../../database/schema/index.js';
+import { ComponentsRepository, type LocationTagWithSkus } from './repository.js';
 import type {
   CreateComponentInput,
   UpdateComponentInput,
@@ -14,6 +14,54 @@ import { LiveMapWebSocketService } from '../live-map/websocket-service.js';
 
 type LayoutParams = { layoutId: string };
 type ComponentParams = { componentId: string };
+
+// Helper function to extract levels from metadata
+function extractLevelsFromMetadata(metadataRaw: unknown): {
+  levelId: string;
+  locationIds: string[];
+}[] {
+  if (!metadataRaw) return [];
+  
+  try {
+    const parsed = typeof metadataRaw === 'string'
+      ? JSON.parse(metadataRaw)
+      : metadataRaw as Record<string, unknown>;
+    const compartmentContents = parsed?.compartmentContents;
+    if (!compartmentContents || typeof compartmentContents !== 'object') {
+      return [];
+    }
+
+    // Collect all locationIds grouped by levelId across all bays
+    // levelMap: { "L1": Set<string>, "L2": Set<string>, "L3": Set<string> }
+    const levelMap = new Map<string, Set<string>>();
+
+    for (const compartmentKey of Object.keys(compartmentContents)) {
+      const compartment = compartmentContents[compartmentKey];
+      if (!compartment?.isMultiLocation) continue;
+      
+      const mappings: { levelId: string; locationId: string }[] = 
+        compartment?.levelLocationMappings ?? [];
+
+      for (const mapping of mappings) {
+        if (!levelMap.has(mapping.levelId)) {
+          levelMap.set(mapping.levelId, new Set());
+        }
+        levelMap.get(mapping.levelId)!.add(mapping.locationId);
+      }
+    }
+
+    // Convert to array sorted by levelId (L1, L2, L3)
+    return Array.from(levelMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([levelId, locationIdSet]) => ({
+        levelId,
+        locationIds: Array.from(locationIdSet).sort()
+      }));
+
+  } catch {
+    return [];
+  }
+}
 
 export class ComponentsService {
   constructor(private readonly repository = new ComponentsRepository()) {}
@@ -31,7 +79,88 @@ export class ComponentsService {
     }
 
     const items = await this.repository.findAllByLayout(layoutId, orgId);
-    reply.send(items);
+    
+    // Apply new metadata-based multi-level logic for vertical racks
+    const componentsWithMultiLevel = await Promise.all(
+      items.map(async (component) => {
+        let locationTags: LocationTagWithSkus[] = [];
+        let isMultiLevel = false;
+        let overallUtilization = 0;
+
+        if (component.componentType === 'vertical_sku_holder') {
+          const levels = extractLevelsFromMetadata(component.metadata);
+
+          if (levels.length > 1) {
+            // Multi-level rack — fetch tags per level, aggregate SKUs
+            isMultiLevel = true;
+            
+            for (let i = 0; i < levels.length; i++) {
+              const level = levels[i];
+              const tags = await this.repository
+                .getLocationTagsByNames(level.locationIds, orgId);
+
+              // Aggregate this level's data
+              const totalCapacity = tags.reduce((s, t) => s + t.capacity, 0);
+              const totalItems = tags.reduce((s, t) => s + t.currentItems, 0);
+              const allSkus = tags.flatMap(t => t.skus);
+              const utilization = totalCapacity > 0 
+                ? (totalItems / totalCapacity) * 100 
+                : 0;
+
+              locationTags.push({
+                id: tags[0]?.id ?? `level-${i}`,
+                tagName: `Level ${i + 1} (${level.levelId})`,
+                levelNumber: i + 1,
+                capacity: totalCapacity,
+                currentItems: totalItems,
+                utilizationPercentage: Math.round(utilization * 10) / 10,
+                skus: allSkus
+              });
+            }
+
+            // Overall utilization across all levels
+            const totalCap = locationTags.reduce((s, t) => s + t.capacity, 0);
+            const totalItems = locationTags.reduce((s, t) => s + t.currentItems, 0);
+            overallUtilization = totalCap > 0 
+              ? Math.round((totalItems / totalCap) * 1000) / 10 
+              : 0;
+
+          } else {
+            // Single location tag — wrap in array
+            if (component.locationTagId) {
+              const tag = await this.repository
+                .getLocationTagsByNames(
+                  [component.locationTagName ?? ''], 
+                  orgId
+                );
+              locationTags = tag.map((t, i) => ({ ...t, levelNumber: i + 1 }));
+            }
+            overallUtilization = locationTags[0]?.utilizationPercentage ?? 0;
+          }
+
+        } else {
+          // Non-vertical component — wrap single tag in array
+          if (component.locationTagId) {
+            const tag = await this.repository
+              .getLocationTagsByNames(
+                [component.locationTagName ?? ''], 
+                orgId
+              );
+            locationTags = tag.map((t, i) => ({ ...t, levelNumber: i + 1 }));
+          }
+          overallUtilization = locationTags[0]?.utilizationPercentage ?? 0;
+        }
+
+        return {
+          ...component,
+          locationTags,
+          overallUtilization,
+          isMultiLevel
+        };
+      })
+    );
+
+    reply.send(componentsWithMultiLevel);
   }
 
   private async assertLayoutAccess(layoutId: string, organizationId: string) {
@@ -51,8 +180,8 @@ export class ComponentsService {
   ) {
     const result = await db
       .select()
-      .from(locationTags)
-      .where(and(eq(locationTags.id, locationTagId), eq(locationTags.organizationId, organizationId)))
+      .from(locationTagsTable)
+      .where(and(eq(locationTagsTable.id, locationTagId), eq(locationTagsTable.organizationId, organizationId)))
       .limit(1);
 
     const tag = result[0];

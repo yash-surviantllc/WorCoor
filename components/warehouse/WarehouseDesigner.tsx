@@ -290,6 +290,7 @@ const WarehouseDesigner = ({ onBack, initialLayout = null }) => {
         itemToDelete.locationId,
         itemToDelete.locationCode,
         itemToDelete.locationTag,
+        itemToDelete.locationTags?.[0]?.tagName,
         itemToDelete.primaryLocationId,
         itemToDelete.locationData?.location_id,
         itemToDelete.properties?.locationId,

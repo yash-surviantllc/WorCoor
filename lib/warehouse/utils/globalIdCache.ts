@@ -84,6 +84,7 @@ class GlobalIdCache {
       item.locationId,
       item.locationCode,
       item.locationTag,
+      item.locationTags?.[0]?.tagName,
       item.primaryLocationId,
       item.locationData?.location_id,
       item.properties?.locationId,

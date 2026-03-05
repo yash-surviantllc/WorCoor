@@ -45,7 +45,22 @@ export interface MainDashboardProps {
 
 // More flexible type definitions for dynamic data
 export type SearchResults = any[];
-export type LocationTag = any;
+export type LocationTag = {
+  id: string;
+  organizationId: string;
+  unitId: string;
+  locationTagName: string;
+  capacity: number;
+  length?: number | null;
+  breadth?: number | null;
+  height?: number | null;
+  unitOfMeasurement?: 'meters' | 'feet' | 'inches' | 'centimeters' | null;
+  levelNumber?: number; // For multi-level vertical racks
+  currentItems?: number;
+  utilizationPercentage?: number;
+  skus?: any[];
+  createdAt: string;
+};
 export type SKU = any;
 export type Asset = any;
 export type UnitData = any;
@@ -80,7 +95,29 @@ export interface Component {
   label?: string | null;
   metadata?: Record<string, any> | null;
   createdAt: string;
+  // New fields for multi-level support
+  locationTags: LocationTagWithSkus[];
+  overallUtilization?: number;
+  isMultiLevel?: boolean;
   [key: string]: any;
+}
+
+// New type for location tags with SKUs
+export interface LocationTagWithSkus {
+  id: string;
+  tagName: string;
+  levelNumber: number;
+  capacity: number;
+  currentItems: number;
+  utilizationPercentage: number;
+  skus: Array<{
+    id: string;
+    skuName: string;
+    quantity: number;
+    skuUnit: string;
+    effectiveDate: string;
+    expiryDate: string | null;
+  }>;
 }
 
 export interface LiveMapResponse {

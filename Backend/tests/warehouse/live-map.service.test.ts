@@ -88,8 +88,9 @@ describe('LiveMapService', () => {
       expect(reply.payload.unit.unitName).toBe('Warehouse A');
       expect(reply.payload.unit.utilizationPercentage).toBe(25);
       expect(reply.payload.layouts).toHaveLength(1);
-      expect(reply.payload.layouts[0].components[0].locationTag.currentItems).toBe(25);
-      expect(reply.payload.layouts[0].components[0].locationTag.utilizationPercentage).toBe(25);
+      expect(reply.payload.layouts[0].components[0].locationTags).toHaveLength(1);
+      expect(reply.payload.layouts[0].components[0].locationTags[0].currentItems).toBe(25);
+      expect(reply.payload.layouts[0].components[0].locationTags[0].utilizationPercentage).toBe(25);
     });
 
     it('handles components without location tags', async () => {
@@ -126,7 +127,7 @@ describe('LiveMapService', () => {
 
       await service.getLiveMap(request, reply);
 
-      expect(reply.payload.layouts[0].components[0].locationTag).toBeNull();
+      expect(reply.payload.layouts[0].components[0].locationTags).toHaveLength(0);
     });
   });
 

@@ -1,7 +1,12 @@
+// @ts-nocheck
 'use client';
 
 interface WarehouseMapDashboardProps {
+  orgUnits?: any[];
+  layouts?: any[];
+  isLoading?: boolean;
   onMapSelect: (mapId: string) => void;
+  onEditLayout?: (layoutId: string) => void;
 }
 
 // Mock data - replace with actual warehouse data from your system

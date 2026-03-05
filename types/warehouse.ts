@@ -45,12 +45,139 @@ export interface MainDashboardProps {
 
 // More flexible type definitions for dynamic data
 export type SearchResults = any[];
-export type LocationTag = any;
+export type LocationTag = {
+  id: string;
+  organizationId: string;
+  unitId: string;
+  locationTagName: string;
+  capacity: number;
+  length?: number | null;
+  breadth?: number | null;
+  height?: number | null;
+  unitOfMeasurement?: 'meters' | 'feet' | 'inches' | 'centimeters' | null;
+  levelNumber?: number; // For multi-level vertical racks
+  currentItems?: number;
+  utilizationPercentage?: number;
+  skus?: any[];
+  createdAt: string;
+};
 export type SKU = any;
 export type Asset = any;
 export type UnitData = any;
 export type ZoneData = any;
 export type OperationalData = any;
+
+// Backend-integrated types used by warehouseService and dashboard pages
+export interface Layout {
+  id: string;
+  unitId: string;
+  layoutName: string;
+  status: string;
+  items: any;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt?: string;
+  [key: string]: any;
+}
+
+export interface Component {
+  id: string;
+  layoutId: string;
+  organizationId: string;
+  componentType: string;
+  displayName: string;
+  positionX: number;
+  positionY: number;
+  width: number;
+  height: number;
+  locationTagId?: string | null;
+  color?: string | null;
+  label?: string | null;
+  metadata?: Record<string, any> | null;
+  createdAt: string;
+  // New fields for multi-level support
+  locationTags: LocationTagWithSkus[];
+  overallUtilization?: number;
+  isMultiLevel?: boolean;
+  [key: string]: any;
+}
+
+// New type for location tags with SKUs
+export interface LocationTagWithSkus {
+  id: string;
+  tagName: string;
+  levelNumber: number;
+  capacity: number;
+  currentItems: number;
+  utilizationPercentage: number;
+  skus: Array<{
+    id: string;
+    skuName: string;
+    quantity: number;
+    skuUnit: string;
+    effectiveDate: string;
+    expiryDate: string | null;
+  }>;
+}
+
+export interface LiveMapResponse {
+  layout: Layout;
+  components: Component[];
+  locationTags: any[];
+  [key: string]: any;
+}
+
+export interface SearchResponse {
+  results: any[];
+}
+
+export interface CreateLayoutInput {
+  layoutName: string;
+  status?: string;
+  layoutData?: Record<string, any>;
+  metadata?: Record<string, any>;
+}
+
+export interface UpdateLayoutInput {
+  layoutName?: string;
+  status?: string;
+  layoutData?: Record<string, any>;
+  metadata?: Record<string, any>;
+}
+
+export interface CreateComponentInput {
+  componentType: string;
+  displayName: string;
+  positionX: number;
+  positionY: number;
+  width: number;
+  height: number;
+  color?: string | null;
+  locationTagId?: string | null;
+  label?: string | null;
+  metadata?: Record<string, any> | null;
+}
+
+export interface UpdateComponentInput {
+  componentType?: string;
+  displayName?: string;
+  positionX?: number;
+  positionY?: number;
+  width?: number;
+  height?: number;
+  color?: string | null;
+  locationTagId?: string | null;
+  label?: string | null;
+  metadata?: Record<string, any> | null;
+}
+
+export interface WarehouseMapDashboardProps {
+  orgUnits: any[];
+  layouts: Layout[];
+  isLoading: boolean;
+  onMapSelect: (layoutId: string) => void;
+  onEditLayout: (layoutId: string) => void;
+}
 
 // Component Type Definitions
 export const COMPONENT_TYPES = {

@@ -1,0 +1,46 @@
+
+> worcoor-backend@0.1.0 test
+> vitest run
+
+
+ RUN  v1.6.1 /Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/Backend
+
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+Failed to load PostCSS config: Failed to load PostCSS config (searchPath: /Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/Backend): [Error] Loading PostCSS Plugin failed: Cannot find module 'tailwindcss'
+Require stack:
+- /Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/postcss.config.mjs
+
+(@/Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/postcss.config.mjs)
+Error: Loading PostCSS Plugin failed: Cannot find module 'tailwindcss'
+Require stack:
+- /Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/postcss.config.mjs
+
+(@/Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/postcss.config.mjs)
+    at load (file:///Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/Backend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:33632:11)
+    at file:///Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/Backend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:33657:16
+    at Array.map (<anonymous>)
+    at plugins (file:///Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/Backend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:33656:8)
+    at processResult (file:///Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/Backend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:33726:14)
+    at file:///Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/Backend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:33856:14
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+Failed to load PostCSS config: Failed to load PostCSS config (searchPath: /Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/Backend): [Error] Loading PostCSS Plugin failed: Cannot find module 'tailwindcss'
+Require stack:
+- /Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/postcss.config.mjs
+
+(@/Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/postcss.config.mjs)
+Error: Loading PostCSS Plugin failed: Cannot find module 'tailwindcss'
+Require stack:
+- /Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/postcss.config.mjs
+
+(@/Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/postcss.config.mjs)
+    at load (file:///Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/Backend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:33632:11)
+    at file:///Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/Backend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:33657:16
+    at Array.map (<anonymous>)
+    at plugins (file:///Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/Backend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:33656:8)
+    at processResult (file:///Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/Backend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:33726:14)
+    at file:///Users/sssd/Documents/worcoor_mapping_surviant/WorCoor/Backend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:33856:14
+
+
+

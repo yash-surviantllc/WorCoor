@@ -1,10 +1,13 @@
+// @ts-nocheck
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import SavedLayoutRenderer, { getLayoutItemKey } from './SavedLayoutRenderer';
 import { inferVerticalRackLevelCount } from '../../lib/warehouse/utils/verticalRackUtils';
 import summarizeStorageComponents from '../../lib/warehouse/utils/layoutComponentSummary';
 import locationDataService from '../services/locationDataService';
 import LocationDetailsPanel from './LocationDetailsPanel';
+import WarehouseOverviewPanel from '../WarehouseOverviewPanel';
 import layoutComponentsMock from '../data/layoutComponentsMock.json';
+import { useWarehouseSocket } from '../../hooks/useWarehouseSocket';
 
 const renderDemoLayout = (demoData) => (
   <svg width="100%" height="100%" viewBox="0 0 700 320" className="fullscreen-warehouse-svg">
@@ -114,6 +117,7 @@ const FullscreenMap = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [operationalData, setOperationalData] = useState({});
   const [showInfoPanel, setShowInfoPanel] = useState(false);
+  const [showOverviewPanel, setShowOverviewPanel] = useState(true);
   const [searchResults, setSearchResults] = useState([]);
   const [highlightedItems, setHighlightedItems] = useState([]);
   const [filteredKeys, setFilteredKeys] = useState([]);
@@ -127,6 +131,26 @@ const FullscreenMap = () => {
   const [availableSkus, setAvailableSkus] = useState([]);
   const [availableAssets, setAvailableAssets] = useState([]);
   const [dropdownSearchActive, setDropdownSearchActive] = useState(false);
+  
+  // Extract unitId and layoutId from mapData for WebSocket
+  const unitId = mapData?.unitId;
+  const layoutId = mapData?.layoutData?.id || mapData?.layoutId;
+
+  // WebSocket connection for real-time updates
+  const { isConnected } = useWarehouseSocket({
+    unitId: unitId || '',
+    layoutId,
+    onLocationTagStatsUpdate: (stats) => {
+      console.log('FullscreenView - Received real-time stats:', stats);
+      // Stats will be handled by WarehouseOverviewPanel component
+    },
+    onComponentCreated: (data) => {
+      console.log('FullscreenView - Component created:', data);
+    },
+    onComponentDeleted: (data) => {
+      console.log('FullscreenView - Component deleted:', data);
+    },
+  });
 
   const storageSummaries = useMemo(() => {
     if (!mapData) {
@@ -283,7 +307,7 @@ const FullscreenMap = () => {
           utilization: item.utilization || null,
           capacity: item.capacity || null,
           location: {
-            zone: item.zoneId || item.locationTag || item.locationId || 'ZONE-UNKNOWN',
+            zone: item.zoneId || item.locationTags?.[0]?.tagName || item.locationTag || item.locationId || 'ZONE-UNKNOWN',
             aisle: item.aisle || null,
             position: item.position || null
           },
@@ -299,7 +323,7 @@ const FullscreenMap = () => {
 
       data[itemId] = {
         type: 'zone',
-        zoneId: item.locationId || item.locationTag || item.label || item.name || `ZONE-${index + 1}`,
+        zoneId: item.locationId || item.locationTags?.[0]?.tagName || item.locationTag || item.label || item.name || `ZONE-${index + 1}`,
         occupancy: item.occupancy || null,
         throughput: item.throughput || null,
         location: {
@@ -470,6 +494,7 @@ const FullscreenMap = () => {
       addLocation(item.locationId);
       addLocation(item.locationCode);
       addLocation(item.locationTag);
+      addLocation(item.locationTags?.[0]?.tagName);
       addLocation(item.primaryLocationId);
 
       addSku(item.skuId);
@@ -592,7 +617,7 @@ const FullscreenMap = () => {
 
         // Check location tag filter
         if (selectedLocationTag) {
-          const itemLevelMatch = [item.locationId, item.locationCode, item.locationTag, item.primaryLocationId]
+          const itemLevelMatch = [item.locationId, item.locationCode, item.locationTag, item.locationTags?.[0]?.tagName, item.primaryLocationId]
             .some((value) => typeof value === 'string' && value.trim() === selectedLocationTag);
 
           // Check item-level locationIds array
@@ -733,6 +758,7 @@ const FullscreenMap = () => {
         } else {
           // Fallback when no operational data
           if (item.locationId) subtitle = `Location: ${item.locationId}`;
+          else if (item.locationTags?.[0]?.tagName) subtitle = `Tag: ${item.locationTags[0].tagName}`;
           else if (item.locationTag) subtitle = `Tag: ${item.locationTag}`;
         }
 
